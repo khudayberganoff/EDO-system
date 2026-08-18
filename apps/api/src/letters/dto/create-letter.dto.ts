@@ -40,7 +40,7 @@ export class CreateLetterDto {
   @IsOptional() @IsBoolean()
   aiGenerated?: boolean;
 
-  // --- Faqat OGOHLANTIRISH (WARNING) xatlari uchun ixtiyoriy maydonlar ---
+  // --- Faqat OGOHLANTIRISH (FIRST_WARNING/FINAL_WARNING) xatlari uchun ixtiyoriy maydonlar ---
 
   @ApiPropertyOptional({ example: "SH-2026-0451", description: "Shartnoma raqami" })
   @IsOptional() @IsString()
@@ -49,6 +49,10 @@ export class CreateLetterDto {
   @ApiPropertyOptional({ example: "2026-01-15", description: "Shartnoma sanasi" })
   @IsOptional() @IsDateString()
   contractDate?: string;
+
+  @ApiPropertyOptional({ example: 15, description: "Har oyning nasiya to'lovi kuni (1-31)" })
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  paymentDueDay?: number;
 
   @ApiPropertyOptional({ example: 4500000, description: "Oylik to'lov summasi (so'm)" })
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0)

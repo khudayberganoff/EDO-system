@@ -15,10 +15,14 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { CreateLetterDto } from "./dto/create-letter.dto";
 import { QueryLettersDto } from "./dto/query-letters.dto";
 import { LetterAiAgentService } from "./letter-ai-agent.service";
+import { moneyToWordsUz, daysToWordsUz } from "./number-to-words.uz";
 
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
 const TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "WAFA_LEASING_XAT_NAMUNA.docx");
+const FIRST_WARNING_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "1-OGOHLANTIRISH-NAMUNA.docx");
+const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
+const formatThousandsUz = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 // 1x1 shaffof PNG - hali tasdiqlanmagan (tokensiz) xatlarda QR o'rniga vaqtinchalik bo'sh rasm
 const TRANSPARENT_PIXEL_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -35,6 +39,7 @@ export class LettersService {
     fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
     fs.mkdirSync(LETTERHEAD_DIR, { recursive: true });
     if (!fs.existsSync(TEMPLATE_PATH)) throw new Error("WAFA xat shabloni topilmadi: " + TEMPLATE_PATH);
+    if (!fs.existsSync(FIRST_WARNING_TEMPLATE_PATH)) throw new Error("1-ogohlantirish shabloni topilmadi: " + FIRST_WARNING_TEMPLATE_PATH);
   }
 
   // --- Firma blankasi (letterhead) ---
@@ -74,7 +79,7 @@ export class LettersService {
   }
 
   async getNextDocumentNumber(type: LetterType) {
-    const prefix = type === LetterType.WARNING ? "OG" : type === LetterType.REFERENCE ? "MA" : "X";
+    const prefix = type === LetterType.FIRST_WARNING ? "OG1" : type === LetterType.FINAL_WARNING ? "OG2" : type === LetterType.REFERENCE ? "MA" : "X";
     const last = await this.prisma.letter.findFirst({ where: { type }, orderBy: { createdAt: "desc" } });
     const n = last ? parseInt(String(last.documentNumber).replace(/\D/g, ""), 10) + 1 : 1;
     return { documentNumber: `${prefix}-${String(n).padStart(4, "0")}` };
@@ -242,6 +247,11 @@ export class LettersService {
   }
 
   private async buildDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
+    if (letter.type === LetterType.FIRST_WARNING) {
+      // 1-ogohlantirish - kompaniya taqdim etgan qat'iy yuridik shablon, doim shu
+      // shablon ishlatiladi (umumiy firma blankasidan mustaqil).
+      return this.buildFirstWarningDocx(letter, approved, token);
+    }
     const letterheadFile = this.findLetterheadFile();
     if (letterheadFile) {
       // Kompaniya o'z Word blankasini yuklagan - AI/inson yozgan xat matni
@@ -249,6 +259,59 @@ export class LettersService {
       return await this.buildDocxFromTemplate(letterheadFile, letter, approved, token);
     }
     return this.buildDocxDefault(letter, approved, token);
+  }
+
+  /**
+   * "1-ogohlantirish" turidagi xatlar uchun - kompaniya yuborgan aniq yuridik
+   * shablon (templates/1-OGOHLANTIRISH-NAMUNA.docx) ishlatiladi. Shablondagi teglar:
+   *   {kun} {oy} {yil} {xat raqami} {manzil} {kimga} {telefon_raqam}
+   *   {shartnoma_raqami} {shartnoma_tuzilgan_kun} {shartnoma_tuzilgan_oy} {shartnoma_tuzilgan_yil}
+   *   {grafik_sanasi} {kechikkan_kun} {kechikkan_kun_so'z_bilan}
+   *   {oylik_to'lov} {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
+   *   {%qr_kod}
+   */
+  private async buildFirstWarningDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
+    try {
+      const content = fs.readFileSync(FIRST_WARNING_TEMPLATE_PATH, "binary");
+      const zip = new PizZip(content);
+      const qrBuffer = approved && token
+        ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, token), { width: 180, margin: 1 })
+        : TRANSPARENT_PIXEL_PNG;
+      const imageModule = new ImageModule({ centered: false, getImage: () => qrBuffer, getSize: () => [90, 90] });
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, modules: [imageModule] });
+
+      const docDate = letter.documentDate ? new Date(letter.documentDate) : new Date();
+      const contractDate = letter.contractDate ? new Date(letter.contractDate) : null;
+      const overdueDays = letter.overdueDays ?? 0;
+      const monthlyPayment = letter.monthlyPaymentAmount ?? 0;
+      const charityAmount = letter.charityAmount ?? 0;
+
+      doc.render({
+        kun: String(docDate.getDate()),
+        oy: UZ_MONTHS[docDate.getMonth()],
+        yil: String(docDate.getFullYear()),
+        "xat raqami": letter.documentNumber ?? "",
+        manzil: letter.counterpartyAddress ?? "",
+        kimga: letter.counterpartyName ?? "",
+        telefon_raqam: letter.phoneNumber ?? "",
+        shartnoma_raqami: letter.contractNumber ?? "",
+        shartnoma_tuzilgan_kun: contractDate ? String(contractDate.getDate()) : "",
+        shartnoma_tuzilgan_oy: contractDate ? UZ_MONTHS[contractDate.getMonth()] : "",
+        shartnoma_tuzilgan_yil: contractDate ? String(contractDate.getFullYear()) : "",
+        grafik_sanasi: letter.paymentDueDay != null ? String(letter.paymentDueDay) : "",
+        kechikkan_kun: String(overdueDays),
+        "kechikkan_kun_so\u2019z_bilan": daysToWordsUz(overdueDays),
+        "oylik_to\u2019lov": formatThousandsUz(monthlyPayment),
+        "oylik_to\u2019lov_so\u2019z_bilan": moneyToWordsUz(monthlyPayment).replace(/ so'm$/, ""),
+        xayriya_summasi: formatThousandsUz(charityAmount),
+        "xayriya_summasi_ so\u2019z_bilan": moneyToWordsUz(charityAmount).replace(/ so'm$/, ""),
+        qr_kod: "qr",
+      });
+      return doc.getZip().generate({ type: "nodebuffer" });
+    } catch (err: any) {
+      const details = err?.properties?.errors?.map((e: any) => e.properties?.explanation).filter(Boolean).join("; ");
+      throw new BadRequestException("1-ogohlantirish shablonida xatolik: " + (details || err.message));
+    }
   }
 
   /**
@@ -261,7 +324,7 @@ export class LettersService {
    */
   private async buildDocxFromTemplate(templatePath: string, letter: any, approved: boolean, token?: string): Promise<Buffer> {
     const money = (n: number) => new Intl.NumberFormat("uz-UZ").format(Math.round(n)) + " so'm";
-    const title = letter.type === LetterType.WARNING ? "ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT";
+    const title = letter.type === LetterType.FINAL_WARNING ? "ЯКУНИЙ ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT";
     try {
       const content = fs.readFileSync(templatePath, "binary");
       const zip = new PizZip(content);
@@ -309,7 +372,7 @@ export class LettersService {
     const paragraphs = String(letter.bodyText || "").split(/\n+/).map((t: string) => new Paragraph({ spacing: { after: 160, line: 300 }, alignment: AlignmentType.JUSTIFIED, children: [new TextRun({ text: t.trim(), size: 22, font: "Times New Roman" })] }));
 
     const warningRows: TableRow[] = [];
-    if (letter.type === LetterType.WARNING) {
+    if (letter.type === LetterType.FINAL_WARNING) {
       const money = (n: number) => new Intl.NumberFormat("uz-UZ").format(Math.round(n)) + " so'm";
       const addRow = (label: string, value: string) => warningRows.push(new TableRow({ children: [
         new TableCell({ width: { size: 45, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 20, font: "Times New Roman" })] })] }),
@@ -327,7 +390,7 @@ export class LettersService {
       new TableCell({ width: { size: 72, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "Direktor", bold: true, size: 22 }), new TextRun({ text: "\t\tM. Xudayberganov", bold: true, size: 22 })] })] }),
       new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: qr ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new ImageRun({ data: qr, transformation: { width: 95, height: 95 }, type: "png" })] })] : [new Paragraph({})] })
     ] })] });
-    const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 900, bottom: 720, left: 900 } } }, children: [header, numberDateLine, new Paragraph({ spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: letter.type === LetterType.WARNING ? "ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT", bold: true, size: 26, font: "Times New Roman" })] }), recipient, ...warningTable, new Paragraph({ spacing: { before: 220, after: 220 }, children: [new TextRun({ text: "Xat mazmuni", bold: true, size: 22, font: "Times New Roman" })] }), ...paragraphs, new Paragraph({ spacing: { before: 280 }, children: [new TextRun({ text: "Hurmat bilan,", size: 22, font: "Times New Roman" })] }), footer, ...(approved ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `QR tasdiq kodi: ${token}`, size: 14, color: "666666" })] })] : [])] }] });
+    const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 900, bottom: 720, left: 900 } } }, children: [header, numberDateLine, new Paragraph({ spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: letter.type === LetterType.FINAL_WARNING ? "ЯКУНИЙ ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT", bold: true, size: 26, font: "Times New Roman" })] }), recipient, ...warningTable, new Paragraph({ spacing: { before: 220, after: 220 }, children: [new TextRun({ text: "Xat mazmuni", bold: true, size: 22, font: "Times New Roman" })] }), ...paragraphs, new Paragraph({ spacing: { before: 280 }, children: [new TextRun({ text: "Hurmat bilan,", size: 22, font: "Times New Roman" })] }), footer, ...(approved ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `QR tasdiq kodi: ${token}`, size: 14, color: "666666" })] })] : [])] }] });
     return Packer.toBuffer(doc);
   }
 }

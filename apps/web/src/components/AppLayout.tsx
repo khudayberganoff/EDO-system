@@ -20,7 +20,8 @@ const TOP_NAV_ITEMS = [
 
 const LETTER_SUB_ITEMS = [
   { to: "/letters/letter", label: "Xat", icon: Mail },
-  { to: "/letters/warning", label: "Ogohlantirish", icon: AlertTriangle },
+  { to: "/letters/first-warning", label: "1-ogohlantirish", icon: AlertTriangle },
+  { to: "/letters/final-warning", label: "Yakuniy ogohlantirish", icon: AlertTriangle },
   { to: "/letters/reference", label: "Ma'lumotnoma", icon: FileQuestion },
 ];
 

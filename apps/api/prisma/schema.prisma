@@ -171,13 +171,15 @@ model Letter {
   bodyText            String?
   aiGenerated         Boolean @default(false)
 
-  /// Faqat WARNING (ogohlantirish) turidagi xatlar uchun ixtiyoriy maydonlar.
+  /// Faqat OGOHLANTIRISH (FIRST_WARNING/FINAL_WARNING) turidagi xatlar uchun ixtiyoriy maydonlar.
   /// Boshqa turlarda bo'sh (null) qoladi.
   contractNumber        String?
   contractDate          DateTime?
   monthlyPaymentAmount  Float?
   overdueDays           Int?
   charityAmount         Float?
+  /// Har oyning nasiya to'lovi amalga oshirilishi kerak bo'lgan sanasi (kun raqami, masalan 15)
+  paymentDueDay         Int?
 
   draftFileUrl        String?
   finalFileUrl        String?

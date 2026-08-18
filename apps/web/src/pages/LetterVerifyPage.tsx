@@ -8,7 +8,7 @@ async function fetchVerify(id: string, token: string) {
   return data;
 }
 
-const TYPE_LABELS: Record<string, string> = { LETTER: "Xat", WARNING: "Ogohlantirish xati", REFERENCE: "Ma'lumotnoma" };
+const TYPE_LABELS: Record<string, string> = { LETTER: "Xat", FIRST_WARNING: "1-ogohlantirish xati", FINAL_WARNING: "Yakuniy ogohlantirish xati", REFERENCE: "Ma'lumotnoma" };
 
 export function LetterVerifyPage() {
   const { id } = useParams<{ id: string }>();

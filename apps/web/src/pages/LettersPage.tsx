@@ -9,14 +9,18 @@ import { useAuth } from "../context/AuthContext";
 
 const TYPE_LABELS: Record<string, { label: string; icon: any; description: string }> = {
   LETTER: { label: "Xat", icon: Mail, description: "Rasmiy murojaatlar va ish xatlari" },
-  WARNING: { label: "Ogohlantirish", icon: AlertTriangle, description: "Ogohlantirish va talabnomalar" },
+  FIRST_WARNING: { label: "1-ogohlantirish", icon: AlertTriangle, description: "Kechikkan to'lov bo'yicha birinchi ogohlantirish (qat'iy yuridik shablon)" },
+  FINAL_WARNING: { label: "Yakuniy ogohlantirish", icon: AlertTriangle, description: "Rasmiy yakuniy ogohlantirish va talabnoma" },
   REFERENCE: { label: "Ma’lumotnoma", icon: FileQuestion, description: "Ma’lumot va izohlar" },
 };
 const STATUS_LABELS: Record<string, string> = { DRAFT: "Qoralama", PENDING_APPROVAL: "Rahbariyat tasdig‘ida", APPROVED: "Tasdiqlangan", ARCHIVED: "Arxivda", DELETED: "O‘chirilgan" };
 
 export function LettersPage() {
   const { kind } = useParams<{ kind?: string }>();
-  const selectedType = kind === "warning" ? LetterType.WARNING : kind === "reference" ? LetterType.REFERENCE : LetterType.LETTER;
+  const selectedType =
+    kind === "first-warning" ? LetterType.FIRST_WARNING :
+    kind === "final-warning" ? LetterType.FINAL_WARNING :
+    kind === "reference" ? LetterType.REFERENCE : LetterType.LETTER;
   const [status, setStatus] = useState<string | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [viewLetter, setViewLetter] = useState<any | null>(null);
@@ -95,10 +99,11 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
   const [documentDate, setDocumentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [counterpartyType, setCounterpartyType] = useState("ORGANIZATION");
   const [counterpartyName, setCounterpartyName] = useState(""); const [counterpartyAddress, setCounterpartyAddress] = useState(""); const [phoneNumber, setPhoneNumber] = useState(""); const [summary, setSummary] = useState(""); const [bodyText, setBodyText] = useState(""); const [provider, setProvider] = useState(""); const [nextNumber, setNextNumber] = useState("");
-  // Faqat "Ogohlantirish" (WARNING) xatlari uchun qo'shimcha maydonlar
-  const [contractNumber, setContractNumber] = useState(""); const [contractDate, setContractDate] = useState(""); const [monthlyPaymentAmount, setMonthlyPaymentAmount] = useState(""); const [overdueDays, setOverdueDays] = useState(""); const [charityAmount, setCharityAmount] = useState("");
+  // Faqat "Ogohlantirish" (FIRST_WARNING/FINAL_WARNING) xatlari uchun qo'shimcha maydonlar
+  const [contractNumber, setContractNumber] = useState(""); const [contractDate, setContractDate] = useState(""); const [monthlyPaymentAmount, setMonthlyPaymentAmount] = useState(""); const [overdueDays, setOverdueDays] = useState(""); const [charityAmount, setCharityAmount] = useState(""); const [paymentDueDay, setPaymentDueDay] = useState("");
   const [aiLoading, setAiLoading] = useState(false); const [learnedFrom, setLearnedFrom] = useState<number | null>(null); const queryClient = useQueryClient();
-  const isWarning = type === LetterType.WARNING;
+  const isFirstWarning = type === LetterType.FIRST_WARNING;
+  const isWarning = type === LetterType.FIRST_WARNING || type === LetterType.FINAL_WARNING;
   const { data: agentStats } = useQuery({ queryKey: ["letters", "ai-agent-stats"], queryFn: fetchAiAgentStats });
   useEffect(() => { fetchNextLetterNumber(type).then((x) => setNextNumber(x.documentNumber)).catch(() => {}); }, [type]);
   const warningPayload = () => (isWarning ? {
@@ -107,10 +112,14 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
     monthlyPaymentAmount: monthlyPaymentAmount ? Number(monthlyPaymentAmount) : undefined,
     overdueDays: overdueDays ? Number(overdueDays) : undefined,
     charityAmount: charityAmount ? Number(charityAmount) : undefined,
+    paymentDueDay: isFirstWarning && paymentDueDay ? Number(paymentDueDay) : undefined,
   } : {});
   const generate = async () => { setAiLoading(true); try { const r = await aiGenerateLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress, summary, ...warningPayload() }); setBodyText(r.text); setProvider(r.provider); setLearnedFrom(r.learnedFrom ?? null); } finally { setAiLoading(false); } };
   const mutation = useMutation({ mutationFn: () => createLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: phoneNumber || undefined, summary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
   const agentLearnedCount = agentStats?.[type] ?? 0;
+  const canSubmit = isFirstWarning
+    ? !mutation.isPending && !!counterpartyName && !!summary && !!contractNumber && !!overdueDays
+    : !mutation.isPending && !!counterpartyName && !!summary && !!bodyText;
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><div className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
     <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-slate-900">Yangi {TYPE_LABELS[type].label.toLowerCase()} yaratish</h2><p className="text-xs text-slate-500">AI yordamida rasmiy xat matnini tayyorlash</p></div><button onClick={onClose}><X size={20}/></button></div>
     <div className="grid grid-cols-2 gap-4">
@@ -127,6 +136,7 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Shartnoma raqami"><input value={contractNumber} onChange={e=>setContractNumber(e.target.value)} placeholder="SH-2026-0451" className="input"/></Field>
           <Field label="Shartnoma sanasi"><input type="date" value={contractDate} onChange={e=>setContractDate(e.target.value)} className="input"/></Field>
+          {isFirstWarning && <Field label="Har oylik to'lov kuni (1-31)"><input type="number" min="1" max="31" value={paymentDueDay} onChange={e=>setPaymentDueDay(e.target.value)} placeholder="15" className="input"/></Field>}
           <Field label="Oylik to'lov summasi (so'm)"><input type="number" min="0" value={monthlyPaymentAmount} onChange={e=>setMonthlyPaymentAmount(e.target.value)} placeholder="4 500 000" className="input"/></Field>
           <Field label="Kechikkan kun"><input type="number" min="0" value={overdueDays} onChange={e=>setOverdueDays(e.target.value)} placeholder="12" className="input"/></Field>
           <Field label="Xayriya to'lovi summasi (so'm)"><input type="number" min="0" value={charityAmount} onChange={e=>setCharityAmount(e.target.value)} placeholder="150 000" className="input"/></Field>
@@ -134,8 +144,14 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
       </div>
     )}
 
-    <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-4"><div className="mb-2 flex items-center justify-between"><div><div className="flex items-center gap-2 font-semibold text-brand-900"><Sparkles size={17}/> Sun'iy idrok yordamchisi</div><p className="text-xs text-slate-500">Qisqacha mazmun va tasdiqlangan oldingi xatlar asosida professional matn tuzadi.{agentLearnedCount > 0 && <> Hozircha <strong>{agentLearnedCount} ta</strong> tasdiqlangan "{TYPE_LABELS[type].label.toLowerCase()}" namunasidan o'rgangan.</>}</p></div><button type="button" disabled={aiLoading || !summary || !counterpartyName} onClick={generate} className="rounded-lg bg-brand-800 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 whitespace-nowrap">{aiLoading ? "Yozmoqda..." : "AI bilan yozish"}</button></div>{provider && <div className="mb-2 text-[11px] text-slate-500">Provayder: {provider === "openai" ? "AI" : "mahalliy yordamchi"}{learnedFrom != null && learnedFrom > 0 && <> &middot; {learnedFrom} ta namunadan foydalanildi</>}</div>}<textarea value={bodyText} onChange={e=>setBodyText(e.target.value)} rows={10} placeholder="AI yaratgan xat shu yerda ko‘rinadi. Kerak bo‘lsa inson tomonidan tahrirlang." className="input bg-white"/></div>
-    <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button><button disabled={mutation.isPending || !counterpartyName || !summary || !bodyText} onClick={()=>mutation.mutate()} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Xatni saqlash</button></div>
+    {isFirstWarning ? (
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        Bu turdagi xat kompaniyaning qat'iy yuridik shabloni asosida yuqoridagi ma'lumotlardan avtomatik yaratiladi — qo'shimcha matn yozish shart emas.
+      </div>
+    ) : (
+      <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-4"><div className="mb-2 flex items-center justify-between"><div><div className="flex items-center gap-2 font-semibold text-brand-900"><Sparkles size={17}/> Sun'iy idrok yordamchisi</div><p className="text-xs text-slate-500">Qisqacha mazmun va tasdiqlangan oldingi xatlar asosida professional matn tuzadi.{agentLearnedCount > 0 && <> Hozircha <strong>{agentLearnedCount} ta</strong> tasdiqlangan "{TYPE_LABELS[type].label.toLowerCase()}" namunasidan o'rgangan.</>}</p></div><button type="button" disabled={aiLoading || !summary || !counterpartyName} onClick={generate} className="rounded-lg bg-brand-800 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 whitespace-nowrap">{aiLoading ? "Yozmoqda..." : "AI bilan yozish"}</button></div>{provider && <div className="mb-2 text-[11px] text-slate-500">Provayder: {provider === "openai" ? "AI" : "mahalliy yordamchi"}{learnedFrom != null && learnedFrom > 0 && <> &middot; {learnedFrom} ta namunadan foydalanildi</>}</div>}<textarea value={bodyText} onChange={e=>setBodyText(e.target.value)} rows={10} placeholder="AI yaratgan xat shu yerda ko‘rinadi. Kerak bo‘lsa inson tomonidan tahrirlang." className="input bg-white"/></div>
+    )}
+    <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button><button disabled={!canSubmit} onClick={()=>mutation.mutate()} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Xatni saqlash</button></div>
   </div></div>;
 }
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>{children}</label>; }

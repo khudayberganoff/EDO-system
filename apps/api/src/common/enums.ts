@@ -75,7 +75,8 @@ export enum LetterDirection {
 }
 
 export enum LetterType {
-  WARNING = "WARNING",
+  FIRST_WARNING = "FIRST_WARNING",
+  FINAL_WARNING = "FINAL_WARNING",
   REFERENCE = "REFERENCE",
   LETTER = "LETTER",
 }

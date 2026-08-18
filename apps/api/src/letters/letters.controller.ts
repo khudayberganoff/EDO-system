@@ -12,7 +12,7 @@ import { Public } from "../common/decorators/public.decorator";
 import { LetterStatus, LetterType, Role } from "../common/enums";
 import { Roles } from "../common/decorators/roles.decorator";
 
-const TYPE_LABELS: Record<LetterType, string> = { [LetterType.WARNING]: "Ogohlantirish", [LetterType.REFERENCE]: "Ma’lumotnoma", [LetterType.LETTER]: "Xat" };
+const TYPE_LABELS: Record<LetterType, string> = { [LetterType.FIRST_WARNING]: "1-ogohlantirish", [LetterType.FINAL_WARNING]: "Yakuniy ogohlantirish", [LetterType.REFERENCE]: "Ma’lumotnoma", [LetterType.LETTER]: "Xat" };
 const STATUS_LABELS: Record<string, string> = { DRAFT: "Qoralama", PENDING_APPROVAL: "Rahbariyat tasdig‘ida", APPROVED: "Tasdiqlangan", ARCHIVED: "Arxivlangan", DELETED: "O‘chirilgan", NEW: "Yangi" };
 
 @ApiTags("letters") @ApiBearerAuth() @Controller("letters")

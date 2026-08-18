@@ -43,13 +43,14 @@ export class LetterAiAgentService {
    * o'rgangani"ni frontendda ko'rsatish uchun.
    */
   async getLearningStats() {
-    const [warning, reference, letter, total] = await this.prisma.$transaction([
-      this.prisma.letter.count({ where: { type: LetterType.WARNING, status: LetterStatus.ARCHIVED } }),
+    const [firstWarning, finalWarning, reference, letter, total] = await this.prisma.$transaction([
+      this.prisma.letter.count({ where: { type: LetterType.FIRST_WARNING, status: LetterStatus.ARCHIVED } }),
+      this.prisma.letter.count({ where: { type: LetterType.FINAL_WARNING, status: LetterStatus.ARCHIVED } }),
       this.prisma.letter.count({ where: { type: LetterType.REFERENCE, status: LetterStatus.ARCHIVED } }),
       this.prisma.letter.count({ where: { type: LetterType.LETTER, status: LetterStatus.ARCHIVED } }),
       this.prisma.letter.count({ where: { status: LetterStatus.ARCHIVED } }),
     ]);
-    return { WARNING: warning, REFERENCE: reference, LETTER: letter, total };
+    return { FIRST_WARNING: firstWarning, FINAL_WARNING: finalWarning, REFERENCE: reference, LETTER: letter, total };
   }
 
   private async getReferenceExamples(type: LetterType, limit = 3) {
@@ -102,10 +103,8 @@ export class LetterAiAgentService {
             .join("\n\n")
         : "Hozircha shu turdagi tasdiqlangan namuna yo'q - eng yaxshi amaliyot asosida rasmiy uslubda yozing.";
 
-    const warningDetails =
-      input.type === LetterType.WARNING
-        ? this.formatWarningDetails(input)
-        : "";
+    const isWarning = input.type === LetterType.FIRST_WARNING || input.type === LetterType.FINAL_WARNING;
+    const warningDetails = isWarning ? this.formatWarningDetails(input) : "";
 
     return [
       "Siz O'zbekistondagi \"WAFA LEASING\" MChJ (islomiy moliyalashtirish kompaniyasi) uchun rasmiy ish yuritish bo'yicha mas'ul AI yordamchisisiz.",
@@ -166,12 +165,12 @@ export class LetterAiAgentService {
   ): string {
     const greeting = input.counterpartyName ? `Hurmatli ${input.counterpartyName} rahbariyati!` : "Hurmatli hamkor!";
     const address = input.counterpartyAddress ? `Murojaat manzili: ${input.counterpartyAddress}.` : "";
-    const typeText =
-      input.type === LetterType.WARNING ? "ogohlantirish" : input.type === LetterType.REFERENCE ? "ma'lumotnoma" : "rasmiy xat";
+    const isWarning = input.type === LetterType.FIRST_WARNING || input.type === LetterType.FINAL_WARNING;
+    const typeText = isWarning ? "ogohlantirish" : input.type === LetterType.REFERENCE ? "ma'lumotnoma" : "rasmiy xat";
 
     let body = `"WAFA LEASING" MChJ tomonidan ushbu ${typeText} ${input.summary.trim()} masalasi yuzasidan yuborilmoqda.`;
 
-    if (input.type === LetterType.WARNING) {
+    if (isWarning) {
       const details: string[] = [];
       if (input.contractNumber) {
         details.push(

@@ -80,7 +80,8 @@ export enum LetterDirection {
 }
 
 export enum LetterType {
-  WARNING = "WARNING", // ogohlantirish
+  FIRST_WARNING = "FIRST_WARNING", // 1-ogohlantirish
+  FINAL_WARNING = "FINAL_WARNING", // yakuniy ogohlantirish
   REFERENCE = "REFERENCE", // ma'lumotnoma
   LETTER = "LETTER", // xat
 }
