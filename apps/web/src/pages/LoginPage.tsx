@@ -38,7 +38,7 @@ export function LoginPage() {
               <img
                 src="/assets/wafa-logo.png"
                 alt="WAFA"
-                className="h-auto w-[220px] object-contain"
+                className="h-auto w-[330px] object-contain"
               />
             </div>
 
