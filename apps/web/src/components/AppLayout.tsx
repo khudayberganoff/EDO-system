@@ -20,9 +20,12 @@ const TOP_NAV_ITEMS = [
 
 const LETTER_SUB_ITEMS = [
   { to: "/letters/letter", label: "Xat", icon: Mail },
+  { to: "/letters/reference", label: "Ma'lumotnoma", icon: FileQuestion },
+];
+
+const WARNING_SUB_ITEMS = [
   { to: "/letters/first-warning", label: "1-ogohlantirish", icon: AlertTriangle },
   { to: "/letters/final-warning", label: "Yakuniy ogohlantirish", icon: AlertTriangle },
-  { to: "/letters/reference", label: "Ma'lumotnoma", icon: FileQuestion },
 ];
 
 function Item({ to, label, icon: Icon }: { to: string; label: string; icon: typeof Mail }) {
@@ -58,11 +61,30 @@ function SubItem({ to, label, icon: Icon }: { to: string; label: string; icon: t
   );
 }
 
+/** Uchinchi daraja - "Ogohlantirish" guruhi ichidagi elementlar (chuqurroq chapdan bo'shliq) */
+function SubSubItem({ to, label, icon: Icon }: { to: string; label: string; icon: typeof Mail }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex items-center gap-2.5 rounded-lg py-2 pl-14 pr-3 text-[13px] transition ${
+          isActive ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+        }`
+      }
+    >
+      <Icon size={14} />
+      {label}
+    </NavLink>
+  );
+}
+
 export function AppLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const isInLettersSection = location.pathname.startsWith("/letters") && location.pathname !== "/letters/archive";
+  const isInWarningSection = location.pathname.startsWith("/letters/first-warning") || location.pathname.startsWith("/letters/final-warning");
   const [lettersOpen, setLettersOpen] = useState(isInLettersSection);
+  const [warningsOpen, setWarningsOpen] = useState(isInWarningSection);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -102,7 +124,38 @@ export function AppLayout() {
 
             {lettersOpen && (
               <div className="mt-0.5 space-y-0.5">
-                {LETTER_SUB_ITEMS.map((x) => (
+                {LETTER_SUB_ITEMS.slice(0, 1).map((x) => (
+                  <SubItem key={x.to} {...x} />
+                ))}
+
+                {/* Yig'iladigan "Ogohlantirish" guruhi - 1-ogohlantirish / Yakuniy ogohlantirish */}
+                <div>
+                  <button
+                    onClick={() => setWarningsOpen((v) => !v)}
+                    className={`flex w-full items-center justify-between rounded-lg py-2 pl-9 pr-3 text-[13px] transition ${
+                      isInWarningSection ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <AlertTriangle size={15} />
+                      Ogohlantirish
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={`transition-transform ${warningsOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {warningsOpen && (
+                    <div className="mt-0.5 space-y-0.5">
+                      {WARNING_SUB_ITEMS.map((x) => (
+                        <SubSubItem key={x.to} {...x} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {LETTER_SUB_ITEMS.slice(1).map((x) => (
                   <SubItem key={x.to} {...x} />
                 ))}
               </div>

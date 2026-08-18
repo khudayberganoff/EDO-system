@@ -115,10 +115,14 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
     paymentDueDay: isFirstWarning && paymentDueDay ? Number(paymentDueDay) : undefined,
   } : {});
   const generate = async () => { setAiLoading(true); try { const r = await aiGenerateLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress, summary, ...warningPayload() }); setBodyText(r.text); setProvider(r.provider); setLearnedFrom(r.learnedFrom ?? null); } finally { setAiLoading(false); } };
-  const mutation = useMutation({ mutationFn: () => createLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: phoneNumber || undefined, summary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
+  // 1-ogohlantirishda qisqacha mazmun so'ralmaydi - u shartnoma ma'lumotlaridan avtomatik tuziladi
+  const effectiveSummary = isFirstWarning
+    ? `${contractNumber || "shartnoma"} bo'yicha ${overdueDays || 0} kunlik kechikish yuzasidan 1-ogohlantirish`
+    : summary;
+  const mutation = useMutation({ mutationFn: () => createLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: phoneNumber || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
   const agentLearnedCount = agentStats?.[type] ?? 0;
   const canSubmit = isFirstWarning
-    ? !mutation.isPending && !!counterpartyName && !!summary && !!contractNumber && !!overdueDays
+    ? !mutation.isPending && !!counterpartyName && !!contractNumber && !!overdueDays
     : !mutation.isPending && !!counterpartyName && !!summary && !!bodyText;
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><div className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
     <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-slate-900">Yangi {TYPE_LABELS[type].label.toLowerCase()} yaratish</h2><p className="text-xs text-slate-500">AI yordamida rasmiy xat matnini tayyorlash</p></div><button onClick={onClose}><X size={20}/></button></div>
@@ -128,7 +132,7 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
     </div>
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label={counterpartyType === "CITIZEN" ? "Fuqaro F.I.Sh." : "Tashkilot nomi"}><input required value={counterpartyName} onChange={e=>setCounterpartyName(e.target.value)} placeholder={counterpartyType === "CITIZEN" ? "F.I.Sh." : '"MISOL KOMPANIYASI" MCHJ'} className="input"/></Field><Field label="Manzil"><input value={counterpartyAddress} onChange={e=>setCounterpartyAddress(e.target.value)} className="input"/></Field></div>
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label="Telefon"><input value={phoneNumber} onChange={e=>setPhoneNumber(e.target.value)} placeholder="+998 90 123 45 67" className="input"/></Field><div/></div>
-    <div className="mt-4"><Field label="Qisqacha mazmuni"><textarea required value={summary} onChange={e=>setSummary(e.target.value)} rows={3} placeholder="Masalan: shartnoma shartlari bo‘yicha to‘lovni o‘z vaqtida amalga oshirish zarurligi haqida..." className="input"/></Field></div>
+    {!isFirstWarning && <div className="mt-4"><Field label="Qisqacha mazmuni"><textarea required value={summary} onChange={e=>setSummary(e.target.value)} rows={3} placeholder="Masalan: shartnoma shartlari bo‘yicha to‘lovni o‘z vaqtida amalga oshirish zarurligi haqida..." className="input"/></Field></div>}
 
     {isWarning && (
       <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
