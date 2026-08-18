@@ -21,10 +21,18 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]), // DDOS/brute-force'dan asosiy himoya
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, "..", "uploads"),
-      serveRoot: "/uploads",
-    }),
+    ServeStaticModule.forRoot(
+      {
+        rootPath: join(__dirname, "..", "uploads"),
+        serveRoot: "/uploads",
+      },
+      {
+        // Frontend build (apps/web/dist) - bitta xizmat sifatida deploy qilinganda
+        rootPath: join(__dirname, "..", "..", "web", "dist"),
+        exclude: ["/api*", "/uploads*"],
+        serveStaticOptions: { index: false },
+      },
+    ),
     PrismaModule,
     AuthModule,
     UsersModule,

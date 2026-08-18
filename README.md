@@ -71,3 +71,35 @@ npm run dev:web
 
 
 Launcher technical note: Frontend Vite and Backend NestJS are launched directly through node.exe and their CLI JavaScript entrypoints. npm.cmd is not used for long-running services.
+
+## Render.com'да deploy qilish (bepul)
+
+Loyihada tayyor `render.yaml` bor — Render buni avtomatik o'qib, API'ni ham,
+PostgreSQL bazasini ham o'zi sozlab beradi.
+
+1. https://render.com — GitHub akkaunt bilan kiring.
+2. **New +** → **Blueprint** → shu repo'ni (`EDO-system`) tanlang.
+3. Render `render.yaml`'ni topib, "edo-system" (web) va "edo-db" (Postgres,
+   free tier) xizmatlarini avtomatik yaratadi. **Apply**'ni bosing.
+4. Birinchi build/deploy 5-10 daqiqa vaqt oladi (npm install + build).
+5. Deploy tugagach, `https://edo-system.onrender.com` manzilida sayt ochiladi.
+6. Birinchi kirish uchun (seed orqali avtomatik yaratiladi):
+   - Admin: `admin@wafagroup.uz` / `Admin123!`
+   - Menejer: `manager@wafagroup.uz` / `Manager123!`
+   - Xodim: `employee@wafagroup.uz` / `Employee123!`
+
+   **Muhim:** birinchi kirishdan so'ng bu parollarni albatta almashtiring.
+
+### Bepul tarif haqida bilish kerak bo'lgan narsalar
+- Free web service 15 daqiqa harakatsizlikdan so'ng "uxlab qoladi" — keyingi
+  so'rov birinchi marta 30-60 soniya sekin ochiladi (keyin tez ishlaydi).
+- Yuklangan fayllar (`apps/api/uploads`) **doimiy saqlanmaydi** — har yangi
+  deploy'da tozalanadi (Render free tarifida persistent disk yo'q). Muhim
+  fayllar uchun keyinchalik S3/Cloudinary kabi tashqi saqlash ulash tavsiya
+  etiladi.
+- Free Postgres 90 kundan so'ng Render tomonidan o'chirilishi mumkin — vaqti
+  bilan yangilab turish kerak.
+
+### Kelajakdagi yangilanishlar
+Kod GitHub repo'siga push qilinishi bilan Render **avtomatik** qayta build
+va deploy qiladi — qo'lda hech narsa qilish shart emas.

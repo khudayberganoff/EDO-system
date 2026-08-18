@@ -1,6 +1,8 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import { join } from "path";
+import { existsSync } from "fs";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
@@ -21,6 +23,22 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix("api");
+
+  // Frontend (React/Vite) shu API bilan bitta serverda birga joylashtirilgan
+  // bo'lsa (Render kabi bir xizmatli deploy), SPA marshrutlash uchun
+  // /api va /uploads dan boshqa barcha so'rovlarni index.html'ga yo'naltiramiz.
+  const webDistPath = join(__dirname, "..", "..", "web", "dist");
+  if (existsSync(webDistPath)) {
+    app.use((req: any, res: any, next: any) => {
+      if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
+        return next();
+      }
+      if (req.path.includes(".")) {
+        return next(); // statik fayl (js/css/rasm) bo'lsa, static middleware o'zi topadi
+      }
+      res.sendFile(join(webDistPath, "index.html"));
+    });
+  }
 
   const config = new DocumentBuilder()
     .setTitle("EDO API")
