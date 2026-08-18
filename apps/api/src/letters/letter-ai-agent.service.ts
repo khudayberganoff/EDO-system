@@ -16,7 +16,7 @@ interface GenerateInput {
   charityAmount?: number;
 }
 
-interface GenerateResult {
+export interface GenerateResult {
   text: string;
   provider: "openai" | "local";
   learnedFrom: number;
