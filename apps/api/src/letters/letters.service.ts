@@ -23,9 +23,10 @@ const TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "WAFA
 const FIRST_WARNING_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "1-OGOHLANTIRISH-NAMUNA.docx");
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const formatThousandsUz = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-// 1x1 shaffof PNG - hali tasdiqlanmagan (tokensiz) xatlarda QR o'rniga vaqtinchalik bo'sh rasm
-const TRANSPARENT_PIXEL_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+// Oq (bo'sh) 180x180 PNG - hali tasdiqlanmagan xatlarda QR o'rniga vaqtinchalik bo'sh joy.
+// Diqqat: 1x1 shaffof PNG ishlatilsa Word uni qora kvadrat qilib ko'rsatadi, shuning uchun oq rasm.
+const BLANK_QR_PLACEHOLDER_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAABtUlEQVR4nO3SMQHAIBDAwFL/nh8DZIbhTkGGrJn54OS/HcC7zEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB8kcJHOQzEEyB2kD9eEEZYXaRY4AAAAASUVORK5CYII=",
   "base64",
 );
 
@@ -86,17 +87,20 @@ export class LettersService {
   }
 
   async create(dto: CreateLetterDto, userId: string) {
+    // 1-ogohlantirish shabloni faqat jismoniy shaxslar (fuqarolar) uchun mo'ljallangan
+    const counterpartyType = dto.type === LetterType.FIRST_WARNING ? "CITIZEN" : (dto.counterpartyType || "ORGANIZATION");
     const number = await this.getNextDocumentNumber(dto.type);
     const body = dto.bodyText?.trim() || (await this.aiAgent.generate(dto)).text;
     const letter = await this.prisma.letter.create({
       data: {
         direction: "OUTGOING", type: dto.type, status: LetterStatus.DRAFT,
         documentNumber: number.documentNumber, documentDate: new Date(dto.documentDate),
-        counterpartyType: dto.counterpartyType || "ORGANIZATION", counterpartyName: dto.counterpartyName,
+        counterpartyType, counterpartyName: dto.counterpartyName,
         counterpartyAddress: dto.counterpartyAddress, phoneNumber: dto.phoneNumber, summary: dto.summary,
         bodyText: body, aiGenerated: dto.aiGenerated ?? false, createdById: userId,
         contractNumber: dto.contractNumber,
         contractDate: dto.contractDate ? new Date(dto.contractDate) : undefined,
+        paymentDueDay: dto.paymentDueDay,
         monthlyPaymentAmount: dto.monthlyPaymentAmount,
         overdueDays: dto.overdueDays,
         charityAmount: dto.charityAmount,
@@ -276,7 +280,7 @@ export class LettersService {
       const zip = new PizZip(content);
       const qrBuffer = approved && token
         ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, token), { width: 180, margin: 1 })
-        : TRANSPARENT_PIXEL_PNG;
+        : BLANK_QR_PLACEHOLDER_PNG;
       const imageModule = new ImageModule({ centered: false, getImage: () => qrBuffer, getSize: () => [90, 90] });
       const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, modules: [imageModule] });
 
@@ -332,7 +336,7 @@ export class LettersService {
       // joylashadi. Tasdiqlangandan keyingina haqiqiy QR bo'ladi, aks holda bo'sh joy qoladi.
       const qrBuffer = approved && token
         ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, token), { width: 180, margin: 1 })
-        : TRANSPARENT_PIXEL_PNG;
+        : BLANK_QR_PLACEHOLDER_PNG;
       const imageModule = new ImageModule({
         centered: false,
         getImage: () => qrBuffer,
