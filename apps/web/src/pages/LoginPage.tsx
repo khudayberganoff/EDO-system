@@ -34,7 +34,7 @@ export function LoginPage() {
         <div className="w-full max-w-md">
           <div className="rounded-[28px] bg-white/95 p-8 shadow-[0_20px_60px_-25px_rgba(15,27,23,0.3)] backdrop-blur-sm sm:p-10">
             {/* WAFA logotipi */}
-            <div className="mb-8 flex justify-center">
+            <div className="mb-1 flex justify-center">
               <img
                 src="/assets/wafa-logo.png"
                 alt="WAFA"

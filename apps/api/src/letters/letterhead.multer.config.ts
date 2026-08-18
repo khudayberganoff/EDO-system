@@ -2,10 +2,11 @@ import { diskStorage } from "multer";
 import { extname } from "path";
 import { BadRequestException } from "@nestjs/common";
 
-// Faqat rasm formatlari - chunki bu rasm to'g'ridan-to'g'ri DOCX hujjat
-// sarlavhasiga (header) joylashtiriladi.
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png"];
-const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
+// Faqat .docx - chunki blank Word shablon sifatida ishlatiladi (docxtemplater orqali
+// {raqam}, {sana}, {kimga}, {manzil}, {matn} kabi teglar matn bilan almashtiriladi).
+// Eski .doc (binar format) dasturiy ravishda shablon sifatida ishlatib bo'lmaydi.
+const ALLOWED_EXTENSIONS = [".docx"];
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export const letterheadUploadOptions = {
   storage: diskStorage({
@@ -19,9 +20,10 @@ export const letterheadUploadOptions = {
   fileFilter: (_req: unknown, file: Express.Multer.File, callback: Function) => {
     const ext = extname(file.originalname).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      callback(new BadRequestException(`Ruxsat etilmagan fayl turi: ${ext}. Faqat JPG/PNG.`), false);
+      callback(new BadRequestException(`Ruxsat etilmagan fayl turi: ${ext}. Faqat .docx (Word) formatida yuklang.`), false);
       return;
     }
     callback(null, true);
   },
 };
+

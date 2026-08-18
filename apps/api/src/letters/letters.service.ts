@@ -5,7 +5,8 @@ import * as QRCode from "qrcode";
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
-import { imageSize } from "image-size";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
 import { AuditAction, LetterStatus, LetterType, Role } from "../common/enums";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -16,9 +17,6 @@ import { LetterAiAgentService } from "./letter-ai-agent.service";
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
 const TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "WAFA_LEASING_XAT_NAMUNA.docx");
-// A4 sahifa matn kengligi (chap/o'ng margin olib tashlangandan keyin), piksel birligida
-// (docx kutubxonasi ImageRun o'lchamlarini 96dpi piksel sifatida kutadi)
-const PAGE_CONTENT_WIDTH_PX = 640;
 
 @Injectable()
 export class LettersService {
@@ -207,34 +205,59 @@ export class LettersService {
   }
 
   private async buildDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
-    const qr = approved && token ? await QRCode.toBuffer(`EDO-WAFA|LETTER|${letter.id}|${token}`, { width: 130, margin: 1 }) : undefined;
-
     const letterheadFile = this.findLetterheadFile();
-    let letterheadElement: Paragraph | Table;
     if (letterheadFile) {
-      // Kompaniya o'z blankasini yuklagan bo'lsa - xat matni shu blank ustiga joylashadi:
-      // blank rasmi sahifa tepasida to'liq kenglikda ko'rsatiladi.
-      const buf = fs.readFileSync(letterheadFile);
-      const dims = imageSize(buf);
-      const widthPx = PAGE_CONTENT_WIDTH_PX;
-      const heightPx = Math.round((widthPx * dims.height) / dims.width);
-      letterheadElement = new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 200 },
-        children: [new ImageRun({ data: buf, transformation: { width: widthPx, height: heightPx }, type: (letterheadFile.endsWith(".png") ? "png" : "jpg") as any })],
-      });
-    } else {
-      // Standart (default) WAFA LEASING sarlavhasi - blank yuklanmagan bo'lsa
-      letterheadElement = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [
-        new TableCell({ width: { size: 62, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "«WAFA LEASING»", bold: true, size: 28 }), new TextRun({ text: "\nMas’uliyati cheklangan jamiyat", size: 20 }), new TextRun({ text: "\n«WAFA LEASING»", bold: true, size: 22 }), new TextRun({ text: "\nLimited liability company", size: 20 }), new TextRun({ text: "\nToshkent sh., Chilonzor t., 2-Charx Kamolon MFY, Bunyodkor ko‘chasi, 2-uy", size: 18 }), new TextRun({ text: "\nINN: 311886363, MFO 01041, Toshkent sh., \"Asia Alliance Bank\"", size: 18 }), new TextRun({ text: "\nh/r: 2020 8000 0071 9560 9001, e-mail: wafaleasing@gmail.com", size: 18 })] })] }),
-        new TableCell({ width: { size: 38, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "№ " + letter.documentNumber, bold: true, size: 22 })] }), new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: new Date(letter.documentDate).toLocaleDateString("uz-UZ"), size: 20 })] })] })
-      ] })] });
+      // Kompaniya o'z Word blankasini yuklagan - AI/inson yozgan xat matni
+      // shu blank ichidagi teglar ({raqam}, {sana}, {kimga}, {matn} va h.k.) o'rniga joylashadi.
+      return this.buildDocxFromTemplate(letterheadFile, letter, approved, token);
     }
-    const header = letterheadElement;
-    // Blank yuklangan bo'lsa ham hujjat raqami/sana ko'rinishi kerak - blank ostida kichik qatorda
-    const numberDateLine = letterheadFile
-      ? new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: [new TextRun({ text: `№ ${letter.documentNumber}   ${new Date(letter.documentDate).toLocaleDateString("uz-UZ")}`, bold: true, size: 20 })] })
-      : new Paragraph({ children: [] });
+    return this.buildDocxDefault(letter, approved, token);
+  }
+
+  /**
+   * Kompaniya yuklagan .docx blankni shablon sifatida ishlatib, xat ma'lumotlarini
+   * shu blank ichidagi teglarga joylashtiradi. Blankda quyidagi teglardan istalganini
+   * ishlatish mumkin (barchasi ixtiyoriy, blank qaysi teglarni ishlatsa - o'sha to'ldiriladi):
+   *   {raqam} {sana} {kimga} {manzil} {telefon} {sarlavha} {matn}
+   *   {shartnoma_raqami} {shartnoma_sanasi} {oylik_tolov} {kechikkan_kun} {xayriya_summasi}
+   *   {qr_kod}
+   */
+  private buildDocxFromTemplate(templatePath: string, letter: any, approved: boolean, token?: string): Buffer {
+    const money = (n: number) => new Intl.NumberFormat("uz-UZ").format(Math.round(n)) + " so'm";
+    const title = letter.type === LetterType.WARNING ? "ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT";
+    try {
+      const content = fs.readFileSync(templatePath, "binary");
+      const zip = new PizZip(content);
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+      doc.render({
+        raqam: letter.documentNumber ?? "",
+        sana: letter.documentDate ? new Date(letter.documentDate).toLocaleDateString("uz-UZ") : "",
+        kimga: letter.counterpartyName ?? "",
+        manzil: letter.counterpartyAddress ?? "",
+        telefon: letter.phoneNumber ?? "",
+        sarlavha: title,
+        matn: letter.bodyText ?? "",
+        shartnoma_raqami: letter.contractNumber ?? "",
+        shartnoma_sanasi: letter.contractDate ? new Date(letter.contractDate).toLocaleDateString("uz-UZ") : "",
+        oylik_tolov: letter.monthlyPaymentAmount != null ? money(letter.monthlyPaymentAmount) : "",
+        kechikkan_kun: letter.overdueDays != null ? String(letter.overdueDays) : "",
+        xayriya_summasi: letter.charityAmount != null ? money(letter.charityAmount) : "",
+        qr_kod: approved && token ? token : "",
+      });
+      return doc.getZip().generate({ type: "nodebuffer" });
+    } catch (err: any) {
+      const details = err?.properties?.errors?.map((e: any) => e.properties?.explanation).filter(Boolean).join("; ");
+      throw new BadRequestException("Firma blankasi (Word shabloni) noto'g'ri formatlangan: " + (details || err.message));
+    }
+  }
+
+  private async buildDocxDefault(letter: any, approved: boolean, token?: string): Promise<Buffer> {
+    const qr = approved && token ? await QRCode.toBuffer(`EDO-WAFA|LETTER|${letter.id}|${token}`, { width: 130, margin: 1 }) : undefined;
+    const header = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [
+      new TableCell({ width: { size: 62, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "«WAFA LEASING»", bold: true, size: 28 }), new TextRun({ text: "\nMas’uliyati cheklangan jamiyat", size: 20 }), new TextRun({ text: "\n«WAFA LEASING»", bold: true, size: 22 }), new TextRun({ text: "\nLimited liability company", size: 20 }), new TextRun({ text: "\nToshkent sh., Chilonzor t., 2-Charx Kamolon MFY, Bunyodkor ko‘chasi, 2-uy", size: 18 }), new TextRun({ text: "\nINN: 311886363, MFO 01041, Toshkent sh., \"Asia Alliance Bank\"", size: 18 }), new TextRun({ text: "\nh/r: 2020 8000 0071 9560 9001, e-mail: wafaleasing@gmail.com", size: 18 })] })] }),
+      new TableCell({ width: { size: 38, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "№ " + letter.documentNumber, bold: true, size: 22 })] }), new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: new Date(letter.documentDate).toLocaleDateString("uz-UZ"), size: 20 })] })] })
+    ] })] });
+    const numberDateLine = new Paragraph({ children: [] });
     const recipient = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Kimga: ", bold: true, size: 21 }), new TextRun({ text: letter.counterpartyName, size: 21 })] }), new Paragraph({ children: [new TextRun({ text: "Manzil: ", bold: true, size: 21 }), new TextRun({ text: letter.counterpartyAddress || "—", size: 21 })] })] })] })] });
     const paragraphs = String(letter.bodyText || "").split(/\n+/).map((t: string) => new Paragraph({ spacing: { after: 160, line: 300 }, alignment: AlignmentType.JUSTIFIED, children: [new TextRun({ text: t.trim(), size: 22, font: "Times New Roman" })] }));
 

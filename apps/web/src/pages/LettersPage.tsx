@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, Archive, Check, Download, FileQuestion, Mail, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
+import { AlertTriangle, Archive, Check, Download, Eye, FileQuestion, Mail, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
 import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead } from "../api/letters";
@@ -19,6 +19,7 @@ export function LettersPage() {
   const selectedType = kind === "warning" ? LetterType.WARNING : kind === "reference" ? LetterType.REFERENCE : LetterType.LETTER;
   const [status, setStatus] = useState<string | undefined>();
   const [showCreate, setShowCreate] = useState(false);
+  const [viewLetter, setViewLetter] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data, isLoading } = useQuery({ queryKey: ["letters", selectedType, status], queryFn: () => fetchLetters({ type: selectedType, status: status as any }) });
@@ -54,6 +55,7 @@ export function LettersPage() {
           <td className="px-4 py-4 text-slate-500">№ {letter.documentNumber}</td>
           <td className="px-4 py-4 text-slate-600"><div className="max-w-[360px]">{letter.summary}</div></td>
           <td className="px-4 py-4"><div className="flex flex-wrap gap-1.5">
+            <button title="To'liq o'qish" onClick={() => setViewLetter(letter)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Eye size={16}/></button>
             {letter.draftFileUrl && <button title="Qoralamani yuklash" onClick={() => download(letter.id, "draft")} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16}/></button>}
             {letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => submitLetter(letter.id).then(() => queryClient.invalidateQueries({ queryKey: ["letters"] }))} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
@@ -63,8 +65,28 @@ export function LettersPage() {
         </tr>)}
       </tbody></table>
     </div>
-    {showCreate && <CreateLetterModal type={selectedType} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>} 
+    {showCreate && <CreateLetterModal type={selectedType} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>}
+    {viewLetter && <ViewLetterModal letter={viewLetter} onClose={() => setViewLetter(null)} />}
   </div>;
+}
+
+function ViewLetterModal({ letter, onClose }: { letter: any; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">№ {letter.documentNumber} — {letter.counterpartyName}</h2>
+            <p className="mt-1 text-xs text-slate-500">{new Date(letter.documentDate).toLocaleDateString("uz-UZ")} &middot; <StatusPill status={letter.status} /></p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+        </div>
+        {letter.counterpartyAddress && <p className="mb-3 text-sm text-slate-500">Manzil: {letter.counterpartyAddress}</p>}
+        <div className="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><span className="font-medium text-slate-700">Qisqacha mazmuni: </span>{letter.summary}</div>
+        <div className="whitespace-pre-wrap rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">{letter.bodyText || "Matn hali yaratilmagan."}</div>
+      </div>
+    </div>
+  );
 }
 
 function StatusPill({ status }: { status: string }) { const cls = status === "ARCHIVED" ? "bg-emerald-100 text-emerald-800" : status === "PENDING_APPROVAL" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"; return <span className={clsx("inline-flex rounded-full px-2.5 py-1 text-xs font-medium", cls)}>{STATUS_LABELS[status] ?? status}</span>; }
@@ -156,11 +178,11 @@ function LetterheadPanel() {
         </div>
         <div className="flex items-center gap-2">
           {data?.exists && data.url && (
-            <a href={`${(import.meta as any).env.VITE_API_URL ?? ""}${data.url}`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">Ko'rish</a>
+            <a href={`${(import.meta as any).env.VITE_API_URL ?? ""}${data.url}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">Yuklab olish</a>
           )}
-          <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png" className="hidden" onChange={onFileChange} />
+          <input ref={inputRef} type="file" accept=".docx" className="hidden" onChange={onFileChange} />
           <button onClick={() => inputRef.current?.click()} disabled={upload.isPending} className="flex items-center gap-2 rounded-lg bg-brand-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-            <Upload size={14}/> {upload.isPending ? "Yuklanmoqda..." : data?.exists ? "Almashtirish" : "Blank yuklash"}
+            <Upload size={14}/> {upload.isPending ? "Yuklanmoqda..." : data?.exists ? "Almashtirish" : "Blank yuklash (.docx)"}
           </button>
           {data?.exists && (
             <button onClick={() => remove.mutate()} disabled={remove.isPending} className="flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">
@@ -170,7 +192,10 @@ function LetterheadPanel() {
         </div>
       </div>
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
-      <p className="mt-2 text-xs text-slate-400">Ruxsat etilgan format: JPG yoki PNG (kompaniya logotipi/rekvizitlari bo'lgan tayyor blank rasmi, max 8 MB).</p>
+      <p className="mt-2 text-xs text-slate-400">
+        Faqat Word (.docx) fayl, max 10 MB. Blank ichida quyidagi teglardan istalganini yozing — tizim ularni avtomatik to'ldiradi:
+        {" "}<code className="rounded bg-slate-100 px-1">{"{raqam}"}</code> <code className="rounded bg-slate-100 px-1">{"{sana}"}</code> <code className="rounded bg-slate-100 px-1">{"{kimga}"}</code> <code className="rounded bg-slate-100 px-1">{"{manzil}"}</code> <code className="rounded bg-slate-100 px-1">{"{matn}"}</code> — va ogohlantirish xatlari uchun qo'shimcha: <code className="rounded bg-slate-100 px-1">{"{shartnoma_raqami}"}</code> <code className="rounded bg-slate-100 px-1">{"{oylik_tolov}"}</code> <code className="rounded bg-slate-100 px-1">{"{kechikkan_kun}"}</code> <code className="rounded bg-slate-100 px-1">{"{xayriya_summasi}"}</code>.
+      </p>
     </div>
   );
 }
