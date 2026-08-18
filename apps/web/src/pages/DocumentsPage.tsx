@@ -4,16 +4,17 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { fetchDocuments, createDocument } from "../api/documents";
 import { StatusBadge } from "../components/StatusBadge";
-import type { DocumentStatus, DocumentType } from "@edo/shared-types";
+import type { DocumentType } from "@edo/shared-types";
+import { DocumentStatus } from "@edo/shared-types";
 
 const STATUS_FILTERS: { value: DocumentStatus | ""; label: string }[] = [
   { value: "", label: "Barchasi" },
-  { value: "DRAFT", label: "Qoralama" },
-  { value: "IN_REVIEW", label: "Ko'rib chiqilmoqda" },
-  { value: "PENDING_SIGNATURE", label: "Imzo kutilmoqda" },
-  { value: "SIGNED", label: "Imzolangan" },
-  { value: "REJECTED", label: "Rad etilgan" },
-  { value: "ARCHIVED", label: "Arxivlangan" },
+  { value: DocumentStatus.DRAFT, label: "Qoralama" },
+  { value: DocumentStatus.IN_REVIEW, label: "Ko'rib chiqilmoqda" },
+  { value: DocumentStatus.PENDING_SIGNATURE, label: "Imzo kutilmoqda" },
+  { value: DocumentStatus.SIGNED, label: "Imzolangan" },
+  { value: DocumentStatus.REJECTED, label: "Rad etilgan" },
+  { value: DocumentStatus.ARCHIVED, label: "Arxivlangan" },
 ];
 
 export function DocumentsPage() {

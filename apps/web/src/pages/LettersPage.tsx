@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, Archive, Check, Download, FileQuestion, Mail, Plus, SendHorizontal, Trash2, X, Sparkles } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
-import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, exportLetters, fetchAiAgentStats, fetchArchive, fetchLetter, fetchLetters, fetchNextLetterNumber, submitLetter } from "../api/letters";
+import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetters, fetchNextLetterNumber, submitLetter } from "../api/letters";
 import { useAuth } from "../context/AuthContext";
 
 const TYPE_LABELS: Record<string, { label: string; icon: any; description: string }> = {
