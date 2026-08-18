@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Mail } from "lucide-react";
 import { fetchDocuments, createDocument } from "../api/documents";
+import { fetchLetters } from "../api/letters";
 import { StatusBadge } from "../components/StatusBadge";
 import type { DocumentType } from "@edo/shared-types";
-import { DocumentStatus } from "@edo/shared-types";
+import { DocumentStatus, LetterStatus } from "@edo/shared-types";
 
 const STATUS_FILTERS: { value: DocumentStatus | ""; label: string }[] = [
   { value: "", label: "Barchasi" },
@@ -26,6 +27,19 @@ export function DocumentsPage() {
     queryKey: ["documents", status],
     queryFn: () => fetchDocuments({ status: status || undefined, page: 1 }),
   });
+
+  // "Imzo kutilmoqda" tanlanganda, rahbariyat tasdig'ini kutayotgan XATlar ham
+  // shu ro'yxatda ko'rinadi (ikkala modul - Hujjatlar va Xat - shu tabda birlashadi)
+  const showPendingLetters = status === DocumentStatus.PENDING_SIGNATURE;
+  const { data: pendingLettersData, isLoading: lettersLoading } = useQuery({
+    queryKey: ["letters", "pending-approval-for-documents"],
+    queryFn: () => fetchLetters({ status: LetterStatus.PENDING_APPROVAL as any }),
+    enabled: showPendingLetters,
+  });
+  const pendingLetters = showPendingLetters ? pendingLettersData?.items ?? [] : [];
+
+  const isLoadingCombined = isLoading || (showPendingLetters && lettersLoading);
+  const totalCombined = (data?.items.length ?? 0) + pendingLetters.length;
 
   return (
     <div className="p-8">
@@ -66,14 +80,14 @@ export function DocumentsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {isLoading && (
+            {isLoadingCombined && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
                   Yuklanmoqda...
                 </td>
               </tr>
             )}
-            {!isLoading && data?.items.length === 0 && (
+            {!isLoadingCombined && totalCombined === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
                   Hujjatlar topilmadi.
@@ -94,6 +108,26 @@ export function DocumentsPage() {
                 </td>
                 <td className="px-4 py-3 text-slate-500">
                   {new Date(doc.updatedAt).toLocaleDateString("uz-UZ")}
+                </td>
+              </tr>
+            ))}
+            {pendingLetters.map((letter: any) => (
+              <tr key={`letter-${letter.id}`} className="bg-sky-50/40 hover:bg-sky-50">
+                <td className="px-4 py-3">
+                  <Link to="/letters" className="flex items-center gap-1.5 font-medium text-brand-800 hover:underline">
+                    <Mail size={14} className="text-sky-600" />
+                    {letter.counterpartyName} — № {letter.documentNumber}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-slate-500">Xat</td>
+                <td className="px-4 py-3 text-slate-500">{letter.createdBy?.fullName ?? "—"}</td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800">
+                    Imzo kutilmoqda
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-slate-500">
+                  {new Date(letter.updatedAt).toLocaleDateString("uz-UZ")}
                 </td>
               </tr>
             ))}

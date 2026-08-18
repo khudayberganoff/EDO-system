@@ -71,7 +71,12 @@ export class LettersService {
     const where: Prisma.LetterWhereInput = {};
     if (query.direction) where.direction = query.direction;
     if (query.type) where.type = query.type;
-    if (query.status) where.status = query.status;
+    if (query.status) {
+      where.status = query.status;
+    } else {
+      // O'chirilgan xatlar asosiy ro'yxatda ko'rinmaydi - ular "Fayllar arxivi"ga o'tadi
+      where.status = { not: LetterStatus.DELETED };
+    }
     const page = query.page ?? 1; const pageSize = query.pageSize ?? 20;
     const [items, total] = await this.prisma.$transaction([
       this.prisma.letter.findMany({ where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { updatedAt: "desc" }, include: { createdBy: { select: { fullName: true } } } }),
@@ -152,7 +157,11 @@ export class LettersService {
   }
 
   async archiveList() {
-    return this.prisma.letter.findMany({ where: { status: LetterStatus.ARCHIVED }, orderBy: { approvedAt: "desc" }, include: { createdBy: { select: { fullName: true } } } });
+    return this.prisma.letter.findMany({
+      where: { status: { in: [LetterStatus.ARCHIVED, LetterStatus.DELETED] } },
+      orderBy: [{ approvedAt: "desc" }, { updatedAt: "desc" }],
+      include: { createdBy: { select: { fullName: true } } },
+    });
   }
 
   private async buildDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
