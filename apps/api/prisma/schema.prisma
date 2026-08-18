@@ -1,0 +1,197 @@
+// EDO (Elektron Hujjat Aylanishi) - asosiy ma'lumotlar bazasi sxemasi
+// Yangi jadval/maydon qo'shish kerak bo'lsa: shu faylni tahrirlang,
+// so'ng `npm run prisma:migrate --workspace=apps/api` ni ishga tushiring.
+//
+// ESLATMA: SQLite native enum va Json turlarini qo'llab-quvvatlamaydi,
+// shuning uchun "enum bo'lishi kerak" maydonlar String sifatida saqlanadi.
+// Ruxsat etilgan qiymatlar apps/api/src/common/enums.ts faylida va
+// packages/shared-types/src/enums.ts da belgilangan — validatsiya shu
+// yerdagi TypeScript enum'lar va class-validator orqali amalga oshadi.
+// Production'da PostgreSQL'ga o'tilganda, shu maydonlarni haqiqiy
+// Prisma enum'iga qaytarish mumkin (schema'da enum bloklarini tiklab).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  fullName     String
+  email        String   @unique
+  passwordHash String
+  /// Qiymatlar: ADMIN | MANAGER | EMPLOYEE | AUDITOR (bax. common/enums.ts -> Role)
+  role         String   @default("EMPLOYEE")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents        Document[]        @relation("DocumentOwner")
+  workflowSteps    WorkflowStep[]    @relation("StepApprover")
+  documentVersions DocumentVersion[] @relation("VersionAuthor")
+  signatures       Signature[]       @relation("Signer")
+  auditLogs        AuditLog[]        @relation("AuditUser")
+  letters          Letter[]          @relation("LetterAuthor")
+
+  @@index([email])
+}
+
+/// Asosiy hujjat: title, turi, holati va WAFA GROUP CRM'dagi
+/// shartnomaga bog'lanish uchun contractRefId (tashqi tizim ID'si, ixtiyoriy).
+model Document {
+  id      String @id @default(uuid())
+  title   String
+  /// Qiymatlar: CONTRACT | INVOICE | ORDER | APPLICATION | OTHER
+  type    String @default("OTHER")
+  /// Qiymatlar: DRAFT | IN_REVIEW | PENDING_SIGNATURE | SIGNED | REJECTED | ARCHIVED
+  status  String @default("DRAFT")
+  ownerId String
+  owner   User   @relation("DocumentOwner", fields: [ownerId], references: [id])
+
+  contractRefId String? // tashqi CRM'dagi shartnoma ID'si (integratsiya nuqtasi)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  versions  DocumentVersion[]
+  workflow  Workflow?
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@index([contractRefId])
+}
+
+/// Har bir hujjatning versiyalari - fayl har tahrirlanganda yangi versiya yaratiladi,
+/// eskilari o'chirilmaydi (audit va yuridik talab uchun).
+model DocumentVersion {
+  id            String   @id @default(uuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  fileUrl       String
+  fileName      String
+  fileSizeBytes Int
+  note          String?
+  createdById   String
+  createdBy     User     @relation("VersionAuthor", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+
+  signatures Signature[]
+
+  @@unique([documentId, versionNumber])
+}
+
+/// Har bir hujjatga bog'langan tasdiqlash zanjiri (workflow).
+model Workflow {
+  id         String   @id @default(uuid())
+  documentId String   @unique
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  /// Qiymatlar: SEQUENTIAL | PARALLEL
+  type        String    @default("SEQUENTIAL")
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  steps WorkflowStep[]
+}
+
+/// Workflow ichidagi bitta bosqich - kim tasdiqlaydi, qaysi tartibda.
+model WorkflowStep {
+  id         String   @id @default(uuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  order      Int
+  approverId String
+  approver   User     @relation("StepApprover", fields: [approverId], references: [id])
+  /// Qiymatlar: PENDING | APPROVED | REJECTED | SKIPPED
+  status     String    @default("PENDING")
+  comment    String?
+  decidedAt  DateTime?
+
+  @@unique([workflowId, order])
+}
+
+/// Elektron imzo yozuvi - hozircha MOCK provider, keyinchalik EIMZO bilan almashtiriladi.
+model Signature {
+  id                String          @id @default(uuid())
+  documentVersionId String
+  documentVersion   DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  signerId          String
+  signer            User            @relation("Signer", fields: [signerId], references: [id])
+  /// Qiymatlar: MOCK | EIMZO
+  provider String @default("MOCK")
+  /// Qiymatlar: PENDING | SIGNED | FAILED
+  status            String    @default("PENDING")
+  certificateSerial String?
+  signatureHash     String?
+  signedAt          DateTime?
+  createdAt         DateTime  @default(now())
+}
+
+/// Har qanday muhim harakat shu yerga yoziladi - o'chirib bo'lmaydi (append-only).
+model AuditLog {
+  id         String    @id @default(uuid())
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  userId     String
+  user       User      @relation("AuditUser", fields: [userId], references: [id])
+  /// Qiymatlar: CREATE | UPDATE | STATUS_CHANGE | SIGN | DOWNLOAD | DELETE | LOGIN
+  action     String
+  /// JSON.stringify() bilan saqlanadi, o'qishda JSON.parse() qilinadi
+  /// (SQLite'da native Json turi yo'q; PostgreSQL'ga o'tishda Json'ga qaytarish mumkin)
+  metadata   String?
+  createdAt  DateTime  @default(now())
+
+  @@index([documentId])
+  @@index([userId])
+}
+
+/// Kiruvchi/chiquvchi xatlar bo'limi (ogohlantirish, ma'lumotnoma, xat).
+/// Document/Workflow modellaridan alohida - chunki maydonlari boshqacha
+/// (kontragent nomi/adresi, telefon, qisqacha mazmun) va workflow zanjiri kerak emas.
+model Letter {
+  id       String @id @default(uuid())
+  /// Qiymatlar: INCOMING | OUTGOING
+  direction String
+  /// Qiymatlar: WARNING | REFERENCE | LETTER
+  type      String
+  /// DRAFT | PENDING_APPROVAL | APPROVED | ARCHIVED | DELETED
+  status    String @default("DRAFT")
+
+  documentNumber      String
+  documentDate        DateTime @default(now())
+  /// ORGANIZATION | CITIZEN
+  counterpartyType    String @default("ORGANIZATION")
+  counterpartyName    String
+  counterpartyAddress String?
+  phoneNumber         String?
+  summary             String
+  bodyText            String?
+  aiGenerated         Boolean @default(false)
+
+  /// Faqat WARNING (ogohlantirish) turidagi xatlar uchun ixtiyoriy maydonlar.
+  /// Boshqa turlarda bo'sh (null) qoladi.
+  contractNumber        String?
+  contractDate          DateTime?
+  monthlyPaymentAmount  Float?
+  overdueDays           Int?
+  charityAmount         Float?
+
+  draftFileUrl        String?
+  finalFileUrl        String?
+  qrToken             String? @unique
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  approvedById        String?
+
+  createdById String
+  createdBy   User   @relation("LetterAuthor", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([direction])
+  @@index([type])
+  @@index([status])
+}

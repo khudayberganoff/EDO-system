@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>WAFA EDO — Ishga tushmoqda</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;background:#f4f6f5;color:#07231a;overflow:hidden}.pattern{position:fixed;inset:-20%;background:url('/assets/wafa-pattern.png') center/520px auto repeat;transform:rotate(45deg) scale(1.05);opacity:.5;filter:brightness(1.55) saturate(.72);animation:reveal 3s ease-in-out infinite alternate;pointer-events:none}@keyframes reveal{to{opacity:1;filter:brightness(1) saturate(1)}}.card{position:relative;width:min(460px,calc(100% - 32px));padding:38px;border-radius:28px;background:rgba(255,255,255,.96);box-shadow:0 25px 80px rgba(7,35,26,.22);text-align:center;backdrop-filter:blur(8px)}.logo{width:230px;max-width:80%;height:auto}.spinner{width:28px;height:28px;border:3px solid #ddefe7;border-top-color:#1c7a5c;border-radius:50%;margin:24px auto 14px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.title{font-size:20px;font-weight:800;margin:4px 0}.status{font-size:14px;color:#64748b;min-height:22px}.bar{height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:22px}.bar>i{display:block;height:100%;width:15%;background:#1c7a5c;border-radius:99px;transition:width .4s ease}.error{white-space:pre-wrap;text-align:left;margin-top:18px;padding:10px 12px;background:#fff1f2;color:#be123c;border-radius:10px;font-size:13px;display:none}.small{margin-top:18px;font-size:11px;color:#94a3b8}</style>
+</head>
+<body><div class="pattern"></div><main class="card"><img class="logo" src="/assets/wafa-logo.png" alt="WAFA"><div class="spinner"></div><div class="title">EDO tizimi ishga tushmoqda</div><div id="status" class="status">Tizim tayyorlanmoqda...</div><div class="bar"><i id="bar"></i></div><div id="error" class="error"></div><div class="small">Sozlash va ishga tushirish jarayonlari fon rejimida bajariladi.</div></main>
+<script>
+const statusEl=document.getElementById('status'),bar=document.getElementById('bar'),errorEl=document.getElementById('error');
+async function poll(){try{const r=await fetch('/status',{cache:'no-store'});const s=await r.json();statusEl.textContent=s.message||'Ishga tushmoqda...';bar.style.width=(s.progress||15)+'%';if(s.error){errorEl.style.display='block';errorEl.textContent=s.error}if(s.ready){statusEl.textContent='Tizim tayyor. Brauzer ochilmoqda...';bar.style.width='100%';setTimeout(()=>location.href=(s.url||'http://localhost:5173'),500)}else setTimeout(poll,700)}catch(e){setTimeout(poll,1200)}}poll();
+</script></body></html>
