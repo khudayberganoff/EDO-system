@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, Archive, Check, Download, FileQuestion, Mail, Plus, SendHorizontal, Trash2, X, Sparkles } from "lucide-react";
+import { AlertTriangle, Archive, Check, Download, FileQuestion, Mail, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
-import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetters, fetchNextLetterNumber, submitLetter } from "../api/letters";
+import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead } from "../api/letters";
 import { useAuth } from "../context/AuthContext";
 
 const TYPE_LABELS: Record<string, { label: string; icon: any; description: string }> = {
@@ -35,6 +35,8 @@ export function LettersPage() {
         <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-4 py-2 text-sm font-medium text-white"><Plus size={16}/> Yangi {TYPE_LABELS[selectedType].label.toLowerCase()}</button>
       </div>
     </div>
+
+    {canApprove && <LetterheadPanel />}
 
     <div className="mb-5 flex flex-wrap gap-2">
       {[undefined, LetterStatus.DRAFT, LetterStatus.PENDING_APPROVAL, LetterStatus.ARCHIVED].map((s) => <button key={s ?? "all"} onClick={() => setStatus(s)} className={clsx("rounded-full border px-3 py-1.5 text-xs font-medium", status === s ? "border-brand-800 bg-brand-800 text-white" : "border-slate-200 bg-white text-slate-600")}>{s ? STATUS_LABELS[s] : "Barchasi"}</button>)}
@@ -115,3 +117,60 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
   </div></div>;
 }
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>{children}</label>; }
+
+function LetterheadPanel() {
+  const queryClient = useQueryClient();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { data } = useQuery({ queryKey: ["letters", "letterhead"], queryFn: fetchLetterheadStatus });
+
+  const upload = useMutation({
+    mutationFn: uploadLetterhead,
+    onSuccess: () => { setError(null); queryClient.invalidateQueries({ queryKey: ["letters", "letterhead"] }); },
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Yuklashda xatolik yuz berdi."),
+  });
+  const remove = useMutation({
+    mutationFn: removeLetterhead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letters", "letterhead"] }),
+  });
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) upload.mutate(file);
+    e.target.value = "";
+  };
+
+  return (
+    <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-800"><ImageIcon size={18}/></div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Firma blankasi (letterhead)</p>
+            <p className="text-xs text-slate-500">
+              {data?.exists
+                ? "Yuklangan blank AI yozgan xatlarga avtomatik joylashadi."
+                : "Blank yuklanmagan — xatlar standart WAFA LEASING sarlavhasi bilan yaratiladi."}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {data?.exists && data.url && (
+            <a href={`${(import.meta as any).env.VITE_API_URL ?? ""}${data.url}`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">Ko'rish</a>
+          )}
+          <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png" className="hidden" onChange={onFileChange} />
+          <button onClick={() => inputRef.current?.click()} disabled={upload.isPending} className="flex items-center gap-2 rounded-lg bg-brand-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+            <Upload size={14}/> {upload.isPending ? "Yuklanmoqda..." : data?.exists ? "Almashtirish" : "Blank yuklash"}
+          </button>
+          {data?.exists && (
+            <button onClick={() => remove.mutate()} disabled={remove.isPending} className="flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+              <Trash2 size={14}/> O'chirish
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+      <p className="mt-2 text-xs text-slate-400">Ruxsat etilgan format: JPG yoki PNG (kompaniya logotipi/rekvizitlari bo'lgan tayyor blank rasmi, max 8 MB).</p>
+    </div>
+  );
+}

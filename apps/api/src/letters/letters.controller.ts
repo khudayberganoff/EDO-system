@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Query, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { Response } from "express";
 import * as XLSX from "xlsx";
 import { LettersService } from "./letters.service";
 import { CreateLetterDto } from "./dto/create-letter.dto";
 import { QueryLettersDto } from "./dto/query-letters.dto";
+import { letterheadUploadOptions } from "./letterhead.multer.config";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 import { LetterStatus, LetterType, Role } from "../common/enums";
 import { Roles } from "../common/decorators/roles.decorator";
@@ -34,6 +36,22 @@ export class LettersController {
   }
 
   @Get("ai-agent/stats") aiAgentStats() { return this.lettersService.getAiAgentStats(); }
+
+  // --- Firma blankasi (letterhead) ---
+  @Get("letterhead") getLetterhead() { return this.lettersService.getLetterheadStatus(); }
+
+  @Post("letterhead")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @UseInterceptors(FileInterceptor("file", letterheadUploadOptions))
+  uploadLetterhead(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: AuthenticatedUser) {
+    return this.lettersService.uploadLetterhead(file, user);
+  }
+
+  @Delete("letterhead")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  removeLetterhead(@CurrentUser() user: AuthenticatedUser) {
+    return this.lettersService.removeLetterhead(user);
+  }
 
   @Get(":id") findOne(@Param("id") id: string) { return this.lettersService.findOne(id); }
   @Post(":id/submit") submit(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id); }

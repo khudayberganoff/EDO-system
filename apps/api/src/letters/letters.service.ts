@@ -5,6 +5,7 @@ import * as QRCode from "qrcode";
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
+import { imageSize } from "image-size";
 import { AuditAction, LetterStatus, LetterType, Role } from "../common/enums";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -13,7 +14,11 @@ import { QueryLettersDto } from "./dto/query-letters.dto";
 import { LetterAiAgentService } from "./letter-ai-agent.service";
 
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
+const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
 const TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "WAFA_LEASING_XAT_NAMUNA.docx");
+// A4 sahifa matn kengligi (chap/o'ng margin olib tashlangandan keyin), piksel birligida
+// (docx kutubxonasi ImageRun o'lchamlarini 96dpi piksel sifatida kutadi)
+const PAGE_CONTENT_WIDTH_PX = 640;
 
 @Injectable()
 export class LettersService {
@@ -23,7 +28,44 @@ export class LettersService {
     private aiAgent: LetterAiAgentService,
   ) {
     fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
+    fs.mkdirSync(LETTERHEAD_DIR, { recursive: true });
     if (!fs.existsSync(TEMPLATE_PATH)) throw new Error("WAFA xat shabloni topilmadi: " + TEMPLATE_PATH);
+  }
+
+  // --- Firma blankasi (letterhead) ---
+
+  private findLetterheadFile(): string | null {
+    if (!fs.existsSync(LETTERHEAD_DIR)) return null;
+    const files = fs.readdirSync(LETTERHEAD_DIR).filter((f) => f.startsWith("current"));
+    return files.length > 0 ? path.join(LETTERHEAD_DIR, files[0]) : null;
+  }
+
+  async getLetterheadStatus() {
+    const file = this.findLetterheadFile();
+    return { exists: !!file, url: file ? `/uploads/letterhead/${path.basename(file)}` : null };
+  }
+
+  async uploadLetterhead(file: Express.Multer.File, user: { id: string; role: string }) {
+    if (![Role.ADMIN, Role.MANAGER].includes(user.role as Role)) {
+      fs.unlinkSync(file.path);
+      throw new ForbiddenException("Faqat rahbariyat firma blankasini o'zgartira oladi.");
+    }
+    // Eski blank fayllarini (boshqa kengaytmadagi) tozalash - bitta faol blank bo'lishi uchun
+    for (const f of fs.readdirSync(LETTERHEAD_DIR)) {
+      if (f.startsWith("current") && f !== path.basename(file.path)) {
+        fs.unlinkSync(path.join(LETTERHEAD_DIR, f));
+      }
+    }
+    await this.auditLog.record({ userId: user.id, action: AuditAction.UPDATE, metadata: { kind: "letterhead", action: "upload" } });
+    return this.getLetterheadStatus();
+  }
+
+  async removeLetterhead(user: { id: string; role: string }) {
+    if (![Role.ADMIN, Role.MANAGER].includes(user.role as Role)) throw new ForbiddenException("Faqat rahbariyat firma blankasini o'chira oladi.");
+    const file = this.findLetterheadFile();
+    if (file) fs.unlinkSync(file);
+    await this.auditLog.record({ userId: user.id, action: AuditAction.UPDATE, metadata: { kind: "letterhead", action: "remove" } });
+    return this.getLetterheadStatus();
   }
 
   async getNextDocumentNumber(type: LetterType) {
@@ -166,10 +208,33 @@ export class LettersService {
 
   private async buildDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
     const qr = approved && token ? await QRCode.toBuffer(`EDO-WAFA|LETTER|${letter.id}|${token}`, { width: 130, margin: 1 }) : undefined;
-    const header = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [
-      new TableCell({ width: { size: 62, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "«WAFA LEASING»", bold: true, size: 28 }), new TextRun({ text: "\nMas’uliyati cheklangan jamiyat", size: 20 }), new TextRun({ text: "\n«WAFA LEASING»", bold: true, size: 22 }), new TextRun({ text: "\nLimited liability company", size: 20 }), new TextRun({ text: "\nToshkent sh., Chilonzor t., 2-Charx Kamolon MFY, Bunyodkor ko‘chasi, 2-uy", size: 18 }), new TextRun({ text: "\nINN: 311886363, MFO 01041, Toshkent sh., \"Asia Alliance Bank\"", size: 18 }), new TextRun({ text: "\nh/r: 2020 8000 0071 9560 9001, e-mail: wafaleasing@gmail.com", size: 18 })] })] }),
-      new TableCell({ width: { size: 38, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "№ " + letter.documentNumber, bold: true, size: 22 })] }), new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: new Date(letter.documentDate).toLocaleDateString("uz-UZ"), size: 20 })] })] })
-    ] })] });
+
+    const letterheadFile = this.findLetterheadFile();
+    let letterheadElement: Paragraph | Table;
+    if (letterheadFile) {
+      // Kompaniya o'z blankasini yuklagan bo'lsa - xat matni shu blank ustiga joylashadi:
+      // blank rasmi sahifa tepasida to'liq kenglikda ko'rsatiladi.
+      const buf = fs.readFileSync(letterheadFile);
+      const dims = imageSize(buf);
+      const widthPx = PAGE_CONTENT_WIDTH_PX;
+      const heightPx = Math.round((widthPx * dims.height) / dims.width);
+      letterheadElement = new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 },
+        children: [new ImageRun({ data: buf, transformation: { width: widthPx, height: heightPx }, type: (letterheadFile.endsWith(".png") ? "png" : "jpg") as any })],
+      });
+    } else {
+      // Standart (default) WAFA LEASING sarlavhasi - blank yuklanmagan bo'lsa
+      letterheadElement = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [
+        new TableCell({ width: { size: 62, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "«WAFA LEASING»", bold: true, size: 28 }), new TextRun({ text: "\nMas’uliyati cheklangan jamiyat", size: 20 }), new TextRun({ text: "\n«WAFA LEASING»", bold: true, size: 22 }), new TextRun({ text: "\nLimited liability company", size: 20 }), new TextRun({ text: "\nToshkent sh., Chilonzor t., 2-Charx Kamolon MFY, Bunyodkor ko‘chasi, 2-uy", size: 18 }), new TextRun({ text: "\nINN: 311886363, MFO 01041, Toshkent sh., \"Asia Alliance Bank\"", size: 18 }), new TextRun({ text: "\nh/r: 2020 8000 0071 9560 9001, e-mail: wafaleasing@gmail.com", size: 18 })] })] }),
+        new TableCell({ width: { size: 38, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "№ " + letter.documentNumber, bold: true, size: 22 })] }), new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: new Date(letter.documentDate).toLocaleDateString("uz-UZ"), size: 20 })] })] })
+      ] })] });
+    }
+    const header = letterheadElement;
+    // Blank yuklangan bo'lsa ham hujjat raqami/sana ko'rinishi kerak - blank ostida kichik qatorda
+    const numberDateLine = letterheadFile
+      ? new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: [new TextRun({ text: `№ ${letter.documentNumber}   ${new Date(letter.documentDate).toLocaleDateString("uz-UZ")}`, bold: true, size: 20 })] })
+      : new Paragraph({ children: [] });
     const recipient = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Kimga: ", bold: true, size: 21 }), new TextRun({ text: letter.counterpartyName, size: 21 })] }), new Paragraph({ children: [new TextRun({ text: "Manzil: ", bold: true, size: 21 }), new TextRun({ text: letter.counterpartyAddress || "—", size: 21 })] })] })] })] });
     const paragraphs = String(letter.bodyText || "").split(/\n+/).map((t: string) => new Paragraph({ spacing: { after: 160, line: 300 }, alignment: AlignmentType.JUSTIFIED, children: [new TextRun({ text: t.trim(), size: 22, font: "Times New Roman" })] }));
 
@@ -192,7 +257,7 @@ export class LettersService {
       new TableCell({ width: { size: 72, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "Direktor", bold: true, size: 22 }), new TextRun({ text: "\t\tM. Xudayberganov", bold: true, size: 22 })] })] }),
       new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: qr ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new ImageRun({ data: qr, transformation: { width: 95, height: 95 }, type: "png" })] })] : [new Paragraph({})] })
     ] })] });
-    const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 900, bottom: 720, left: 900 } } }, children: [header, new Paragraph({ spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: letter.type === LetterType.WARNING ? "ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT", bold: true, size: 26, font: "Times New Roman" })] }), recipient, ...warningTable, new Paragraph({ spacing: { before: 220, after: 220 }, children: [new TextRun({ text: "Xat mazmuni", bold: true, size: 22, font: "Times New Roman" })] }), ...paragraphs, new Paragraph({ spacing: { before: 280 }, children: [new TextRun({ text: "Hurmat bilan,", size: 22, font: "Times New Roman" })] }), footer, ...(approved ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `QR tasdiq kodi: ${token}`, size: 14, color: "666666" })] })] : [])] }] });
+    const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 900, bottom: 720, left: 900 } } }, children: [header, numberDateLine, new Paragraph({ spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: letter.type === LetterType.WARNING ? "ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT", bold: true, size: 26, font: "Times New Roman" })] }), recipient, ...warningTable, new Paragraph({ spacing: { before: 220, after: 220 }, children: [new TextRun({ text: "Xat mazmuni", bold: true, size: 22, font: "Times New Roman" })] }), ...paragraphs, new Paragraph({ spacing: { before: 280 }, children: [new TextRun({ text: "Hurmat bilan,", size: 22, font: "Times New Roman" })] }), footer, ...(approved ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `QR tasdiq kodi: ${token}`, size: 14, color: "666666" })] })] : [])] }] });
     return Packer.toBuffer(doc);
   }
 }
