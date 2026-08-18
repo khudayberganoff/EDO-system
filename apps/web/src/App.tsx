@@ -9,6 +9,7 @@ import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentDetailPage } from "./pages/DocumentDetailPage";
 import { LettersPage } from "./pages/LettersPage";
 import { LetterArchivePage } from "./pages/LetterArchivePage";
+import { LetterVerifyPage } from "./pages/LetterVerifyPage";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/verify/:id" element={<LetterVerifyPage />} />
 
             <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>

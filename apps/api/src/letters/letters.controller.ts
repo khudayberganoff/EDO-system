@@ -8,6 +8,7 @@ import { CreateLetterDto } from "./dto/create-letter.dto";
 import { QueryLettersDto } from "./dto/query-letters.dto";
 import { letterheadUploadOptions } from "./letterhead.multer.config";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
+import { Public } from "../common/decorators/public.decorator";
 import { LetterStatus, LetterType, Role } from "../common/enums";
 import { Roles } from "../common/decorators/roles.decorator";
 
@@ -51,6 +52,13 @@ export class LettersController {
   @Roles(Role.ADMIN, Role.MANAGER)
   removeLetterhead(@CurrentUser() user: AuthenticatedUser) {
     return this.lettersService.removeLetterhead(user);
+  }
+
+  // --- QR orqali ochiq tekshiruv (login talab qilinmaydi) ---
+  @Public()
+  @Get("verify/:id")
+  verify(@Param("id") id: string, @Query("token") token: string) {
+    return this.lettersService.verifyByToken(id, token);
   }
 
   @Get(":id") findOne(@Param("id") id: string) { return this.lettersService.findOne(id); }

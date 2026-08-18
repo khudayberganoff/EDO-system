@@ -7,6 +7,8 @@ import * as path from "path";
 import { randomUUID } from "crypto";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ImageModule = require("docxtemplater-image-module-free");
 import { AuditAction, LetterStatus, LetterType, Role } from "../common/enums";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -17,6 +19,11 @@ import { LetterAiAgentService } from "./letter-ai-agent.service";
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
 const TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "WAFA_LEASING_XAT_NAMUNA.docx");
+// 1x1 shaffof PNG - hali tasdiqlanmagan (tokensiz) xatlarda QR o'rniga vaqtinchalik bo'sh rasm
+const TRANSPARENT_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
 
 @Injectable()
 export class LettersService {
@@ -170,6 +177,36 @@ export class LettersService {
     return updated;
   }
 
+  // --- QR orqali ochiq (login talab qilinmaydigan) tekshiruv ---
+
+  getPublicBaseUrl(): string {
+    const configured = process.env.PUBLIC_APP_URL || process.env.CORS_ORIGIN?.split(",")[0];
+    return (configured || "http://localhost:5173").replace(/\/+$/, "");
+  }
+
+  buildVerifyUrl(letterId: string, token: string): string {
+    return `${this.getPublicBaseUrl()}/verify/${letterId}?token=${token}`;
+  }
+
+  async verifyByToken(id: string, token: string) {
+    const letter = await this.prisma.letter.findUnique({ where: { id } });
+    if (!letter || letter.status !== LetterStatus.ARCHIVED || !letter.qrToken || letter.qrToken !== token) {
+      throw new NotFoundException("Hujjat topilmadi yoki QR kodi noto'g'ri.");
+    }
+    // Faqat elektron tasdiqlash uchun zarur bo'lgan xavfsiz maydonlar qaytariladi
+    return {
+      documentNumber: letter.documentNumber,
+      type: letter.type,
+      counterpartyName: letter.counterpartyName,
+      counterpartyAddress: letter.counterpartyAddress,
+      documentDate: letter.documentDate,
+      summary: letter.summary,
+      bodyText: letter.bodyText,
+      approvedAt: letter.approvedAt,
+      finalFileUrl: letter.finalFileUrl,
+    };
+  }
+
   async generateDraftFile(id: string) {
     const letter = await this.findOne(id);
     const file = await this.buildDocx(letter, false);
@@ -209,7 +246,7 @@ export class LettersService {
     if (letterheadFile) {
       // Kompaniya o'z Word blankasini yuklagan - AI/inson yozgan xat matni
       // shu blank ichidagi teglar ({raqam}, {sana}, {kimga}, {matn} va h.k.) o'rniga joylashadi.
-      return this.buildDocxFromTemplate(letterheadFile, letter, approved, token);
+      return await this.buildDocxFromTemplate(letterheadFile, letter, approved, token);
     }
     return this.buildDocxDefault(letter, approved, token);
   }
@@ -222,13 +259,23 @@ export class LettersService {
    *   {shartnoma_raqami} {shartnoma_sanasi} {oylik_tolov} {kechikkan_kun} {xayriya_summasi}
    *   {qr_kod}
    */
-  private buildDocxFromTemplate(templatePath: string, letter: any, approved: boolean, token?: string): Buffer {
+  private async buildDocxFromTemplate(templatePath: string, letter: any, approved: boolean, token?: string): Promise<Buffer> {
     const money = (n: number) => new Intl.NumberFormat("uz-UZ").format(Math.round(n)) + " so'm";
     const title = letter.type === LetterType.WARNING ? "ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT";
     try {
       const content = fs.readFileSync(templatePath, "binary");
       const zip = new PizZip(content);
-      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+      // {%qr_kod} - blankda shu tegni qo'yilsa, xatga tegishli UNIKAL QR kod rasm sifatida
+      // joylashadi. Tasdiqlangandan keyingina haqiqiy QR bo'ladi, aks holda bo'sh joy qoladi.
+      const qrBuffer = approved && token
+        ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, token), { width: 180, margin: 1 })
+        : TRANSPARENT_PIXEL_PNG;
+      const imageModule = new ImageModule({
+        centered: false,
+        getImage: () => qrBuffer,
+        getSize: () => [90, 90],
+      });
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, modules: [imageModule] });
       doc.render({
         raqam: letter.documentNumber ?? "",
         sana: letter.documentDate ? new Date(letter.documentDate).toLocaleDateString("uz-UZ") : "",
@@ -242,7 +289,7 @@ export class LettersService {
         oylik_tolov: letter.monthlyPaymentAmount != null ? money(letter.monthlyPaymentAmount) : "",
         kechikkan_kun: letter.overdueDays != null ? String(letter.overdueDays) : "",
         xayriya_summasi: letter.charityAmount != null ? money(letter.charityAmount) : "",
-        qr_kod: approved && token ? token : "",
+        qr_kod: "qr",
       });
       return doc.getZip().generate({ type: "nodebuffer" });
     } catch (err: any) {
@@ -252,7 +299,7 @@ export class LettersService {
   }
 
   private async buildDocxDefault(letter: any, approved: boolean, token?: string): Promise<Buffer> {
-    const qr = approved && token ? await QRCode.toBuffer(`EDO-WAFA|LETTER|${letter.id}|${token}`, { width: 130, margin: 1 }) : undefined;
+    const qr = approved && token ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, token), { width: 180, margin: 1 }) : undefined;
     const header = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [
       new TableCell({ width: { size: 62, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "«WAFA LEASING»", bold: true, size: 28 }), new TextRun({ text: "\nMas’uliyati cheklangan jamiyat", size: 20 }), new TextRun({ text: "\n«WAFA LEASING»", bold: true, size: 22 }), new TextRun({ text: "\nLimited liability company", size: 20 }), new TextRun({ text: "\nToshkent sh., Chilonzor t., 2-Charx Kamolon MFY, Bunyodkor ko‘chasi, 2-uy", size: 18 }), new TextRun({ text: "\nINN: 311886363, MFO 01041, Toshkent sh., \"Asia Alliance Bank\"", size: 18 }), new TextRun({ text: "\nh/r: 2020 8000 0071 9560 9001, e-mail: wafaleasing@gmail.com", size: 18 })] })] }),
       new TableCell({ width: { size: 38, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "№ " + letter.documentNumber, bold: true, size: 22 })] }), new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: new Date(letter.documentDate).toLocaleDateString("uz-UZ"), size: 20 })] })] })
