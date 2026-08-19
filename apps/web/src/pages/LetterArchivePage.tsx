@@ -6,7 +6,16 @@ import { useT } from "../i18n/LanguageContext";
 export function LetterArchivePage() {
   const t = useT();
   const { data, isLoading } = useQuery({ queryKey: ["letters", "archive"], queryFn: fetchArchive });
-  const download = async (id: string, name: string) => { const blob = await downloadLetter(id, "final"); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url); };
+  const download = async (id: string, name: string) => {
+    try {
+      const blob = await downloadLetter(id, "final");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { alert("Faylni yuklab bo'lmadi."); }
+  };
   return <div className="p-8"><div className="mb-6 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-800"><Archive size={20}/></div><div><h1 className="text-xl font-semibold">{t("archive.title")}</h1><p className="text-sm text-slate-500">{t("archive.subtitle")}</p></div></div><div className="overflow-hidden rounded-xl border border-slate-200 bg-white"><table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">{t("letters.colNumber")}</th><th className="px-4 py-3">{t("letters.colTo")}</th><th className="px-4 py-3">{t("letters.colStatus")}</th><th className="px-4 py-3">{t("letters.colDate")}</th><th className="px-4 py-3">{t("archive.colFile")}</th></tr></thead><tbody className="divide-y divide-slate-100">{isLoading ? <tr><td colSpan={5} className="px-4 py-8 text-center">{t("documents.loading")}</td></tr> : data?.map((x:any)=>{
     const isDeleted = x.status === "DELETED";
     return <tr key={x.id}>

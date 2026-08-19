@@ -235,10 +235,23 @@ export class LettersService {
 
   async download(id: string, kind: "draft" | "final") {
     const letter = await this.findOne(id);
-    const url = kind === "final" ? letter.finalFileUrl : letter.draftFileUrl;
-    if (!url) throw new NotFoundException("Fayl hali yaratilmagan.");
-    const full = path.resolve(process.cwd(), url.replace(/^\//, ""));
-    if (!fs.existsSync(full)) throw new NotFoundException("Fayl topilmadi.");
+    let url = kind === "final" ? letter.finalFileUrl : letter.draftFileUrl;
+
+    // Render kabi platformalarda yuklangan fayllar har deploydan keyin o'chib ketadi
+    // (vaqtinchalik disk). Shuning uchun fayl topilmasa - uni qaytadan yaratamiz.
+    const exists = url ? fs.existsSync(path.resolve(process.cwd(), url.replace(/^\//, ""))) : false;
+    if (!url || !exists) {
+      if (kind === "draft") {
+        url = await this.generateDraftFile(id);
+      } else if (letter.qrToken) {
+        url = await this.generateFinalFile(id, letter.qrToken);
+      } else {
+        throw new NotFoundException("Fayl mavjud emas: xat hali tasdiqlanmagan.");
+      }
+    }
+
+    const full = path.resolve(process.cwd(), url!.replace(/^\//, ""));
+    if (!fs.existsSync(full)) throw new NotFoundException("Faylni yaratib bo'lmadi.");
     return { full, name: path.basename(full) };
   }
 

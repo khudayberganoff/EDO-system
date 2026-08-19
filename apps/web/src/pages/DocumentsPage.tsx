@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { Plus, X, Mail } from "lucide-react";
-import { fetchDocuments, createDocument } from "../api/documents";
+import { Plus, X, Mail, Eye, FileText, CheckCircle2, Clock, ArrowRight } from "lucide-react";
+import { fetchDocuments, createDocument, fetchDocument } from "../api/documents";
 import { fetchLetters } from "../api/letters";
 import { StatusBadge } from "../components/StatusBadge";
 import { useT } from "../i18n/LanguageContext";
@@ -24,6 +24,7 @@ export function DocumentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const status = (searchParams.get("status") as DocumentStatus | null) ?? "";
   const [showCreate, setShowCreate] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["documents", status],
@@ -79,19 +80,20 @@ export function DocumentsPage() {
               <th className="px-4 py-3">{t("documents.colOwner")}</th>
               <th className="px-4 py-3">{t("documents.colStatus")}</th>
               <th className="px-4 py-3">{t("documents.colUpdated")}</th>
+              <th className="px-4 py-3">{t("letters.colActions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoadingCombined && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
                   {t("documents.loading")}
                 </td>
               </tr>
             )}
             {!isLoadingCombined && totalCombined === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
                   {t("documents.empty")}
                 </td>
               </tr>
@@ -110,6 +112,15 @@ export function DocumentsPage() {
                 </td>
                 <td className="px-4 py-3 text-slate-500">
                   {new Date(doc.updatedAt).toLocaleDateString("uz-UZ")}
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    title={t("documents.quickPreview")}
+                    onClick={() => setPreviewId(doc.id)}
+                    className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-brand-800"
+                  >
+                    <Eye size={16} />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -131,6 +142,7 @@ export function DocumentsPage() {
                 <td className="px-4 py-3 text-slate-500">
                   {new Date(letter.updatedAt).toLocaleDateString("uz-UZ")}
                 </td>
+                <td className="px-4 py-3" />
               </tr>
             ))}
           </tbody>
@@ -138,6 +150,7 @@ export function DocumentsPage() {
       </div>
 
       {showCreate && <CreateDocumentModal onClose={() => setShowCreate(false)} />}
+      {previewId && <DocumentPreviewModal id={previewId} onClose={() => setPreviewId(null)} />}
     </div>
   );
 }
@@ -217,6 +230,101 @@ function CreateDocumentModal({ onClose }: { onClose: () => void }) {
             Yaratish
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Tasdiqlashim kerak" bo'limida hujjat bilan qisqacha tanishib chiqish oynasi.
+ * To'liq sahifaga o'tmasdan turib: asosiy ma'lumotlar, fayl versiyalari va
+ * tasdiqlash bosqichlarining holati ko'rinadi.
+ */
+function DocumentPreviewModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const t = useT();
+  const { data, isLoading } = useQuery({ queryKey: ["documents", id], queryFn: () => fetchDocument(id) });
+  const doc = data as any;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {isLoading || !doc ? (
+          <p className="py-10 text-center text-slate-400">{t("documents.loading")}</p>
+        ) : (
+          <>
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">{doc.title}</h2>
+                <p className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                  <FileText size={13} /> {doc.type}
+                  {doc.contractRefId && <span>· CRM: {doc.contractRefId}</span>}
+                </p>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+
+            <div className="mb-5 grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">{t("documents.colOwner")}</p>
+                <p className="mt-0.5 font-medium text-slate-800">{doc.owner?.fullName ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">{t("documents.colStatus")}</p>
+                <div className="mt-1"><StatusBadge status={doc.status} /></div>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">{t("documents.colUpdated")}</p>
+                <p className="mt-0.5 font-medium text-slate-800">{new Date(doc.updatedAt).toLocaleString("uz-UZ")}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">{t("documents.versions")}</p>
+                <p className="mt-0.5 font-medium text-slate-800">{doc.versions?.length ?? 0}</p>
+              </div>
+            </div>
+
+            {/* Tasdiqlash bosqichlari - har bir etapning holati */}
+            {doc.workflows?.[0]?.steps?.length > 0 && (
+              <div className="mb-5">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("documents.approvalSteps")}</p>
+                <div className="space-y-2">
+                  {doc.workflows[0].steps.map((step: any, i: number) => {
+                    const done = step.status === "APPROVED";
+                    const rejected = step.status === "REJECTED";
+                    return (
+                      <div key={step.id} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5 text-sm">
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${done ? "bg-emerald-100 text-emerald-700" : rejected ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
+                          {done ? <CheckCircle2 size={14} /> : rejected ? <X size={14} /> : i + 1}
+                        </span>
+                        <span className="flex-1 text-slate-700">{step.approver?.fullName ?? "—"}</span>
+                        <span className={`flex items-center gap-1 text-xs ${done ? "text-emerald-600" : rejected ? "text-rose-600" : "text-slate-400"}`}>
+                          {!done && !rejected && <Clock size={12} />}
+                          {done ? t("documents.stepApproved") : rejected ? t("documents.stepRejected") : t("documents.stepWaiting")}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Oxirgi versiya fayli */}
+            {doc.versions?.[0]?.fileUrl && (
+              <a
+                href={`${(import.meta as any).env.VITE_API_URL ?? ""}${doc.versions[0].fileUrl}`}
+                className="mb-3 flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <FileText size={15} /> {t("letters.download")}
+              </a>
+            )}
+
+            <Link
+              to={`/documents/${doc.id}`}
+              className="flex items-center justify-center gap-2 rounded-lg bg-brand-800 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              {t("documents.openFull")} <ArrowRight size={15} />
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );

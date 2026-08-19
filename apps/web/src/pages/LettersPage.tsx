@@ -25,7 +25,21 @@ export function LettersPage() {
   const { data, isLoading } = useQuery({ queryKey: ["letters", selectedType, status], queryFn: () => fetchLetters({ type: selectedType, status: status as any }) });
   const approve = useMutation({ mutationFn: approveLetter, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letters"] }) });
   const del = useMutation({ mutationFn: deleteLetter, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letters"] }) });
-  const download = async (id: string, kind: "draft" | "final") => { const blob = await downloadLetter(id, kind); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${selectedType.toLowerCase()}-${id}.docx`; a.click(); URL.revokeObjectURL(url); };
+  const download = async (id: string, kind: "draft" | "final", documentNumber?: string) => {
+    try {
+      const blob = await downloadLetter(id, kind);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `xat-${documentNumber ?? id}${kind === "final" ? "" : "-qoralama"}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) {
+      alert(e?.response?.status === 404 ? "Fayl topilmadi. Iltimos, qaytadan urinib ko'ring." : "Faylni yuklab bo'lmadi.");
+    }
+  };
   const canApprove = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   return <div className="p-8">
@@ -56,10 +70,10 @@ export function LettersPage() {
           <td className="px-4 py-4 text-slate-600"><div className="max-w-[360px]">{letter.summary}</div></td>
           <td className="px-4 py-4"><div className="flex flex-wrap gap-1.5">
             <button title={t("letters.view")} onClick={() => setViewLetter(letter)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Eye size={16}/></button>
-            {letter.draftFileUrl && <button title={t("letters.download")} onClick={() => download(letter.id, "draft")} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16}/></button>}
+            {letter.draftFileUrl && <button title={t("letters.download")} onClick={() => download(letter.id, "draft", letter.documentNumber)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16}/></button>}
             {letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => submitLetter(letter.id).then(() => queryClient.invalidateQueries({ queryKey: ["letters"] }))} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
-            {letter.status === LetterStatus.ARCHIVED && letter.finalFileUrl && <button title="Tasdiqlangan fayl" onClick={() => download(letter.id, "final")} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50"><Archive size={16}/></button>}
+            {letter.status === LetterStatus.ARCHIVED && letter.finalFileUrl && <button title="Tasdiqlangan fayl" onClick={() => download(letter.id, "final", letter.documentNumber)} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50"><Archive size={16}/></button>}
             {letter.status !== LetterStatus.ARCHIVED && <button title="O‘chirish" onClick={() => del.mutate(letter.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16}/></button>}
           </div></td>
         </tr>)}
