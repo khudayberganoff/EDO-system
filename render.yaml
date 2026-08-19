@@ -26,5 +26,10 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 8h
+      # Xizmatning haqiqiy manzili (Render o'zi to'ldiradi) - QR kodlar shu manzilga
+      # ishora qiladi va CORS uchun ham ishlatiladi.
       - key: CORS_ORIGIN
-        value: https://edo-system.onrender.com
+        fromService:
+          type: web
+          name: edo-system
+          envVarKey: RENDER_EXTERNAL_URL

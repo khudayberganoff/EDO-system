@@ -191,7 +191,12 @@ export class LettersService {
   // --- QR orqali ochiq (login talab qilinmaydigan) tekshiruv ---
 
   getPublicBaseUrl(): string {
-    const configured = process.env.PUBLIC_APP_URL || process.env.CORS_ORIGIN?.split(",")[0];
+    // Render o'zi RENDER_EXTERNAL_URL ni beradi - bu xizmatning haqiqiy manzili.
+    // Shuning uchun undan foydalanamiz, aks holda QR noto'g'ri domenga ishora qiladi.
+    const configured =
+      process.env.PUBLIC_APP_URL ||
+      process.env.RENDER_EXTERNAL_URL ||
+      process.env.CORS_ORIGIN?.split(",")[0];
     return (configured || "http://localhost:5173").replace(/\/+$/, "");
   }
 
