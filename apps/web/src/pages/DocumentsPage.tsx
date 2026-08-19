@@ -72,12 +72,12 @@ export function DocumentsPage() {
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">{t("documents.title")}</h1>
+        <h1 className="text-3xl font-semibold text-slate-900">{t("documents.title")}</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-lg bg-brand-800 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:opacity-90"
         >
-          <Plus size={16} />
+          <Plus size={18} />
           {t("documents.new")}
         </button>
       </div>
@@ -87,9 +87,11 @@ export function DocumentsPage() {
           <button
             key={f.value}
             onClick={() => setSearchParams(f.value ? { status: f.value } : {})}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              status === f.value ? "bg-brand-800 text-white" : "bg-white text-slate-600 hover:bg-slate-100"
-            } border border-slate-200`}
+            className={`rounded-full px-5 py-2.5 text-sm font-medium transition ${
+              status === f.value
+                ? "border-transparent bg-gradient-to-r from-brand-900 to-emerald-500 text-white shadow-sm"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+            } border`}
           >
             {t(f.labelKey as any)}
           </button>

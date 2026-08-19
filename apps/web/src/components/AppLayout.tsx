@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   FileText,
@@ -10,6 +10,8 @@ import {
   FileQuestion,
   Trash2,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -88,18 +90,37 @@ export function AppLayout() {
   const isInWarningSection = location.pathname.startsWith("/letters/first-warning") || location.pathname.startsWith("/letters/final-warning");
   const [lettersOpen, setLettersOpen] = useState(isInLettersSection);
   const [warningsOpen, setWarningsOpen] = useState(isInWarningSection);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Boshqa sahifaga o'tilganda "Hujjatlar" ro'yxati avtomatik yig'iladi -
+  // faqat shu bo'lim ichida qolsak ochiq turadi.
+  useEffect(() => {
+    setLettersOpen(isInLettersSection);
+    setWarningsOpen(isInWarningSection);
+  }, [location.pathname, isInLettersSection, isInWarningSection]);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <aside className="flex w-64 flex-col bg-gradient-to-b from-brand-950 via-brand-900 to-brand-800 text-white">
+      <aside
+        className={`relative flex flex-col bg-gradient-to-b from-brand-950 via-brand-900 to-brand-800 text-white transition-all duration-300 ${
+          sidebarOpen ? "w-64" : "w-0 overflow-hidden"
+        }`}
+      >
         <div className="flex items-center gap-2 px-6 py-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-accent/20 text-brand-accent">
             <FileText size={20} />
           </div>
-          <div>
+          <div className="flex-1">
             <div className="text-sm font-semibold">WAFA GROUP</div>
             <div className="text-xs text-white/50">EDO tizimi</div>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            title="Menyuni yopish"
+            className="rounded-lg p-1.5 text-white/50 transition hover:bg-white/10 hover:text-white"
+          >
+            <PanelLeftClose size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
@@ -195,7 +216,16 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="relative flex-1 overflow-y-auto">
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            title="Menyuni ochish"
+            className="absolute left-3 top-4 z-20 rounded-lg bg-brand-900 p-2 text-white shadow-lg transition hover:bg-brand-800"
+          >
+            <PanelLeftOpen size={18} />
+          </button>
+        )}
         <Outlet />
       </main>
     </div>

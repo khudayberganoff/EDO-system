@@ -57,17 +57,17 @@ export function LettersPage() {
 
   return <div className="p-8">
     <div className="mb-6 flex items-start justify-between">
-      <div><h1 className="text-xl font-semibold text-slate-900">{t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{t(`letters.desc.${selectedType}` as any)}</p></div>
+      <div><h1 className="text-3xl font-semibold text-slate-900">{t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{t(`letters.desc.${selectedType}` as any)}</p></div>
       <div className="flex gap-2">
         <Link to="/letters/archive" className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"><Archive size={16}/> {t("letters.archive")}</Link>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-4 py-2 text-sm font-medium text-white"><Plus size={16}/> {t("letters.new")} {t(`letters.type.${selectedType}` as any).toLowerCase()}</button>
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:opacity-90"><Plus size={18}/> {t("letters.new")} {t(`letters.type.${selectedType}` as any).toLowerCase()}</button>
       </div>
     </div>
 
     {canApprove && <LetterheadPanel />}
 
     <div className="mb-5 flex flex-wrap gap-2">
-      {[undefined, LetterStatus.DRAFT, LetterStatus.PENDING_APPROVAL, LetterStatus.ARCHIVED].map((s) => <button key={s ?? "all"} onClick={() => setStatus(s)} className={clsx("rounded-full border px-3 py-1.5 text-xs font-medium", status === s ? "border-brand-800 bg-brand-800 text-white" : "border-slate-200 bg-white text-slate-600")}>{s ? t(STATUS_KEYS[s] as any) : t("letters.all")}</button>)}
+      {[undefined, LetterStatus.DRAFT, LetterStatus.PENDING_APPROVAL, LetterStatus.ARCHIVED].map((s) => <button key={s ?? "all"} onClick={() => setStatus(s)} className={clsx("rounded-full border px-5 py-2.5 text-sm font-medium transition", status === s ? "border-transparent bg-gradient-to-r from-brand-900 to-emerald-500 text-white shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100")}>{s ? t(STATUS_KEYS[s] as any) : t("letters.all")}</button>)}
     </div>
 
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
