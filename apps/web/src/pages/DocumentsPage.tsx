@@ -5,20 +5,22 @@ import { Plus, X, Mail } from "lucide-react";
 import { fetchDocuments, createDocument } from "../api/documents";
 import { fetchLetters } from "../api/letters";
 import { StatusBadge } from "../components/StatusBadge";
+import { useT } from "../i18n/LanguageContext";
 import type { DocumentType } from "@edo/shared-types";
 import { DocumentStatus, LetterStatus } from "@edo/shared-types";
 
-const STATUS_FILTERS: { value: DocumentStatus | ""; label: string }[] = [
-  { value: "", label: "Barchasi" },
-  { value: DocumentStatus.DRAFT, label: "Qoralama" },
-  { value: DocumentStatus.IN_REVIEW, label: "Ko'rib chiqilmoqda" },
-  { value: DocumentStatus.PENDING_SIGNATURE, label: "Imzo kutilmoqda" },
-  { value: DocumentStatus.SIGNED, label: "Imzolangan" },
-  { value: DocumentStatus.REJECTED, label: "Rad etilgan" },
-  { value: DocumentStatus.ARCHIVED, label: "Arxivlangan" },
+const STATUS_FILTERS: { value: DocumentStatus | ""; labelKey: string }[] = [
+  { value: "", labelKey: "documents.all" },
+  { value: DocumentStatus.DRAFT, labelKey: "documents.draft" },
+  { value: DocumentStatus.IN_REVIEW, labelKey: "documents.inReview" },
+  { value: DocumentStatus.PENDING_SIGNATURE, labelKey: "documents.pendingSignature" },
+  { value: DocumentStatus.SIGNED, labelKey: "documents.signed" },
+  { value: DocumentStatus.REJECTED, labelKey: "documents.rejected" },
+  { value: DocumentStatus.ARCHIVED, labelKey: "documents.archived" },
 ];
 
 export function DocumentsPage() {
+  const t = useT();
   const [searchParams, setSearchParams] = useSearchParams();
   const status = (searchParams.get("status") as DocumentStatus | null) ?? "";
   const [showCreate, setShowCreate] = useState(false);
@@ -44,13 +46,13 @@ export function DocumentsPage() {
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Hujjatlar</h1>
+        <h1 className="text-xl font-semibold text-slate-900">{t("documents.title")}</h1>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 rounded-lg bg-brand-800 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
         >
           <Plus size={16} />
-          Yangi hujjat
+          {t("documents.new")}
         </button>
       </div>
 
@@ -63,7 +65,7 @@ export function DocumentsPage() {
               status === f.value ? "bg-brand-800 text-white" : "bg-white text-slate-600 hover:bg-slate-100"
             } border border-slate-200`}
           >
-            {f.label}
+            {t(f.labelKey as any)}
           </button>
         ))}
       </div>
@@ -72,25 +74,25 @@ export function DocumentsPage() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3">Sarlavha</th>
-              <th className="px-4 py-3">Turi</th>
-              <th className="px-4 py-3">Egasi</th>
-              <th className="px-4 py-3">Holati</th>
-              <th className="px-4 py-3">Yangilangan</th>
+              <th className="px-4 py-3">{t("documents.colTitle")}</th>
+              <th className="px-4 py-3">{t("documents.colType")}</th>
+              <th className="px-4 py-3">{t("documents.colOwner")}</th>
+              <th className="px-4 py-3">{t("documents.colStatus")}</th>
+              <th className="px-4 py-3">{t("documents.colUpdated")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoadingCombined && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  Yuklanmoqda...
+                  {t("documents.loading")}
                 </td>
               </tr>
             )}
             {!isLoadingCombined && totalCombined === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  Hujjatlar topilmadi.
+                  {t("documents.empty")}
                 </td>
               </tr>
             )}
@@ -119,11 +121,11 @@ export function DocumentsPage() {
                     {letter.counterpartyName} — № {letter.documentNumber}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-500">Xat</td>
+                <td className="px-4 py-3 text-slate-500">{t("letters.type.LETTER")}</td>
                 <td className="px-4 py-3 text-slate-500">{letter.createdBy?.fullName ?? "—"}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800">
-                    Imzo kutilmoqda
+                    {t("documents.pendingSignature")}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500">

@@ -12,21 +12,23 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../i18n/LanguageContext";
+import { LANGUAGES } from "../i18n/translations";
 
 const TOP_NAV_ITEMS = [
-  { to: "/", label: "Bosh sahifa", icon: LayoutDashboard },
-  { to: "/documents?status=IN_REVIEW", label: "Tasdiqlashim kerak", icon: ClipboardList },
-];
+  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { to: "/documents?status=IN_REVIEW", labelKey: "nav.needApproval", icon: ClipboardList },
+] as const;
 
 const LETTER_SUB_ITEMS = [
-  { to: "/letters/letter", label: "Xat", icon: Mail },
-  { to: "/letters/reference", label: "Ma'lumotnoma", icon: FileQuestion },
-];
+  { to: "/letters/letter", labelKey: "nav.letter", icon: Mail },
+  { to: "/letters/reference", labelKey: "nav.reference", icon: FileQuestion },
+] as const;
 
 const WARNING_SUB_ITEMS = [
-  { to: "/letters/first-warning", label: "1-ogohlantirish", icon: AlertTriangle },
-  { to: "/letters/final-warning", label: "Yakuniy ogohlantirish", icon: AlertTriangle },
-];
+  { to: "/letters/first-warning", labelKey: "nav.firstWarning", icon: AlertTriangle },
+  { to: "/letters/final-warning", labelKey: "nav.finalWarning", icon: AlertTriangle },
+] as const;
 
 function Item({ to, label, icon: Icon }: { to: string; label: string; icon: typeof Mail }) {
   return (
@@ -80,6 +82,7 @@ function SubSubItem({ to, label, icon: Icon }: { to: string; label: string; icon
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const isInLettersSection = location.pathname.startsWith("/letters") && location.pathname !== "/letters/archive";
   const isInWarningSection = location.pathname.startsWith("/letters/first-warning") || location.pathname.startsWith("/letters/final-warning");
@@ -101,7 +104,7 @@ export function AppLayout() {
 
         <nav className="flex-1 space-y-1 px-3">
           {TOP_NAV_ITEMS.map((x) => (
-            <Item key={x.to} {...x} />
+            <Item key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
           ))}
 
           {/* Yig'iladigan "Hujjatlar" bo'limi - Xat / Ogohlantirish / Ma'lumotnoma */}
@@ -114,7 +117,7 @@ export function AppLayout() {
             >
               <span className="flex items-center gap-3">
                 <FileText size={18} />
-                Hujjatlar
+                {t("nav.documents")}
               </span>
               <ChevronDown
                 size={15}
@@ -125,7 +128,7 @@ export function AppLayout() {
             {lettersOpen && (
               <div className="mt-0.5 space-y-0.5">
                 {LETTER_SUB_ITEMS.slice(0, 1).map((x) => (
-                  <SubItem key={x.to} {...x} />
+                  <SubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
                 ))}
 
                 {/* Yig'iladigan "Ogohlantirish" guruhi - 1-ogohlantirish / Yakuniy ogohlantirish */}
@@ -138,7 +141,7 @@ export function AppLayout() {
                   >
                     <span className="flex items-center gap-2.5">
                       <AlertTriangle size={15} />
-                      Ogohlantirish
+                      {t("nav.warnings")}
                     </span>
                     <ChevronDown
                       size={14}
@@ -149,31 +152,45 @@ export function AppLayout() {
                   {warningsOpen && (
                     <div className="mt-0.5 space-y-0.5">
                       {WARNING_SUB_ITEMS.map((x) => (
-                        <SubSubItem key={x.to} {...x} />
+                        <SubSubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
                       ))}
                     </div>
                   )}
                 </div>
 
                 {LETTER_SUB_ITEMS.slice(1).map((x) => (
-                  <SubItem key={x.to} {...x} />
+                  <SubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
                 ))}
               </div>
             )}
           </div>
 
           {/* Fayllar arxivi - alohida, "Hujjatlar" bo'limiga bog'liq emas */}
-          <Item to="/letters/archive" label="Fayllar arxivi" icon={Archive} />
+          <Item to="/letters/archive" label={t("nav.archive")} icon={Archive} />
         </nav>
 
         <div className="border-t border-white/10 px-3 py-4">
+          {/* Tilni almashtirish - sessiya davomida ham o'zgartirish mumkin */}
+          <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-white/5 p-1">
+            {LANGUAGES.map((item) => (
+              <button
+                key={item.code}
+                onClick={() => setLanguage(item.code)}
+                className={`rounded px-2 py-1.5 text-[11px] font-semibold transition ${
+                  language === item.code ? "bg-white/15 text-white" : "text-white/50 hover:text-white"
+                }`}
+              >
+                {item.short}
+              </button>
+            ))}
+          </div>
           <div className="mb-2 px-3 text-xs text-white/50">{user?.fullName}</div>
           <button
             onClick={logout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white"
           >
             <LogOut size={18} />
-            Chiqish
+            {t("nav.logout")}
           </button>
         </div>
       </aside>
