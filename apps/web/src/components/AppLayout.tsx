@@ -17,7 +17,7 @@ import { LANGUAGES } from "../i18n/translations";
 
 const TOP_NAV_ITEMS = [
   { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { to: "/documents?status=IN_REVIEW", labelKey: "nav.needApproval", icon: ClipboardList },
+  { to: "/documents?status=PENDING_SIGNATURE", labelKey: "nav.needApproval", icon: ClipboardList },
 ] as const;
 
 const LETTER_SUB_ITEMS = [

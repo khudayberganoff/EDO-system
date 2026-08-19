@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { Plus, X, Mail, Eye, FileText, CheckCircle2, Clock, ArrowRight } from "lucide-react";
+import { Plus, X, Mail, Eye, FileText, CheckCircle2, Clock, ArrowRight, Check, XCircle } from "lucide-react";
 import { fetchDocuments, createDocument, fetchDocument } from "../api/documents";
-import { fetchLetters } from "../api/letters";
+import { fetchLetters, approveLetter } from "../api/letters";
 import { StatusBadge } from "../components/StatusBadge";
 import { useT } from "../i18n/LanguageContext";
+import { ViewLetterModal, RejectLetterModal, LetterStatusPill } from "../components/LetterModals";
+import { useAuth } from "../context/AuthContext";
 import type { DocumentType } from "@edo/shared-types";
 import { DocumentStatus, LetterStatus } from "@edo/shared-types";
 
@@ -25,6 +27,18 @@ export function DocumentsPage() {
   const status = (searchParams.get("status") as DocumentStatus | null) ?? "";
   const [showCreate, setShowCreate] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [viewLetter, setViewLetter] = useState<any | null>(null);
+  const [rejectLetterTarget, setRejectLetterTarget] = useState<any | null>(null);
+  const { user } = useAuth();
+  const queryClientLocal = useQueryClient();
+  const canApprove = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const approveLetterMutation = useMutation({
+    mutationFn: approveLetter,
+    onSuccess: () => {
+      queryClientLocal.invalidateQueries({ queryKey: ["letters"] });
+      queryClientLocal.invalidateQueries({ queryKey: ["documents"] });
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["documents", status],
@@ -35,13 +49,6 @@ export function DocumentsPage() {
   // hujjat holatlariga moslashtiriladi, shunda "Qoralama", "Imzo kutilmoqda" va
   // "Imzolangan" bo'limlarida ikkala modul birga ko'rinadi.
   // (O'chirilgan xatlar bu yerga tushmaydi - ular "Fayllar arxivi"da.)
-  const LETTER_TYPE_ROUTES: Record<string, string> = {
-    LETTER: "/letters/letter",
-    FIRST_WARNING: "/letters/first-warning",
-    FINAL_WARNING: "/letters/final-warning",
-    REFERENCE: "/letters/reference",
-  };
-
   const LETTER_TO_DOC_STATUS: Record<string, DocumentStatus> = {
     [LetterStatus.DRAFT]: DocumentStatus.DRAFT,
     [LetterStatus.PENDING_APPROVAL]: DocumentStatus.PENDING_SIGNATURE,
@@ -145,20 +152,30 @@ export function DocumentsPage() {
             {visibleLetters.map((letter: any) => (
               <tr key={`letter-${letter.id}`} className="bg-sky-50/40 hover:bg-sky-50">
                 <td className="px-4 py-3">
-                  <Link to={LETTER_TYPE_ROUTES[letter.type] ?? "/letters"} className="flex items-center gap-1.5 font-medium text-brand-800 hover:underline">
+                  <button onClick={() => setViewLetter(letter)} className="flex items-center gap-1.5 text-left font-medium text-brand-800 hover:underline">
                     <Mail size={14} className="text-sky-600" />
                     {letter.counterpartyName} — № {letter.documentNumber}
-                  </Link>
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-slate-500">{t(`letters.type.${letter.type}` as any)}</td>
                 <td className="px-4 py-3 text-slate-500">{letter.createdBy?.fullName ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={LETTER_TO_DOC_STATUS[letter.status]} />
+                  <LetterStatusPill status={letter.status} />
                 </td>
                 <td className="px-4 py-3 text-slate-500">
                   {new Date(letter.updatedAt).toLocaleDateString("uz-UZ")}
                 </td>
-                <td className="px-4 py-3" />
+                <td className="px-4 py-3">
+                  <div className="flex gap-1">
+                    <button title={t("letters.view")} onClick={() => setViewLetter(letter)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Eye size={16} /></button>
+                    {canApprove && letter.status === "PENDING_APPROVAL" && (
+                      <>
+                        <button title={t("letters.approve")} onClick={() => approveLetterMutation.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16} /></button>
+                        <button title={t("letters.reject")} onClick={() => setRejectLetterTarget(letter)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><XCircle size={16} /></button>
+                      </>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -167,6 +184,8 @@ export function DocumentsPage() {
 
       {showCreate && <CreateDocumentModal onClose={() => setShowCreate(false)} />}
       {previewId && <DocumentPreviewModal id={previewId} onClose={() => setPreviewId(null)} />}
+      {viewLetter && <ViewLetterModal letter={viewLetter} onClose={() => setViewLetter(null)} />}
+      {rejectLetterTarget && <RejectLetterModal letter={rejectLetterTarget} onClose={() => setRejectLetterTarget(null)} />}
     </div>
   );
 }
