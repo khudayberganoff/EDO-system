@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetchDocuments } from "../api/documents";
+import { fetchLetters } from "../api/letters";
+import { LetterStatus } from "@edo/shared-types";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
 import { FileText, Clock, CheckCircle2, AlertCircle } from "lucide-react";
@@ -10,10 +12,15 @@ export function DashboardPage() {
   const t = useT();
   const navigate = useNavigate();
   const { data } = useQuery({ queryKey: ["documents", "dashboard"], queryFn: () => fetchDocuments({ page: 1 }) });
+  // Rahbariyat tasdig'ini kutayotgan xatlar ham "Imzo kutilmoqda" hisobiga kiradi
+  const { data: pendingLetters } = useQuery({
+    queryKey: ["letters", "pending-approval-dashboard"],
+    queryFn: () => fetchLetters({ status: LetterStatus.PENDING_APPROVAL as any }),
+  });
 
   const documents = data?.items ?? [];
   const inReview = documents.filter((d) => d.status === "IN_REVIEW").length;
-  const pendingSignature = documents.filter((d) => d.status === "PENDING_SIGNATURE").length;
+  const pendingSignature = documents.filter((d) => d.status === "PENDING_SIGNATURE").length + (pendingLetters?.items?.length ?? 0);
   const signed = documents.filter((d) => d.status === "SIGNED").length;
 
   const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
@@ -27,7 +34,7 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={FileText} label={t("dashboard.totalDocuments")} value={data?.total ?? 0} onClick={() => navigate("/documents")} />
+        <StatCard icon={FileText} label={t("dashboard.totalDocuments")} value={(data?.total ?? 0) + (pendingLetters?.items?.length ?? 0)} onClick={() => navigate("/documents")} />
         <StatCard icon={Clock} label={t("dashboard.inReview")} value={inReview} accent="text-amber-600 bg-amber-50" onClick={() => navigate("/documents?status=IN_REVIEW")} />
         <StatCard icon={AlertCircle} label={t("dashboard.pendingSignature")} value={pendingSignature} accent="text-sky-600 bg-sky-50" onClick={() => navigate("/documents?status=PENDING_SIGNATURE")} />
         <StatCard icon={CheckCircle2} label={t("dashboard.signed")} value={signed} accent="text-emerald-600 bg-emerald-50" onClick={() => navigate("/documents?status=SIGNED")} />

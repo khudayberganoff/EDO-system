@@ -60,8 +60,8 @@ export function LettersPage() {
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">{t("letters.colStatus")}</th><th className="px-4 py-3">{t("letters.colDate")}</th><th className="px-4 py-3">{t("letters.colTo")}</th><th className="px-4 py-3">{t("letters.colNumber")}</th><th className="px-4 py-3">{t("letters.colSummary")}</th><th className="px-4 py-3">{t("letters.colActions")}</th></tr></thead>
       <tbody className="divide-y divide-slate-100">
-        {isLoading && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Yuklanmoqda...</td></tr>}
-        {!isLoading && !data?.items?.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Xatlar topilmadi.</td></tr>}
+        {isLoading && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">{t("documents.loading")}</td></tr>}
+        {!isLoading && !data?.items?.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">{t("letters.empty")}</td></tr>}
         {data?.items?.map((letter: any) => <tr key={letter.id} className="align-top hover:bg-slate-50">
           <td className="px-4 py-4"><StatusPill status={letter.status}/></td>
           <td className="px-4 py-4 text-slate-500">{new Date(letter.documentDate).toLocaleDateString("uz-UZ")}</td>
@@ -70,7 +70,7 @@ export function LettersPage() {
           <td className="px-4 py-4 text-slate-600"><div className="max-w-[360px]">{letter.summary}</div></td>
           <td className="px-4 py-4"><div className="flex flex-wrap gap-1.5">
             <button title={t("letters.view")} onClick={() => setViewLetter(letter)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Eye size={16}/></button>
-            {letter.draftFileUrl && <button title={t("letters.download")} onClick={() => download(letter.id, "draft", letter.documentNumber)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16}/></button>}
+            {(letter.draftFileUrl || letter.finalFileUrl) && <button title={t("letters.download")} onClick={() => download(letter.id, letter.status === LetterStatus.ARCHIVED ? "final" : "draft", letter.documentNumber)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16}/></button>}
             {letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => submitLetter(letter.id).then(() => queryClient.invalidateQueries({ queryKey: ["letters"] }))} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
             {letter.status === LetterStatus.ARCHIVED && letter.finalFileUrl && <button title="Tasdiqlangan fayl" onClick={() => download(letter.id, "final", letter.documentNumber)} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50"><Archive size={16}/></button>}
