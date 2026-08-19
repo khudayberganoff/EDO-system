@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, Archive, Check, Download, Eye, FileText, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
+import { AlertTriangle, Archive, Check, Download, Eye, FileText, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
-import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead, downloadLetterPdf, fetchLetterRenderedText } from "../api/letters";
+import { aiGenerateLetter, approveLetter, rejectLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead, downloadLetterPdf, fetchLetterRenderedText } from "../api/letters";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
 import { formatUzPhone, normalizeUzPhone, isValidUzPhone, formatMoney, parseMoney } from "../utils/format";
 
-const STATUS_KEYS: Record<string, string> = { DRAFT: "letters.drafts", PENDING_APPROVAL: "letters.pendingApproval", APPROVED: "archive.approved", ARCHIVED: "letters.archived", DELETED: "archive.deleted" };
+const STATUS_KEYS: Record<string, string> = { DRAFT: "letters.drafts", PENDING_APPROVAL: "letters.pendingApproval", APPROVED: "archive.approved", REJECTED: "letters.rejected", ARCHIVED: "letters.archived", DELETED: "archive.deleted" };
 
 export function LettersPage() {
   const t = useT();
@@ -21,6 +21,7 @@ export function LettersPage() {
   const [status, setStatus] = useState<string | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [viewLetter, setViewLetter] = useState<any | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data, isLoading } = useQuery({ queryKey: ["letters", selectedType, status], queryFn: () => fetchLetters({ type: selectedType, status: status as any }) });
@@ -84,6 +85,7 @@ export function LettersPage() {
             {(letter.draftFileUrl || letter.finalFileUrl) && <button title={t("letters.download")} onClick={() => download(letter.id, letter.status === LetterStatus.ARCHIVED ? "final" : "draft", letter.documentNumber)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16}/></button>}
             {letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => submitLetter(letter.id).then(() => queryClient.invalidateQueries({ queryKey: ["letters"] }))} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
+            {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title={t("letters.reject")} onClick={() => setRejectTarget(letter)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><XCircle size={16}/></button>}
             {letter.status === LetterStatus.ARCHIVED && <button title="PDF" onClick={() => downloadPdf(letter.id, letter.documentNumber)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><FileText size={16}/></button>}
             {letter.status === LetterStatus.ARCHIVED && letter.finalFileUrl && <button title="Tasdiqlangan fayl" onClick={() => download(letter.id, "final", letter.documentNumber)} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50"><Archive size={16}/></button>}
             {letter.status !== LetterStatus.ARCHIVED && <button title="O‘chirish" onClick={() => del.mutate(letter.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16}/></button>}
@@ -93,7 +95,42 @@ export function LettersPage() {
     </div>
     {showCreate && <CreateLetterModal type={selectedType} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>}
     {viewLetter && <ViewLetterModal letter={viewLetter} onClose={() => setViewLetter(null)} />}
+    {rejectTarget && <RejectLetterModal letter={rejectTarget} onClose={() => setRejectTarget(null)} />}
   </div>;
+}
+
+function RejectLetterModal({ letter, onClose }: { letter: any; onClose: () => void }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: () => rejectLetter(letter.id, reason),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); },
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Rad etib bo'lmadi."),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">{t("letters.rejectTitle")}</h2>
+            <p className="mt-1 text-xs text-slate-500">№ {letter.documentNumber} — {letter.counterpartyName}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
+        </div>
+        <Field label={t("letters.rejectReason")}>
+          <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={4} placeholder={t("letters.rejectPlaceholder")} className="input"/>
+        </Field>
+        {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("letterForm.cancel")}</button>
+          <button disabled={mutation.isPending || reason.trim().length < 3} onClick={() => mutation.mutate()} className="rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{t("letters.reject")}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ViewLetterModal({ letter, onClose }: { letter: any; onClose: () => void }) {

@@ -183,6 +183,31 @@ export class LettersService {
     return updated;
   }
 
+  /** Rahbariyat xatni rad etadi - sabab bilan. Xat qoralamaga qaytmaydi, alohida holat oladi. */
+  async reject(id: string, user: { id: string; role: string }, reason: string) {
+    if (![Role.ADMIN, Role.MANAGER].includes(user.role as Role)) {
+      throw new ForbiddenException("Faqat rahbariyat xatni rad etishi mumkin.");
+    }
+    const letter = await this.findOne(id);
+    if (letter.status !== LetterStatus.PENDING_APPROVAL) {
+      throw new BadRequestException("Xat rahbariyat tasdig'iga yuborilmagan.");
+    }
+    const trimmed = (reason ?? "").trim();
+    if (trimmed.length < 3) {
+      throw new BadRequestException("Rad etish sababini yozing.");
+    }
+    const updated = await this.prisma.letter.update({
+      where: { id },
+      data: { status: LetterStatus.REJECTED, rejectedAt: new Date(), rejectionReason: trimmed },
+    });
+    await this.auditLog.record({
+      userId: user.id,
+      action: AuditAction.STATUS_CHANGE,
+      metadata: { letterId: id, to: LetterStatus.REJECTED, reason: trimmed },
+    });
+    return updated;
+  }
+
   async softDelete(id: string, userId: string) {
     await this.findOne(id);
     const updated = await this.prisma.letter.update({ where: { id }, data: { status: LetterStatus.DELETED } });
@@ -299,10 +324,11 @@ export class LettersService {
     return { full, name: path.basename(full) };
   }
 
+  /** "O'chirilgan" bo'limi - faqat o'chirilgan xatlar (tasdiqlanganlar "Imzolangan"da). */
   async archiveList() {
     return this.prisma.letter.findMany({
-      where: { status: { in: [LetterStatus.ARCHIVED, LetterStatus.DELETED] } },
-      orderBy: [{ approvedAt: "desc" }, { updatedAt: "desc" }],
+      where: { status: LetterStatus.DELETED },
+      orderBy: { updatedAt: "desc" },
       include: { createdBy: { select: { fullName: true } } },
     });
   }

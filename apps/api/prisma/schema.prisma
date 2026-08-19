@@ -157,7 +157,7 @@ model Letter {
   direction String
   /// Qiymatlar: WARNING | REFERENCE | LETTER
   type      String
-  /// DRAFT | PENDING_APPROVAL | APPROVED | ARCHIVED | DELETED
+  /// DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | ARCHIVED | DELETED
   status    String @default("DRAFT")
 
   documentNumber      String
@@ -187,6 +187,9 @@ model Letter {
   submittedAt         DateTime?
   approvedAt          DateTime?
   approvedById        String?
+  /// Rahbariyat xatni rad etganda - sabab va vaqti
+  rejectedAt          DateTime?
+  rejectionReason     String?
 
   createdById String
   createdBy   User   @relation("LetterAuthor", fields: [createdById], references: [id])

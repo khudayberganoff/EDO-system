@@ -8,7 +8,7 @@ import {
   Mail,
   AlertTriangle,
   FileQuestion,
-  Archive,
+  Trash2,
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -166,7 +166,7 @@ export function AppLayout() {
           </div>
 
           {/* Fayllar arxivi - alohida, "Hujjatlar" bo'limiga bog'liq emas */}
-          <Item to="/letters/archive" label={t("nav.archive")} icon={Archive} />
+          <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />
         </nav>
 
         <div className="border-t border-white/10 px-3 py-4">

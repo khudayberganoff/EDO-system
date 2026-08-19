@@ -4,6 +4,7 @@ const CONFIG: Record<LetterStatus,{className:string;label:string}> = {
  [LetterStatus.DRAFT]: {className:"bg-slate-400",label:"Qoralama"},
  [LetterStatus.PENDING_APPROVAL]: {className:"bg-amber-500",label:"Rahbariyat tasdig‘ida"},
  [LetterStatus.APPROVED]: {className:"bg-emerald-500",label:"Tasdiqlangan"},
+ [LetterStatus.REJECTED]: {className:"bg-rose-500",label:"Rad etilgan"},
  [LetterStatus.ARCHIVED]: {className:"bg-emerald-700",label:"Arxivda"},
  [LetterStatus.DELETED]: {className:"bg-slate-800",label:"O‘chirilgan"},
 };
