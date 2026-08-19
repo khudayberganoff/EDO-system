@@ -31,18 +31,36 @@ export function DocumentsPage() {
     queryFn: () => fetchDocuments({ status: status || undefined, page: 1 }),
   });
 
-  // "Imzo kutilmoqda" tanlanganda, rahbariyat tasdig'ini kutayotgan XATlar ham
-  // shu ro'yxatda ko'rinadi (ikkala modul - Hujjatlar va Xat - shu tabda birlashadi)
-  const showPendingLetters = status === DocumentStatus.PENDING_SIGNATURE;
-  const { data: pendingLettersData, isLoading: lettersLoading } = useQuery({
-    queryKey: ["letters", "pending-approval-for-documents"],
-    queryFn: () => fetchLetters({ status: LetterStatus.PENDING_APPROVAL as any }),
-    enabled: showPendingLetters,
-  });
-  const pendingLetters = showPendingLetters ? pendingLettersData?.items ?? [] : [];
+  // Xat modulida yaratilgan xatlar ham shu ro'yxatda ko'rinadi. Xat holatlari
+  // hujjat holatlariga moslashtiriladi, shunda "Qoralama", "Imzo kutilmoqda" va
+  // "Imzolangan" bo'limlarida ikkala modul birga ko'rinadi.
+  // (O'chirilgan xatlar bu yerga tushmaydi - ular "Fayllar arxivi"da.)
+  const LETTER_TYPE_ROUTES: Record<string, string> = {
+    LETTER: "/letters/letter",
+    FIRST_WARNING: "/letters/first-warning",
+    FINAL_WARNING: "/letters/final-warning",
+    REFERENCE: "/letters/reference",
+  };
 
-  const isLoadingCombined = isLoading || (showPendingLetters && lettersLoading);
-  const totalCombined = (data?.items.length ?? 0) + pendingLetters.length;
+  const LETTER_TO_DOC_STATUS: Record<string, DocumentStatus> = {
+    [LetterStatus.DRAFT]: DocumentStatus.DRAFT,
+    [LetterStatus.PENDING_APPROVAL]: DocumentStatus.PENDING_SIGNATURE,
+    [LetterStatus.ARCHIVED]: DocumentStatus.SIGNED,
+  };
+
+  const { data: lettersData, isLoading: lettersLoading } = useQuery({
+    queryKey: ["letters", "all-for-documents"],
+    queryFn: () => fetchLetters({}),
+  });
+
+  const visibleLetters = (lettersData?.items ?? []).filter((letter: any) => {
+    const mapped = LETTER_TO_DOC_STATUS[letter.status];
+    if (!mapped) return false; // moslik yo'q (masalan o'chirilgan) - ko'rsatmaymiz
+    return status === "" || mapped === status;
+  });
+
+  const isLoadingCombined = isLoading || lettersLoading;
+  const totalCombined = (data?.items.length ?? 0) + visibleLetters.length;
 
   return (
     <div className="p-8">
@@ -124,20 +142,18 @@ export function DocumentsPage() {
                 </td>
               </tr>
             ))}
-            {pendingLetters.map((letter: any) => (
+            {visibleLetters.map((letter: any) => (
               <tr key={`letter-${letter.id}`} className="bg-sky-50/40 hover:bg-sky-50">
                 <td className="px-4 py-3">
-                  <Link to="/letters" className="flex items-center gap-1.5 font-medium text-brand-800 hover:underline">
+                  <Link to={LETTER_TYPE_ROUTES[letter.type] ?? "/letters"} className="flex items-center gap-1.5 font-medium text-brand-800 hover:underline">
                     <Mail size={14} className="text-sky-600" />
                     {letter.counterpartyName} — № {letter.documentNumber}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-500">{t("letters.type.LETTER")}</td>
+                <td className="px-4 py-3 text-slate-500">{t(`letters.type.${letter.type}` as any)}</td>
                 <td className="px-4 py-3 text-slate-500">{letter.createdBy?.fullName ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800">
-                    {t("documents.pendingSignature")}
-                  </span>
+                  <StatusBadge status={LETTER_TO_DOC_STATUS[letter.status]} />
                 </td>
                 <td className="px-4 py-3 text-slate-500">
                   {new Date(letter.updatedAt).toLocaleDateString("uz-UZ")}
