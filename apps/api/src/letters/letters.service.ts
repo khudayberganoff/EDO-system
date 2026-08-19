@@ -15,6 +15,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { CreateLetterDto } from "./dto/create-letter.dto";
 import { QueryLettersDto } from "./dto/query-letters.dto";
 import { LetterAiAgentService } from "./letter-ai-agent.service";
+import { LetterPdfService } from "./letter-pdf.service";
 import { moneyToWordsUz, daysToWordsUz } from "./number-to-words.uz";
 
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
@@ -38,6 +39,7 @@ export class LettersService {
     private prisma: PrismaService,
     private auditLog: AuditLogService,
     private aiAgent: LetterAiAgentService,
+    private pdfService: LetterPdfService,
   ) {
     fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
     fs.mkdirSync(LETTERHEAD_DIR, { recursive: true });
@@ -188,8 +190,30 @@ export class LettersService {
     return updated;
   }
 
-  // --- QR orqali ochiq (login talab qilinmaydigan) tekshiruv ---
+  /**
+   * Tasdiqlangan xatning PDF nusxasi. Word shablonidan hosil bo'lgan HAQIQIY
+   * matn asosida tayyorlanadi, QR kod ham qo'shiladi.
+   */
+  async buildPdf(id: string): Promise<{ buffer: Buffer; name: string }> {
+    const letter = await this.findOne(id);
+    const approved = letter.status === LetterStatus.ARCHIVED && !!letter.qrToken;
+    const docx = await this.buildDocx(letter, approved, letter.qrToken ?? undefined);
+    const qrPng = approved
+      ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, letter.qrToken!), { width: 200, margin: 1 })
+      : undefined;
+    const buffer = await this.pdfService.docxToPdf(docx, { qrPng });
+    return { buffer, name: `xat-${letter.documentNumber}.pdf` };
+  }
 
+  /** Xatning Word shablonidan olingan haqiqiy matni (QR sahifasida ko'rsatish uchun). */
+  async getRenderedText(id: string): Promise<string[]> {
+    const letter = await this.findOne(id);
+    const approved = letter.status === LetterStatus.ARCHIVED && !!letter.qrToken;
+    const docx = await this.buildDocx(letter, approved, letter.qrToken ?? undefined);
+    return this.pdfService.extractParagraphs(docx);
+  }
+
+  // --- QR orqali ochiq (login talab qilinmaydigan) tekshiruv ---
   getPublicBaseUrl(): string {
     // Render o'zi RENDER_EXTERNAL_URL ni beradi - bu xizmatning haqiqiy manzili.
     // Shuning uchun undan foydalanamiz, aks holda QR noto'g'ri domenga ishora qiladi.
@@ -209,8 +233,17 @@ export class LettersService {
     if (!letter || letter.status !== LetterStatus.ARCHIVED || !letter.qrToken || letter.qrToken !== token) {
       throw new NotFoundException("Hujjat topilmadi yoki QR kodi noto'g'ri.");
     }
+    // Word shablonidan olingan haqiqiy xat matni - QR sahifasida shu ko'rsatiladi
+    let renderedText: string[] = [];
+    try {
+      renderedText = await this.getRenderedText(id);
+    } catch {
+      renderedText = [];
+    }
+
     // Faqat elektron tasdiqlash uchun zarur bo'lgan xavfsiz maydonlar qaytariladi
     return {
+      renderedText,
       documentNumber: letter.documentNumber,
       type: letter.type,
       counterpartyName: letter.counterpartyName,

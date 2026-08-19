@@ -82,16 +82,18 @@ export function LetterVerifyPage() {
 
               <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><span className="font-medium text-slate-700">{t("letters.colSummary")}: </span>{data.summary}</div>
 
-              <div className="whitespace-pre-wrap rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">{data.bodyText}</div>
+              <div className="space-y-2 rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">
+                {data.renderedText?.length
+                  ? data.renderedText.map((line: string, i: number) => <p key={i}>{line}</p>)
+                  : <p className="whitespace-pre-wrap">{data.bodyText}</p>}
+              </div>
 
-              {data.finalFileUrl && (
-                <a
-                  href={`${(import.meta as any).env.VITE_API_URL ?? ""}${data.finalFileUrl}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-800 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700"
-                >
-                  <Download size={16} /> {t("verify.downloadCopy")}
-                </a>
-              )}
+              <a
+                href={`${(import.meta as any).env.VITE_API_URL ?? ""}/api/letters/verify/${id}/pdf?token=${encodeURIComponent(token)}`}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-800 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700"
+              >
+                <Download size={16} /> {t("verify.downloadCopy")}
+              </a>
             </div>
           </div>
         )}

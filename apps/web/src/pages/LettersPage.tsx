@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, Archive, Check, Download, Eye, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
+import { AlertTriangle, Archive, Check, Download, Eye, FileText, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
-import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead } from "../api/letters";
+import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead, downloadLetterPdf } from "../api/letters";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
 
@@ -40,6 +40,16 @@ export function LettersPage() {
       alert(e?.response?.status === 404 ? "Fayl topilmadi. Iltimos, qaytadan urinib ko'ring." : "Faylni yuklab bo'lmadi.");
     }
   };
+  const downloadPdf = async (id: string, documentNumber?: string) => {
+    try {
+      const blob = await downloadLetterPdf(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `xat-${documentNumber ?? id}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { alert("PDF yuklab bo'lmadi."); }
+  };
   const canApprove = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   return <div className="p-8">
@@ -73,6 +83,7 @@ export function LettersPage() {
             {(letter.draftFileUrl || letter.finalFileUrl) && <button title={t("letters.download")} onClick={() => download(letter.id, letter.status === LetterStatus.ARCHIVED ? "final" : "draft", letter.documentNumber)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16}/></button>}
             {letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => submitLetter(letter.id).then(() => queryClient.invalidateQueries({ queryKey: ["letters"] }))} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
+            {letter.status === LetterStatus.ARCHIVED && <button title="PDF" onClick={() => downloadPdf(letter.id, letter.documentNumber)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><FileText size={16}/></button>}
             {letter.status === LetterStatus.ARCHIVED && letter.finalFileUrl && <button title="Tasdiqlangan fayl" onClick={() => download(letter.id, "final", letter.documentNumber)} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50"><Archive size={16}/></button>}
             {letter.status !== LetterStatus.ARCHIVED && <button title="O‘chirish" onClick={() => del.mutate(letter.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16}/></button>}
           </div></td>

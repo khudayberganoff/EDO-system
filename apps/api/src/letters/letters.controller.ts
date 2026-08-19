@@ -61,6 +61,26 @@ export class LettersController {
     return this.lettersService.verifyByToken(id, token);
   }
 
+  /** QR sahifasidan PDF nusxani yuklab olish (login talab qilinmaydi, token bilan himoyalangan). */
+  @Public()
+  @Get("verify/:id/pdf")
+  async verifyPdf(@Param("id") id: string, @Query("token") token: string, @Res() res: Response) {
+    await this.lettersService.verifyByToken(id, token); // token to'g'riligini tekshiradi
+    const { buffer, name } = await this.lettersService.buildPdf(id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.send(buffer);
+  }
+
+  /** Tizim ichida: tasdiqlangan xatning PDF nusxasi. */
+  @Get(":id/download-pdf")
+  async downloadPdf(@Param("id") id: string, @Res() res: Response) {
+    const { buffer, name } = await this.lettersService.buildPdf(id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.send(buffer);
+  }
+
   @Get(":id") findOne(@Param("id") id: string) { return this.lettersService.findOne(id); }
   @Post(":id/submit") submit(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id); }
   @Post(":id/approve") @Roles(Role.ADMIN, Role.MANAGER) approve(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.approve(id, user); }
