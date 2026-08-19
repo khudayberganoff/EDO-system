@@ -4,9 +4,10 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, Archive, Check, Download, Eye, FileText, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
-import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead, downloadLetterPdf } from "../api/letters";
+import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead, downloadLetterPdf, fetchLetterRenderedText } from "../api/letters";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
+import { formatUzPhone, normalizeUzPhone, isValidUzPhone, formatMoney, parseMoney } from "../utils/format";
 
 const STATUS_KEYS: Record<string, string> = { DRAFT: "letters.drafts", PENDING_APPROVAL: "letters.pendingApproval", APPROVED: "archive.approved", ARCHIVED: "letters.archived", DELETED: "archive.deleted" };
 
@@ -97,6 +98,12 @@ export function LettersPage() {
 
 function ViewLetterModal({ letter, onClose }: { letter: any; onClose: () => void }) {
   const t = useT();
+  // Xatda aslida nima yozilganini ko'rsatamiz - Word shablonidan olingan haqiqiy matn
+  const { data: rendered, isLoading: textLoading } = useQuery({
+    queryKey: ["letters", letter.id, "rendered-text"],
+    queryFn: () => fetchLetterRenderedText(letter.id),
+    retry: false,
+  });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -109,7 +116,12 @@ function ViewLetterModal({ letter, onClose }: { letter: any; onClose: () => void
         </div>
         {letter.counterpartyAddress && <p className="mb-3 text-sm text-slate-500">{t("letterForm.address")}: {letter.counterpartyAddress}</p>}
         <div className="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><span className="font-medium text-slate-700">{t("letters.colSummary")}: </span>{letter.summary}</div>
-        <div className="whitespace-pre-wrap rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">{letter.bodyText || "Matn hali yaratilmagan."}</div>
+        <div className="space-y-2 rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">
+          {textLoading && <p className="text-slate-400">{t("documents.loading")}</p>}
+          {!textLoading && (rendered?.length
+            ? rendered.map((line: string, i: number) => <p key={i}>{line}</p>)
+            : <p className="whitespace-pre-wrap">{letter.bodyText || "Matn hali yaratilmagan."}</p>)}
+        </div>
       </div>
     </div>
   );
@@ -132,17 +144,28 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
   const warningPayload = () => (isWarning ? {
     contractNumber: contractNumber || undefined,
     contractDate: contractDate || undefined,
-    monthlyPaymentAmount: monthlyPaymentAmount ? Number(monthlyPaymentAmount) : undefined,
+    monthlyPaymentAmount: parseMoney(monthlyPaymentAmount),
     overdueDays: overdueDays ? Number(overdueDays) : undefined,
-    charityAmount: charityAmount ? Number(charityAmount) : undefined,
+    charityAmount: parseMoney(charityAmount),
     paymentDueDay: isFirstWarning && paymentDueDay ? Number(paymentDueDay) : undefined,
   } : {});
   const generate = async () => { setAiLoading(true); try { const r = await aiGenerateLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress, summary, ...warningPayload() }); setBodyText(r.text); setProvider(r.provider); setLearnedFrom(r.learnedFrom ?? null); } finally { setAiLoading(false); } };
-  // 1-ogohlantirishda qisqacha mazmun so'ralmaydi - u shartnoma ma'lumotlaridan avtomatik tuziladi
-  const effectiveSummary = isFirstWarning
-    ? `${contractNumber || "shartnoma"} bo'yicha ${overdueDays || 0} kunlik kechikish yuzasidan 1-ogohlantirish`
-    : summary;
-  const mutation = useMutation({ mutationFn: () => createLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: phoneNumber || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
+  // 1-ogohlantirishda qisqacha mazmun so'ralmaydi - u shartnoma ma'lumotlaridan
+  // avtomatik tuziladi: kimga, shartnoma raqami/sanasi va qarzdorlik summasi.
+  const effectiveSummary = (() => {
+    if (!isFirstWarning) return summary;
+    const parts: string[] = [];
+    if (counterpartyName) parts.push(counterpartyName);
+    if (contractNumber) {
+      const dateText = contractDate ? new Date(contractDate).toLocaleDateString("uz-UZ") : "";
+      parts.push(`shartnoma № ${contractNumber}${dateText ? ` (${dateText})` : ""}`);
+    }
+    const debt = parseMoney(monthlyPaymentAmount);
+    if (debt) parts.push(`qarzdorlik: ${formatMoney(String(debt))} so'm`);
+    if (overdueDays) parts.push(`${overdueDays} kun kechikish`);
+    return parts.join(" · ") || "1-ogohlantirish";
+  })();
+  const mutation = useMutation({ mutationFn: () => createLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: normalizeUzPhone(phoneNumber) || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
   const agentLearnedCount = agentStats?.[type] ?? 0;
   const canSubmit = isFirstWarning
     ? !mutation.isPending && !!counterpartyName && !!contractNumber && !!overdueDays
@@ -154,7 +177,7 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
       <Field label={t("letterForm.date")}><input type="date" value={documentDate} onChange={e=>setDocumentDate(e.target.value)} className="input"/></Field>{isFirstWarning ? <Field label={t("letterForm.recipientType")}><input value={t("letterForm.citizen")} disabled className="input bg-slate-50 text-slate-500"/></Field> : <Field label={t("letterForm.recipientType")}><select value={counterpartyType} onChange={e=>setCounterpartyType(e.target.value)} className="input"><option value="ORGANIZATION">{t("letterForm.organization")}</option><option value="CITIZEN">{t("letterForm.citizen")}</option></select></Field>}
     </div>
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : t("letterForm.orgName")}><input required value={counterpartyName} onChange={e=>setCounterpartyName(e.target.value)} placeholder={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : '"MISOL KOMPANIYASI" MCHJ'} className="input"/></Field><Field label={t("letterForm.address")}><input value={counterpartyAddress} onChange={e=>setCounterpartyAddress(e.target.value)} className="input"/></Field></div>
-    <div className="mt-4 grid grid-cols-2 gap-4"><Field label={t("letterForm.phone")}><input value={phoneNumber} onChange={e=>setPhoneNumber(e.target.value)} placeholder="+998 90 123 45 67" className="input"/></Field><div/></div>
+    <div className="mt-4 grid grid-cols-2 gap-4"><Field label={t("letterForm.phone")}><input inputMode="tel" value={phoneNumber} onChange={e=>setPhoneNumber(formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67" className="input"/>{phoneNumber && !isValidUzPhone(phoneNumber) && <span className="mt-1 block text-xs text-amber-600">Raqam to'liq emas (9 ta raqam kerak)</span>}</Field><div/></div>
     {!isFirstWarning && <div className="mt-4"><Field label={t("letterForm.summary")}><textarea required value={summary} onChange={e=>setSummary(e.target.value)} rows={3} placeholder="Masalan: shartnoma shartlari bo‘yicha to‘lovni o‘z vaqtida amalga oshirish zarurligi haqida..." className="input"/></Field></div>}
 
     {isWarning && (
@@ -164,9 +187,9 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
           <Field label={t("letterForm.contractNumber")}><input value={contractNumber} onChange={e=>setContractNumber(e.target.value)} placeholder="SH-2026-0451" className="input"/></Field>
           <Field label={t("letterForm.contractDate")}><input type="date" value={contractDate} onChange={e=>setContractDate(e.target.value)} className="input"/></Field>
           {isFirstWarning && <Field label={t("letterForm.paymentDueDay")}><input type="number" min="1" max="31" value={paymentDueDay} onChange={e=>setPaymentDueDay(e.target.value)} placeholder="15" className="input"/></Field>}
-          <Field label={t("letterForm.monthlyPayment")}><input type="number" min="0" value={monthlyPaymentAmount} onChange={e=>setMonthlyPaymentAmount(e.target.value)} placeholder="4 500 000" className="input"/></Field>
+          <Field label={t("letterForm.monthlyPayment")}><input inputMode="decimal" value={monthlyPaymentAmount} onChange={e=>setMonthlyPaymentAmount(formatMoney(e.target.value))} placeholder="4 500 000" className="input"/></Field>
           <Field label={t("letterForm.overdueDays")}><input type="number" min="0" value={overdueDays} onChange={e=>setOverdueDays(e.target.value)} placeholder="12" className="input"/></Field>
-          <Field label={t("letterForm.charityAmount")}><input type="number" min="0" value={charityAmount} onChange={e=>setCharityAmount(e.target.value)} placeholder="150 000" className="input"/></Field>
+          <Field label={t("letterForm.charityAmount")}><input inputMode="decimal" value={charityAmount} onChange={e=>setCharityAmount(formatMoney(e.target.value))} placeholder="150 000" className="input"/></Field>
         </div>
       </div>
     )}

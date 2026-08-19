@@ -72,6 +72,12 @@ export class LettersController {
     res.send(buffer);
   }
 
+  /** Xatning Word shablonidan olingan haqiqiy matni (ko'rish oynasi uchun). */
+  @Get(":id/rendered-text")
+  async renderedText(@Param("id") id: string) {
+    return { paragraphs: await this.lettersService.getRenderedText(id) };
+  }
+
   /** Tizim ichida: tasdiqlangan xatning PDF nusxasi. */
   @Get(":id/download-pdf")
   async downloadPdf(@Param("id") id: string, @Res() res: Response) {
