@@ -19,6 +19,10 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared-types/package.json ./packages/shared-types/
 
+# Prisma schema o'rnatishdan OLDIN kerak: apps/api ning postinstall skripti
+# "prisma generate" ni chaqiradi va u schema.prisma ni topa olishi shart.
+COPY apps/api/prisma ./apps/api/prisma
+
 RUN npm install
 
 COPY . .
