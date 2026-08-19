@@ -197,11 +197,10 @@ export class LettersService {
   async buildPdf(id: string): Promise<{ buffer: Buffer; name: string }> {
     const letter = await this.findOne(id);
     const approved = letter.status === LetterStatus.ARCHIVED && !!letter.qrToken;
+    // Word shabloni to'ldirilib, aynan o'sha fayl PDF ga aylantiriladi -
+    // shuning uchun PDF va DOCX bir xil ko'rinadi (QR ham ichida).
     const docx = await this.buildDocx(letter, approved, letter.qrToken ?? undefined);
-    const qrPng = approved
-      ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, letter.qrToken!), { width: 200, margin: 1 })
-      : undefined;
-    const buffer = await this.pdfService.docxToPdf(docx, { qrPng });
+    const buffer = await this.pdfService.docxToPdf(docx);
     return { buffer, name: `xat-${letter.documentNumber}.pdf` };
   }
 

@@ -8,14 +8,13 @@ databases:
 services:
   - type: web
     name: edo-system
-    runtime: node
+    # Docker - chunki PDF yaratish uchun LibreOffice kerak (Word shabloni
+    # o'z formatida PDF ga aylantiriladi).
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
     region: frankfurt
-    buildCommand: npm install && npm run build
-    startCommand: npm run start
     envVars:
-      - key: NODE_VERSION
-        value: 20.17.0
       - key: PORT
         value: 10000
       - key: DATABASE_URL
