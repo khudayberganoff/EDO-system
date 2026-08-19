@@ -163,7 +163,12 @@ export class LetterAiAgentService {
     input: GenerateInput,
     examples: Array<{ bodyText: string | null; counterpartyName: string; summary: string }>,
   ): string {
-    const greeting = input.counterpartyName ? `Hurmatli ${input.counterpartyName} rahbariyati!` : "Hurmatli hamkor!";
+    // Jismoniy shaxsga "rahbariyati" deb murojaat qilinmaydi
+    const greeting = input.counterpartyName
+      ? input.counterpartyType === "CITIZEN"
+        ? `Hurmatli ${input.counterpartyName}!`
+        : `Hurmatli ${input.counterpartyName} rahbariyati!`
+      : "Hurmatli hamkor!";
     const address = input.counterpartyAddress ? `Murojaat manzili: ${input.counterpartyAddress}.` : "";
     const isWarning = input.type === LetterType.FIRST_WARNING || input.type === LetterType.FINAL_WARNING;
     const typeText = isWarning ? "ogohlantirish" : input.type === LetterType.REFERENCE ? "ma'lumotnoma" : "rasmiy xat";
@@ -189,11 +194,11 @@ export class LetterAiAgentService {
         );
       }
       if (details.length > 0) {
-        body += `\n\n${this.capitalize(details.join(", "))}. Ushbu qarzdorlikni imkon qadar qisqa muddatda to'liq yopishingizni so'raymiz, aks holda shartnoma shartlariga muvofiq choralar ko'rilishi mumkinligini ma'lum qilamiz.`;
+        body += `\n\n${this.capitalize(details.join(", "))}. Ushbu qarzdorlikni qisqa muddatda to'liq yopishingizni so'raymiz, aks holda shartnoma shartlariga muvofiq choralar ko'rilishi mumkinligini ma'lum qilamiz.`;
       }
     }
 
-    body += `\n\nMazkur masala bo'yicha holatni ko'rib chiqishingiz hamda zarur choralarni ko'rishingizni so'raymiz.\n\nHamkorligingiz uchun minnatdorchilik bildiramiz.`;
+    body += `\n\nHamkorligingiz uchun minnatdorchilik bildiramiz.`;
 
     const referenceNote = examples.length > 0 ? "" : "";
 

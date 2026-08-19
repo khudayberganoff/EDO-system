@@ -1,12 +1,21 @@
 import { Injectable } from "@nestjs/common";
 import * as fs from "fs";
 import * as path from "path";
-import PizZip from "pizzip";
-import PDFDocument from "pdfkit";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PizZip = require("pizzip");
+// esModuleInterop o'chiq bo'lgani uchun default import ishlamaydi - require ishlatamiz
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PDFDocument = require("pdfkit");
 
-const FONT_DIR = path.resolve(__dirname, "..", "..", "assets", "fonts");
-const FONT_REGULAR = path.join(FONT_DIR, "DejaVuSerif.ttf");
-const FONT_BOLD = path.join(FONT_DIR, "DejaVuSerif-Bold.ttf");
+/** Shriftlar dist/ va src/ dan turlicha joylashadi - mavjudini topamiz. */
+function resolveFontDir(): string {
+  const candidates = [
+    path.resolve(__dirname, "..", "..", "assets", "fonts"),        // dist/letters -> apps/api/assets
+    path.resolve(__dirname, "..", "..", "..", "assets", "fonts"),  // src/letters -> apps/api/assets
+    path.resolve(process.cwd(), "assets", "fonts"),
+  ];
+  return candidates.find((c) => fs.existsSync(path.join(c, "DejaVuSerif.ttf"))) ?? candidates[0];
+}
 
 /**
  * Word shablonidan xatning HAQIQIY matnini ajratib oladi va PDF hosil qiladi.
@@ -61,8 +70,9 @@ export class LetterPdfService {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      doc.registerFont("serif", FONT_REGULAR);
-      doc.registerFont("serif-bold", FONT_BOLD);
+      const fontDir = resolveFontDir();
+      doc.registerFont("serif", path.join(fontDir, "DejaVuSerif.ttf"));
+      doc.registerFont("serif-bold", path.join(fontDir, "DejaVuSerif-Bold.ttf"));
 
       // Kompaniya sarlavhasi
       doc.font("serif-bold").fontSize(13).text("«WAFA LEASING» MCHJ", { align: "center" });
