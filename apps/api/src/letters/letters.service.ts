@@ -25,8 +25,10 @@ const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "
 const formatThousandsUz = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 // Oq (bo'sh) 180x180 PNG - hali tasdiqlanmagan xatlarda QR o'rniga vaqtinchalik bo'sh joy.
 // Diqqat: 1x1 shaffof PNG ishlatilsa Word uni qora kvadrat qilib ko'rsatadi, shuning uchun oq rasm.
+// Qoralama (hali tasdiqlanmagan) xatlarda QR o'rniga ko'rsatiladigan izohli rasm.
+// Bo'sh oq rasm ishlatilsa - foydalanuvchi buni xatolik deb o'ylardi.
 const BLANK_QR_PLACEHOLDER_PNG = Buffer.from(
-  "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",
+  "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",
   "base64",
 );
 
@@ -235,18 +237,23 @@ export class LettersService {
 
   async download(id: string, kind: "draft" | "final") {
     const letter = await this.findOne(id);
-    let url = kind === "final" ? letter.finalFileUrl : letter.draftFileUrl;
+
+    // Xat tasdiqlangan bo'lsa - doim QR kodli YAKUNIY nusxa beriladi.
+    // (Aks holda eski qoralama yuklanib, QR o'rni bo'sh ko'rinib qolardi.)
+    const effectiveKind: "draft" | "final" =
+      letter.status === LetterStatus.ARCHIVED && letter.qrToken ? "final" : kind;
+
+    let url = effectiveKind === "final" ? letter.finalFileUrl : letter.draftFileUrl;
 
     // Render kabi platformalarda yuklangan fayllar har deploydan keyin o'chib ketadi
     // (vaqtinchalik disk). Shuning uchun fayl topilmasa - uni qaytadan yaratamiz.
     const exists = url ? fs.existsSync(path.resolve(process.cwd(), url.replace(/^\//, ""))) : false;
     if (!url || !exists) {
-      if (kind === "draft") {
-        url = await this.generateDraftFile(id);
-      } else if (letter.qrToken) {
+      if (effectiveKind === "final") {
+        if (!letter.qrToken) throw new NotFoundException("Fayl mavjud emas: xat hali tasdiqlanmagan.");
         url = await this.generateFinalFile(id, letter.qrToken);
       } else {
-        throw new NotFoundException("Fayl mavjud emas: xat hali tasdiqlanmagan.");
+        url = await this.generateDraftFile(id);
       }
     }
 
