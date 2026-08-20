@@ -12,6 +12,7 @@ import { DocumentsModule } from "./documents/documents.module";
 import { SignaturesModule } from "./signatures/signatures.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { LettersModule } from "./letters/letters.module";
+import { HrModule } from "./hr/hr.module";
 
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -40,6 +41,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     SignaturesModule,
     AuditLogModule,
     LettersModule,
+    HrModule,
   ],
   providers: [
     // Tartib muhim: avval kim ekanligini aniqlaymiz (JWT), keyin nima qila olishini (Roles)

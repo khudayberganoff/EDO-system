@@ -12,6 +12,10 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  Users,
+  ScrollText,
+  FileSignature,
+  Palmtree,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -25,6 +29,13 @@ const TOP_NAV_ITEMS = [
 const LETTER_SUB_ITEMS = [
   { to: "/letters/letter", labelKey: "nav.letter", icon: Mail },
   { to: "/letters/reference", labelKey: "nav.reference", icon: FileQuestion },
+] as const;
+
+const HR_SUB_ITEMS = [
+  { to: "/hr/employees", labelKey: "nav.hrEmployees", icon: Users },
+  { to: "/hr/orders", labelKey: "nav.hrOrders", icon: ScrollText },
+  { to: "/hr/contracts", labelKey: "nav.hrContracts", icon: FileSignature },
+  { to: "/hr/leaves", labelKey: "nav.hrLeaves", icon: Palmtree },
 ] as const;
 
 const WARNING_SUB_ITEMS = [
@@ -91,13 +102,16 @@ export function AppLayout() {
   const [lettersOpen, setLettersOpen] = useState(isInLettersSection);
   const [warningsOpen, setWarningsOpen] = useState(isInWarningSection);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isInHrSection = location.pathname.startsWith("/hr");
+  const [hrOpen, setHrOpen] = useState(isInHrSection);
 
   // Boshqa sahifaga o'tilganda "Hujjatlar" ro'yxati avtomatik yig'iladi -
   // faqat shu bo'lim ichida qolsak ochiq turadi.
   useEffect(() => {
     setLettersOpen(isInLettersSection);
     setWarningsOpen(isInWarningSection);
-  }, [location.pathname, isInLettersSection, isInWarningSection]);
+    setHrOpen(isInHrSection);
+  }, [location.pathname, isInLettersSection, isInWarningSection, isInHrSection]);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -187,6 +201,29 @@ export function AppLayout() {
           </div>
 
           {/* Fayllar arxivi - alohida, "Hujjatlar" bo'limiga bog'liq emas */}
+          {/* Yig'iladigan "Kadrlar" bo'limi */}
+          <div>
+            <button
+              onClick={() => setHrOpen((v) => !v)}
+              className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${
+                isInHrSection ? "text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Users size={18} />
+                {t("nav.hr")}
+              </span>
+              <ChevronDown size={15} className={`transition-transform ${hrOpen ? "rotate-180" : ""}`} />
+            </button>
+            {hrOpen && (
+              <div className="mt-0.5 space-y-0.5">
+                {HR_SUB_ITEMS.map((x) => (
+                  <SubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
+                ))}
+              </div>
+            )}
+          </div>
+
           <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />
         </nav>
 

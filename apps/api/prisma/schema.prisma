@@ -36,6 +36,8 @@ model User {
   signatures       Signature[]       @relation("Signer")
   auditLogs        AuditLog[]        @relation("AuditUser")
   letters          Letter[]          @relation("LetterAuthor")
+  hrOrders         HrOrder[]
+  approvedLeaves   Leave[]           @relation("LeaveApprover")
 
   @@index([email])
 }
@@ -198,5 +200,109 @@ model Letter {
 
   @@index([direction])
   @@index([type])
+  @@index([status])
+}
+
+// ==================== KADRLAR BO'LIMI ====================
+
+/// Xodimning shaxsiy kartotekasi - kadrlar bo'limining asosiy yozuvi.
+model Employee {
+  id             String   @id @default(cuid())
+  fullName       String
+  position       String
+  department     String?
+  /// Ishga qabul qilingan sana
+  hireDate       DateTime
+  birthDate      DateTime?
+  phone          String?
+  email          String?
+  /// Pasport seriyasi va raqami (masalan AA1234567)
+  passportSerial String?
+  /// JSHSHIR (14 raqam)
+  pinfl          String?
+  address        String?
+  /// ACTIVE | DISMISSED
+  status         String   @default("ACTIVE")
+  dismissDate    DateTime?
+  notes          String?
+
+  orders    HrOrder[]
+  contracts EmploymentContract[]
+  leaves    Leave[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([fullName])
+}
+
+/// Xodimlar bo'yicha buyruqlar (ishga qabul, bo'shatish, lavozimga o'tkazish va h.k.)
+model HrOrder {
+  id         String   @id @default(cuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  /// HIRE | DISMISS | TRANSFER | VACATION | BONUS | PENALTY | OTHER
+  type       String
+  number     String
+  orderDate  DateTime
+  subject    String
+  content    String?
+  fileUrl    String?
+
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([type])
+}
+
+/// Xodim bilan tuzilgan mehnat shartnomasi
+model EmploymentContract {
+  id         String   @id @default(cuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  number     String
+  /// PERMANENT | FIXED_TERM | PART_TIME
+  type       String   @default("PERMANENT")
+  startDate  DateTime
+  endDate    DateTime?
+  salary     Float?
+  fileUrl    String?
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+}
+
+/// Ta'til (otpuska) - ariza va grafik
+model Leave {
+  id         String   @id @default(cuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  /// ANNUAL | UNPAID | SICK | MATERNITY | STUDY
+  type       String   @default("ANNUAL")
+  startDate  DateTime
+  endDate    DateTime
+  /// Ta'til kunlari soni
+  days       Int
+  /// REQUESTED | APPROVED | REJECTED
+  status     String   @default("REQUESTED")
+  reason     String?
+  rejectionReason String?
+
+  approvedBy   User?     @relation("LeaveApprover", fields: [approvedById], references: [id])
+  approvedById String?
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
   @@index([status])
 }
