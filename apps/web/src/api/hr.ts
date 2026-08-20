@@ -162,3 +162,37 @@ export async function setAttendance(payload: { employeeId: string; date: string;
   const { data } = await apiClient.post("/hr/attendance", payload);
   return data;
 }
+
+// --- "Mening HR" ---
+export async function fetchMyHr() {
+  const { data } = await apiClient.get("/hr/my");
+  return data as any;
+}
+
+// --- Ish jadvali (smena) ---
+export async function fetchSchedules(employeeId: string) {
+  const { data } = await apiClient.get(`/hr/schedules/${employeeId}`);
+  return data as any[];
+}
+export async function setSchedule(payload: { employeeId: string; weekday: number; startTime?: string; endTime?: string; isDayOff?: boolean; shiftName?: string }) {
+  const { data } = await apiClient.post("/hr/schedules", payload);
+  return data;
+}
+
+// --- Minnatdorchilik ---
+export async function fetchGratitudes(employeeId?: string) {
+  const { data } = await apiClient.get("/hr/gratitudes", { params: { employeeId } });
+  return data as any[];
+}
+export async function createGratitude(payload: { employeeId: string; message: string }) {
+  const { data } = await apiClient.post("/hr/gratitudes", payload);
+  return data;
+}
+export async function deleteGratitude(id: string) {
+  const { data } = await apiClient.delete(`/hr/gratitudes/${id}`);
+  return data;
+}
+export async function linkEmployeeUser(employeeId: string, userId: string | null) {
+  const { data } = await apiClient.post(`/hr/employees/${employeeId}/link-user`, { userId });
+  return data;
+}

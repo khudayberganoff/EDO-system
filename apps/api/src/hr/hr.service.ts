@@ -398,6 +398,151 @@ export class HrService {
     return record;
   }
 
+
+  // ---------- "Mening HR" - shaxsiy sahifa ----------
+
+  /**
+   * Foydalanuvchining shaxsiy HR sahifasi uchun barcha ma'lumotlar:
+   * profil, ta'til arizalari, ish jadvali, davomat, bayramlar, tug'ilgan kunlar
+   * va minnatdorchiliklar.
+   */
+  async myHr(userId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId },
+      include: {
+        departmentRef: { select: { name: true } },
+        schedules: { orderBy: { weekday: "asc" } },
+        leaves: { orderBy: { startDate: "desc" }, take: 5 },
+        gratitudes: { orderBy: { createdAt: "desc" }, take: 5, include: { author: { select: { fullName: true } } } },
+      },
+    });
+
+    const today = new Date();
+    const startOfToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const yearStart = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+    const yearEnd = new Date(Date.UTC(today.getUTCFullYear() + 1, 0, 1));
+
+    // Oxirgi 7 kunlik davomat
+    const weekAgo = new Date(startOfToday);
+    weekAgo.setUTCDate(weekAgo.getUTCDate() - 6);
+
+    const [onLeaveToday, holidays, allEmployees, myAttendance, recentGratitudes] = await this.prisma.$transaction([
+      this.prisma.leave.findMany({
+        where: { status: "APPROVED", startDate: { lte: startOfToday }, endDate: { gte: startOfToday } },
+        include: { employee: { select: { id: true, fullName: true, position: true } } },
+      }),
+      this.prisma.holiday.findMany({
+        where: { date: { gte: startOfToday, lt: yearEnd } },
+        orderBy: { date: "asc" },
+        take: 5,
+      }),
+      this.prisma.employee.findMany({
+        where: { status: "ACTIVE", birthDate: { not: null } },
+        select: { id: true, fullName: true, position: true, birthDate: true },
+      }),
+      employee
+        ? this.prisma.attendance.findMany({
+            where: { employeeId: employee.id, date: { gte: weekAgo, lte: startOfToday } },
+            orderBy: { date: "asc" },
+          })
+        : this.prisma.attendance.findMany({ where: { id: "" } }),
+      this.prisma.gratitude.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        include: { employee: { select: { fullName: true } }, author: { select: { fullName: true } } },
+      }),
+    ]);
+
+    // Yaqin 30 kun ichidagi tug'ilgan kunlar
+    const upcomingBirthdays = allEmployees
+      .map((e) => {
+        const bd = new Date(e.birthDate!);
+        let next = new Date(Date.UTC(today.getUTCFullYear(), bd.getUTCMonth(), bd.getUTCDate()));
+        if (next < startOfToday) next = new Date(Date.UTC(today.getUTCFullYear() + 1, bd.getUTCMonth(), bd.getUTCDate()));
+        const daysLeft = Math.round((next.getTime() - startOfToday.getTime()) / 86400000);
+        return { id: e.id, fullName: e.fullName, position: e.position, date: next, daysLeft };
+      })
+      .filter((b) => b.daysLeft <= 30)
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+      .slice(0, 5);
+
+    return {
+      employee: employee
+        ? {
+            id: employee.id,
+            fullName: employee.fullName,
+            position: employee.position,
+            department: employee.departmentRef?.name ?? employee.department,
+            hireDate: employee.hireDate,
+            phone: employee.phone,
+            email: employee.email,
+            notes: employee.notes,
+          }
+        : null,
+      schedules: employee?.schedules ?? [],
+      myLeaves: employee?.leaves ?? [],
+      myGratitudes: employee?.gratitudes ?? [],
+      attendance: myAttendance,
+      onLeaveToday,
+      holidays,
+      upcomingBirthdays,
+      recentGratitudes,
+    };
+  }
+
+  /** Xodimning haftalik ish jadvalini belgilash. */
+  async setSchedule(data: { employeeId: string; weekday: number; startTime?: string; endTime?: string; isDayOff?: boolean; shiftName?: string }, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    return this.prisma.workSchedule.upsert({
+      where: { employeeId_weekday: { employeeId: data.employeeId, weekday: data.weekday } },
+      create: {
+        employeeId: data.employeeId, weekday: data.weekday,
+        startTime: data.startTime, endTime: data.endTime,
+        isDayOff: data.isDayOff ?? false, shiftName: data.shiftName ?? "Umumiy smena",
+      },
+      update: {
+        startTime: data.startTime, endTime: data.endTime,
+        isDayOff: data.isDayOff ?? false, shiftName: data.shiftName ?? "Umumiy smena",
+      },
+    });
+  }
+
+  async listSchedules(employeeId: string) {
+    return this.prisma.workSchedule.findMany({ where: { employeeId }, orderBy: { weekday: "asc" } });
+  }
+
+  // ---------- Minnatdorchilik ----------
+
+  async listGratitudes(employeeId?: string) {
+    return this.prisma.gratitude.findMany({
+      where: employeeId ? { employeeId } : {},
+      orderBy: { createdAt: "desc" },
+      include: { employee: { select: { id: true, fullName: true, position: true } }, author: { select: { fullName: true } } },
+    });
+  }
+
+  async createGratitude(data: { employeeId: string; message: string }, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    const trimmed = (data.message ?? "").trim();
+    if (trimmed.length < 3) throw new BadRequestException("Minnatdorchilik matnini yozing.");
+    return this.prisma.gratitude.create({
+      data: { employeeId: data.employeeId, message: trimmed, authorId: user.id },
+      include: { employee: { select: { fullName: true } } },
+    });
+  }
+
+  async removeGratitude(id: string, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    await this.prisma.gratitude.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  /** Xodim kartasini tizim foydalanuvchisiga bog'lash. */
+  async linkUser(employeeId: string, userId: string | null, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    return this.prisma.employee.update({ where: { id: employeeId }, data: { userId } });
+  }
+
   /** Kadrlar bo'limi bosh sahifasi uchun qisqacha statistika. */
   async stats() {
     const [total, active, dismissed, pendingLeaves] = await this.prisma.$transaction([

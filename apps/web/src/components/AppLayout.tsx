@@ -20,6 +20,8 @@ import {
   Briefcase,
   CalendarCheck,
   PartyPopper,
+  UserCircle2,
+  Award,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -27,6 +29,7 @@ import { LANGUAGES } from "../i18n/translations";
 
 const TOP_NAV_ITEMS = [
   { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { to: "/my-hr", labelKey: "nav.myHr", icon: UserCircle2 },
   { to: "/documents?status=PENDING_SIGNATURE", labelKey: "nav.needApproval", icon: ClipboardList },
 ] as const;
 
@@ -49,6 +52,7 @@ const HR_SUB_ITEMS = [
   { to: "/hr/orders", labelKey: "nav.hrOrders", icon: ScrollText },
   { to: "/hr/contracts", labelKey: "nav.hrContracts", icon: FileSignature },
   { to: "/hr/holidays", labelKey: "nav.hrHolidays", icon: PartyPopper },
+  { to: "/hr/gratitudes", labelKey: "nav.hrGratitudes", icon: Award },
 ] as const;
 
 const WARNING_SUB_ITEMS = [

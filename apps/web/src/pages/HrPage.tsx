@@ -12,6 +12,7 @@ import {
   fetchPositions, createPosition, deletePosition,
   fetchHolidays, createHoliday, deleteHoliday,
   fetchAttendance, setAttendance,
+  fetchGratitudes, createGratitude, deleteGratitude,
 } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
 import { formatUzPhone, normalizeUzPhone, formatMoney, parseMoney } from "../utils/format";
@@ -59,6 +60,7 @@ export function HrPage() {
     departments: { title: "Bo'limlar", description: "Tashkilot bo'linmalari" },
     positions: { title: "Lavozimlar", description: "Shtat jadvali va lavozimlar" },
     holidays: { title: "Bayram kunlari", description: "Bayram va dam olish kunlari" },
+    gratitudes: { title: "Minnatdorchilik", description: "Xodimlarga bildirilgan tashakkurnomalar" },
   };
   const meta = TITLES[section] ?? TITLES.employees;
 
@@ -86,6 +88,7 @@ export function HrPage() {
       {section === "departments" && <DepartmentsTab canEdit={canEdit} />}
       {section === "positions" && <PositionsTab canEdit={canEdit} />}
       {section === "holidays" && <HolidaysTab canEdit={canEdit} />}
+      {section === "gratitudes" && <GratitudesTab canEdit={canEdit} />}
     </div>
   );
 }
@@ -782,6 +785,46 @@ function HolidaysTab({ canEdit }: { canEdit: boolean }) {
             <td className="px-4 py-3 font-medium text-slate-900">{fmtDate(h.date)}</td>
             <td className="px-4 py-3 text-slate-600">{h.name}</td>
             <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(h.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
+          </tr>
+        ))}
+      </Table>
+    </>
+  );
+}
+
+// ==================== MINNATDORCHILIK ====================
+
+function GratitudesTab({ canEdit }: { canEdit: boolean }) {
+  const [form, setForm] = useState({ employeeId: "", message: "" });
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["hr", "gratitudes"], queryFn: () => fetchGratitudes() });
+  const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["hr"] });
+  const add = useMutation({ mutationFn: () => createGratitude(form), onSuccess: () => { setForm({ employeeId: "", message: "" }); invalidate(); } });
+  const remove = useMutation({ mutationFn: deleteGratitude, onSuccess: invalidate });
+
+  return (
+    <>
+      {canEdit && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <select value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="input max-w-xs">
+            <option value="">— xodimni tanlang —</option>
+            {employees?.map((e: Employee) => <option key={e.id} value={e.id}>{e.fullName}</option>)}
+          </select>
+          <input value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Minnatdorchilik matni" className="input max-w-lg flex-1" />
+          <NewButton onClick={() => form.employeeId && form.message.trim().length > 2 && add.mutate()}>Qo'shish</NewButton>
+        </div>
+      )}
+      <Table head={["Xodim", "Matn", "Kim tomonidan", "Sana", ""]}>
+        {isLoading && <Empty colSpan={5}>Yuklanmoqda...</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={5}>Hozircha yozuvlar yo'q.</Empty>}
+        {data?.map((g: any) => (
+          <tr key={g.id} className="hover:bg-slate-50">
+            <td className="px-4 py-3 font-medium text-slate-900">{g.employee?.fullName}</td>
+            <td className="px-4 py-3 text-slate-600">{g.message}</td>
+            <td className="px-4 py-3 text-slate-500">{g.author?.fullName ?? "—"}</td>
+            <td className="px-4 py-3 text-slate-500">{fmtDate(g.createdAt)}</td>
+            <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(g.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
           </tr>
         ))}
       </Table>

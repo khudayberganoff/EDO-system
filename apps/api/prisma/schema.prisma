@@ -38,6 +38,8 @@ model User {
   letters          Letter[]          @relation("LetterAuthor")
   hrOrders         HrOrder[]
   approvedLeaves   Leave[]           @relation("LeaveApprover")
+  employeeCard     Employee?         @relation("EmployeeUser")
+  givenGratitudes  Gratitude[]       @relation("GratitudeFrom")
 
   @@index([email])
 }
@@ -241,6 +243,13 @@ model Employee {
   departmentRef   Department? @relation(fields: [departmentRefId], references: [id])
   departmentRefId String?
 
+  /// Tizim foydalanuvchisi bilan bog'lanish - "Mening HR" sahifasi uchun
+  user   User?   @relation("EmployeeUser", fields: [userId], references: [id])
+  userId String? @unique
+
+  schedules   WorkSchedule[]
+  gratitudes  Gratitude[]  @relation("GratitudeTo")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -374,4 +383,38 @@ model Attendance {
 
   @@unique([employeeId, date])
   @@index([date])
+}
+
+
+/// Xodimning haftalik ish jadvali (smena tarkibi)
+model WorkSchedule {
+  id         String   @id @default(cuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  /// 0 = yakshanba ... 6 = shanba
+  weekday    Int
+  /// "09:00" ko'rinishida
+  startTime  String?
+  endTime    String?
+  /// Dam olish kuni bo'lsa true
+  isDayOff   Boolean  @default(false)
+  shiftName  String   @default("Umumiy smena")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, weekday])
+}
+
+/// Minnatdorchilik (rag'batlantirish) - xodimga bildirilgan tashakkur
+model Gratitude {
+  id         String   @id @default(cuid())
+  employee   Employee @relation("GratitudeTo", fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  author     User?    @relation("GratitudeFrom", fields: [authorId], references: [id])
+  authorId   String?
+  message    String
+  createdAt  DateTime @default(now())
+
+  @@index([employeeId])
 }

@@ -193,4 +193,52 @@ export class HrController {
   ) {
     return this.hrService.setAttendance(body, user);
   }
+  // ---------- "Mening HR" ----------
+
+  @Get("my")
+  @ApiOperation({ summary: "Foydalanuvchining shaxsiy HR sahifasi" })
+  myHr(@CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.myHr(user.id);
+  }
+
+  // ---------- Ish jadvali (smena) ----------
+
+  @Get("schedules/:employeeId")
+  listSchedules(@Param("employeeId") employeeId: string) {
+    return this.hrService.listSchedules(employeeId);
+  }
+
+  @Post("schedules")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  setSchedule(
+    @Body() body: { employeeId: string; weekday: number; startTime?: string; endTime?: string; isDayOff?: boolean; shiftName?: string },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.hrService.setSchedule(body, user);
+  }
+
+  // ---------- Minnatdorchilik ----------
+
+  @Get("gratitudes")
+  listGratitudes(@Query("employeeId") employeeId?: string) {
+    return this.hrService.listGratitudes(employeeId);
+  }
+
+  @Post("gratitudes")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  createGratitude(@Body() body: { employeeId: string; message: string }, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.createGratitude(body, user);
+  }
+
+  @Delete("gratitudes/:id")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  removeGratitude(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.removeGratitude(id, user);
+  }
+
+  @Post("employees/:id/link-user")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  linkUser(@Param("id") id: string, @Body() body: { userId: string | null }, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.linkUser(id, body?.userId ?? null, user);
+  }
 }

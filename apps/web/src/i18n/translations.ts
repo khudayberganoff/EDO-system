@@ -31,6 +31,8 @@ export const translations = {
 
     // --- Navigatsiya ---
     "nav.dashboard": "Bosh sahifa",
+    "nav.myHr": "Mening HR",
+    "nav.hrGratitudes": "Minnatdorchilik",
     "nav.needApproval": "Tasdiqlashim kerak",
     "nav.documents": "Hujjatlar",
     "nav.lettersGroup": "Xatlar",
@@ -203,6 +205,8 @@ export const translations = {
     "login.footer": "Система электронного документооборота · Ташкент",
 
     "nav.dashboard": "Главная",
+    "nav.myHr": "Мой HR",
+    "nav.hrGratitudes": "Благодарность",
     "nav.needApproval": "Требует моего согласования",
     "nav.documents": "Документы",
     "nav.lettersGroup": "Письма",
@@ -367,6 +371,8 @@ export const translations = {
     "login.footer": "Electronic document management system · Tashkent",
 
     "nav.dashboard": "Dashboard",
+    "nav.myHr": "My HR",
+    "nav.hrGratitudes": "Gratitude",
     "nav.needApproval": "Needs my approval",
     "nav.documents": "Documents",
     "nav.lettersGroup": "Letters",
