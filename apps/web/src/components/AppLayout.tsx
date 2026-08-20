@@ -27,8 +27,13 @@ const TOP_NAV_ITEMS = [
 ] as const;
 
 const LETTER_SUB_ITEMS = [
-  { to: "/letters/letter", labelKey: "nav.letter", icon: Mail },
   { to: "/letters/reference", labelKey: "nav.reference", icon: FileQuestion },
+] as const;
+
+/** "Xat" ikkiga bo'lingan: chiquvchi va kiruvchi */
+const MAIL_SUB_ITEMS = [
+  { to: "/letters/outgoing", labelKey: "nav.outgoing", icon: Mail },
+  { to: "/letters/incoming", labelKey: "nav.incoming", icon: Mail },
 ] as const;
 
 const HR_SUB_ITEMS = [
@@ -104,6 +109,8 @@ export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const isInHrSection = location.pathname.startsWith("/hr");
   const [hrOpen, setHrOpen] = useState(isInHrSection);
+  const isInMailSection = location.pathname.startsWith("/letters/outgoing") || location.pathname.startsWith("/letters/incoming");
+  const [mailOpen, setMailOpen] = useState(isInMailSection);
 
   // Boshqa sahifaga o'tilganda "Hujjatlar" ro'yxati avtomatik yig'iladi -
   // faqat shu bo'lim ichida qolsak ochiq turadi.
@@ -111,7 +118,8 @@ export function AppLayout() {
     setLettersOpen(isInLettersSection);
     setWarningsOpen(isInWarningSection);
     setHrOpen(isInHrSection);
-  }, [location.pathname, isInLettersSection, isInWarningSection, isInHrSection]);
+    setMailOpen(isInMailSection);
+  }, [location.pathname, isInLettersSection, isInWarningSection, isInHrSection, isInMailSection]);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -152,7 +160,7 @@ export function AppLayout() {
             >
               <span className="flex items-center gap-3">
                 <FileText size={18} />
-                {t("nav.documents")}
+                {t("nav.lettersGroup")}
               </span>
               <ChevronDown
                 size={15}
@@ -162,9 +170,25 @@ export function AppLayout() {
 
             {lettersOpen && (
               <div className="mt-0.5 space-y-0.5">
-                {LETTER_SUB_ITEMS.slice(0, 1).map((x) => (
-                  <SubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
-                ))}
+                {/* Yig'iladigan "Xat" guruhi - chiquvchi / kiruvchi */}
+                <div>
+                  <button
+                    onClick={() => setMailOpen((v) => !v)}
+                    className={`flex w-full items-center justify-between rounded-lg py-2 pl-9 pr-3 text-[13px] transition ${
+                      isInMailSection ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5"><Mail size={15} />{t("nav.letter")}</span>
+                    <ChevronDown size={14} className={`transition-transform ${mailOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {mailOpen && (
+                    <div className="mt-0.5 space-y-0.5">
+                      {MAIL_SUB_ITEMS.map((x) => (
+                        <SubSubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Yig'iladigan "Ogohlantirish" guruhi - 1-ogohlantirish / Yakuniy ogohlantirish */}
                 <div>
@@ -193,7 +217,7 @@ export function AppLayout() {
                   )}
                 </div>
 
-                {LETTER_SUB_ITEMS.slice(1).map((x) => (
+                {LETTER_SUB_ITEMS.map((x) => (
                   <SubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
                 ))}
               </div>

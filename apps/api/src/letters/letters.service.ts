@@ -97,7 +97,7 @@ export class LettersService {
     const body = dto.bodyText?.trim() || (await this.aiAgent.generate(dto)).text;
     const letter = await this.prisma.letter.create({
       data: {
-        direction: "OUTGOING", type: dto.type, status: LetterStatus.DRAFT,
+        direction: dto.direction === "INCOMING" ? "INCOMING" : "OUTGOING", type: dto.type, status: LetterStatus.DRAFT,
         documentNumber: number.documentNumber, documentDate: new Date(dto.documentDate),
         counterpartyType, counterpartyName: dto.counterpartyName,
         counterpartyAddress: dto.counterpartyAddress, phoneNumber: dto.phoneNumber, summary: dto.summary,

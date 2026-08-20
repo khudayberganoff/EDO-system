@@ -19,13 +19,15 @@ export function LettersPage() {
     kind === "first-warning" ? LetterType.FIRST_WARNING :
     kind === "final-warning" ? LetterType.FINAL_WARNING :
     kind === "reference" ? LetterType.REFERENCE : LetterType.LETTER;
+  // "Xat" bo'limi chiquvchi va kiruvchiga bo'lingan
+  const direction = kind === "incoming" ? "INCOMING" : kind === "outgoing" ? "OUTGOING" : undefined;
   const [status, setStatus] = useState<string | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [viewLetter, setViewLetter] = useState<any | null>(null);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { data, isLoading } = useQuery({ queryKey: ["letters", selectedType, status], queryFn: () => fetchLetters({ type: selectedType, status: status as any }) });
+  const { data, isLoading } = useQuery({ queryKey: ["letters", selectedType, status, direction], queryFn: () => fetchLetters({ type: selectedType, status: status as any, direction: direction as any }) });
   const approve = useMutation({ mutationFn: approveLetter, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letters"] }) });
   const del = useMutation({ mutationFn: deleteLetter, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letters"] }) });
   const download = async (id: string, kind: "draft" | "final", documentNumber?: string) => {
@@ -57,7 +59,7 @@ export function LettersPage() {
 
   return <div className="p-8">
     <div className="mb-6 flex items-start justify-between">
-      <div><h1 className="text-3xl font-semibold text-slate-900">{t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{t(`letters.desc.${selectedType}` as any)}</p></div>
+      <div><h1 className="text-3xl font-semibold text-slate-900">{direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
       <div className="flex gap-2">
         <Link to="/letters/archive" className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"><Archive size={16}/> {t("letters.archive")}</Link>
         <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:opacity-90"><Plus size={18}/> {t("letters.new")} {t(`letters.type.${selectedType}` as any).toLowerCase()}</button>
@@ -94,13 +96,13 @@ export function LettersPage() {
         </tr>)}
       </tbody></table>
     </div>
-    {showCreate && <CreateLetterModal type={selectedType} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>}
+    {showCreate && <CreateLetterModal type={selectedType} direction={direction} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>}
     {viewLetter && <ViewLetterModal letter={viewLetter} onClose={() => setViewLetter(null)} />}
     {rejectTarget && <RejectLetterModal letter={rejectTarget} onClose={() => setRejectTarget(null)} />}
   </div>;
 }
 
-function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () => void }) {
+function CreateLetterModal({ type, direction, onClose }: { type: LetterType; direction?: string; onClose: () => void }) {
   const [documentDate, setDocumentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const t = useT();
   const [counterpartyType, setCounterpartyType] = useState(type === LetterType.FIRST_WARNING ? "CITIZEN" : "ORGANIZATION");
@@ -136,7 +138,7 @@ function CreateLetterModal({ type, onClose }: { type: LetterType; onClose: () =>
     if (overdueDays) parts.push(`${overdueDays} kun kechikish`);
     return parts.join(" · ") || "1-ogohlantirish";
   })();
-  const mutation = useMutation({ mutationFn: () => createLetter({ type, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: normalizeUzPhone(phoneNumber) || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
+  const mutation = useMutation({ mutationFn: () => createLetter({ type, direction, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: normalizeUzPhone(phoneNumber) || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
   const agentLearnedCount = agentStats?.[type] ?? 0;
   const canSubmit = isFirstWarning
     ? !mutation.isPending && !!counterpartyName && !!contractNumber && !!overdueDays

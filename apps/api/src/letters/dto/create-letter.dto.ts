@@ -42,6 +42,10 @@ export class CreateLetterDto {
 
   // --- Faqat OGOHLANTIRISH (FIRST_WARNING/FINAL_WARNING) xatlari uchun ixtiyoriy maydonlar ---
 
+  @ApiPropertyOptional({ enum: ["INCOMING", "OUTGOING"], description: "Xat yo'nalishi: kiruvchi yoki chiquvchi" })
+  @IsOptional() @IsString()
+  direction?: string;
+
   @ApiPropertyOptional({ example: "SH-2026-0451", description: "Shartnoma raqami" })
   @IsOptional() @IsString()
   contractNumber?: string;
