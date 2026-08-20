@@ -182,7 +182,7 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     fullName: "", position: "", department: "", hireDate: new Date().toISOString().slice(0, 10),
-    birthDate: "", phone: "", email: "", passportSerial: "", passportExpiry: "",
+    birthDate: "", phone: "", email: "", passportSerial: "", passportIssueDate: "", passportExpiry: "", passportIssuedBy: "",
     pinfl: "", address: "", notes: "", dismissDate: "",
   });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -196,7 +196,9 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
       phone: normalizeUzPhone(form.phone) || undefined,
       email: form.email || undefined,
       passportSerial: form.passportSerial || undefined,
+      passportIssueDate: form.passportIssueDate || undefined,
       passportExpiry: form.passportExpiry || undefined,
+      passportIssuedBy: form.passportIssuedBy || undefined,
       dismissDate: form.dismissDate || undefined,
       pinfl: form.pinfl || undefined,
       address: form.address || undefined,
@@ -217,7 +219,9 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
         <Field label="Telefon"><input value={form.phone} onChange={(e) => set("phone", formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67" className="input" /></Field>
         <Field label="Email"><input value={form.email} onChange={(e) => set("email", e.target.value)} className="input" /></Field>
         <Field label="Pasport"><input value={form.passportSerial} onChange={(e) => set("passportSerial", e.target.value.toUpperCase())} placeholder="AA1234567" className="input" /></Field>
+        <Field label="Pasport berilgan sana"><input type="date" value={form.passportIssueDate} onChange={(e) => set("passportIssueDate", e.target.value)} className="input" /></Field>
         <Field label="Pasport amal qilish muddati"><input type="date" value={form.passportExpiry} onChange={(e) => set("passportExpiry", e.target.value)} className="input" /></Field>
+        <Field label="Kim tomonidan berilgan"><input value={form.passportIssuedBy} onChange={(e) => set("passportIssuedBy", e.target.value)} placeholder="Chilonzor tumani IIB" className="input" /></Field>
         <Field label="Ishdan bo'shagan sana"><input type="date" value={form.dismissDate} onChange={(e) => set("dismissDate", e.target.value)} className="input" /></Field>
         <Field label="JSHSHIR"><input value={form.pinfl} onChange={(e) => set("pinfl", e.target.value.replace(/\D/g, "").slice(0, 14))} className="input" /></Field>
         <Field label="Manzil"><input value={form.address} onChange={(e) => set("address", e.target.value)} className="input" /></Field>

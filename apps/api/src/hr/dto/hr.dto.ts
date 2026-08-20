@@ -35,9 +35,17 @@ export class CreateEmployeeDto {
   @IsOptional() @IsString() @MaxLength(20)
   passportSerial?: string;
 
+  @ApiPropertyOptional({ example: "2020-04-15", description: "Pasport berilgan sana" })
+  @IsOptional() @IsDateString()
+  passportIssueDate?: string;
+
   @ApiPropertyOptional({ example: "2030-04-15", description: "Pasport amal qilish muddati" })
   @IsOptional() @IsDateString()
   passportExpiry?: string;
+
+  @ApiPropertyOptional({ example: "Chilonzor tumani IIB", description: "Pasportni bergan organ" })
+  @IsOptional() @IsString() @MaxLength(200)
+  passportIssuedBy?: string;
 
   @ApiPropertyOptional({ example: "2026-12-31", description: "Ishdan bo'shagan sana (ixtiyoriy)" })
   @IsOptional() @IsDateString()
