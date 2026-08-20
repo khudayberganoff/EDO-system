@@ -112,9 +112,9 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
         {canEdit && <NewButton onClick={() => setShowCreate(true)}>Yangi xodim</NewButton>}
       </div>
 
-      <Table head={["F.I.Sh.", "Lavozim", "Bo'lim", "Ishga kirgan", "Staj", "Holati", ""]}>
-        {isLoading && <Empty colSpan={7}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={7}>Xodimlar topilmadi.</Empty>}
+      <Table head={["F.I.Sh.", "Lavozim", "Bo'lim", "Ishga kirgan", "Staj", "Pasport muddati", "Holati", ""]}>
+        {isLoading && <Empty colSpan={8}>Yuklanmoqda...</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={8}>Xodimlar topilmadi.</Empty>}
         {data?.map((e: Employee) => (
           <tr key={e.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{e.fullName}
@@ -124,6 +124,15 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
             <td className="px-4 py-3 text-slate-500">{e.department ?? "—"}</td>
             <td className="px-4 py-3 text-slate-500">{fmtDate(e.hireDate)}</td>
             <td className="px-4 py-3 text-slate-500">{workExperience(e.hireDate, e.dismissDate)}</td>
+            <td className="px-4 py-3">
+              {(() => {
+                const st = passportState(e.passportExpiry);
+                if (!st) return <span className="text-slate-400">—</span>;
+                if (st.level === "expired") return <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800">Muddati tugagan</span>;
+                if (st.level === "soon") return <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">{st.days} kun qoldi</span>;
+                return <span className="text-slate-500">{fmtDate(e.passportExpiry)}</span>;
+              })()}
+            </td>
             <td className="px-4 py-3">
               <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                 {e.status === "ACTIVE" ? "Faol" : "Bo'shatilgan"}
@@ -145,6 +154,18 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+/**
+ * Pasport muddati holati: tugagan / 60 kundan kam qolgan / normal.
+ * Kadrlar bo'limi muddati tugayotgan hujjatlarni oldindan ko'rishi uchun.
+ */
+function passportState(expiry?: string | null): { level: "expired" | "soon" | "ok"; days: number } | null {
+  if (!expiry) return null;
+  const days = Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000);
+  if (days < 0) return { level: "expired", days };
+  if (days <= 60) return { level: "soon", days };
+  return { level: "ok", days };
+}
+
 /** Ish staji: yil va oy hisobida */
 function workExperience(hireDate: string, dismissDate?: string | null): string {
   const start = new Date(hireDate);
@@ -161,7 +182,8 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     fullName: "", position: "", department: "", hireDate: new Date().toISOString().slice(0, 10),
-    birthDate: "", phone: "", email: "", passportSerial: "", pinfl: "", address: "", notes: "",
+    birthDate: "", phone: "", email: "", passportSerial: "", passportExpiry: "",
+    pinfl: "", address: "", notes: "", dismissDate: "",
   });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const [error, setError] = useState<string | null>(null);
@@ -174,6 +196,8 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
       phone: normalizeUzPhone(form.phone) || undefined,
       email: form.email || undefined,
       passportSerial: form.passportSerial || undefined,
+      passportExpiry: form.passportExpiry || undefined,
+      dismissDate: form.dismissDate || undefined,
       pinfl: form.pinfl || undefined,
       address: form.address || undefined,
       notes: form.notes || undefined,
@@ -193,6 +217,8 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
         <Field label="Telefon"><input value={form.phone} onChange={(e) => set("phone", formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67" className="input" /></Field>
         <Field label="Email"><input value={form.email} onChange={(e) => set("email", e.target.value)} className="input" /></Field>
         <Field label="Pasport"><input value={form.passportSerial} onChange={(e) => set("passportSerial", e.target.value.toUpperCase())} placeholder="AA1234567" className="input" /></Field>
+        <Field label="Pasport amal qilish muddati"><input type="date" value={form.passportExpiry} onChange={(e) => set("passportExpiry", e.target.value)} className="input" /></Field>
+        <Field label="Ishdan bo'shagan sana"><input type="date" value={form.dismissDate} onChange={(e) => set("dismissDate", e.target.value)} className="input" /></Field>
         <Field label="JSHSHIR"><input value={form.pinfl} onChange={(e) => set("pinfl", e.target.value.replace(/\D/g, "").slice(0, 14))} className="input" /></Field>
         <Field label="Manzil"><input value={form.address} onChange={(e) => set("address", e.target.value)} className="input" /></Field>
       </div>

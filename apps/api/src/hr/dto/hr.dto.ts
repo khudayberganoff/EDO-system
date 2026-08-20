@@ -35,6 +35,14 @@ export class CreateEmployeeDto {
   @IsOptional() @IsString() @MaxLength(20)
   passportSerial?: string;
 
+  @ApiPropertyOptional({ example: "2030-04-15", description: "Pasport amal qilish muddati" })
+  @IsOptional() @IsDateString()
+  passportExpiry?: string;
+
+  @ApiPropertyOptional({ example: "2026-12-31", description: "Ishdan bo'shagan sana (ixtiyoriy)" })
+  @IsOptional() @IsDateString()
+  dismissDate?: string;
+
   @ApiPropertyOptional({ example: "12345678901234", description: "JSHSHIR" })
   @IsOptional() @IsString() @MaxLength(20)
   pinfl?: string;
@@ -50,9 +58,6 @@ export class UpdateEmployeeDto extends CreateEmployeeDto {
   @ApiPropertyOptional({ enum: ["ACTIVE", "DISMISSED"] })
   @IsOptional() @IsString()
   status?: string;
-
-  @ApiPropertyOptional() @IsOptional() @IsDateString()
-  dismissDate?: string;
 }
 
 export class CreateHrOrderDto {

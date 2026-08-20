@@ -218,6 +218,8 @@ model Employee {
   email          String?
   /// Pasport seriyasi va raqami (masalan AA1234567)
   passportSerial String?
+  /// Pasport amal qilish muddati - tugashiga yaqin xodimlar ajratib ko'rsatiladi
+  passportExpiry DateTime?
   /// JSHSHIR (14 raqam)
   pinfl          String?
   address        String?

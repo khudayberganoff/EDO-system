@@ -62,9 +62,13 @@ export class HrService {
         phone: dto.phone,
         email: dto.email,
         passportSerial: dto.passportSerial,
+        passportExpiry: dto.passportExpiry ? new Date(dto.passportExpiry) : undefined,
         pinfl: dto.pinfl,
         address: dto.address,
         notes: dto.notes,
+        // Bo'shagan sana kiritilgan bo'lsa - xodim avtomatik "bo'shatilgan" holatiga o'tadi
+        dismissDate: dto.dismissDate ? new Date(dto.dismissDate) : undefined,
+        status: dto.dismissDate ? "DISMISSED" : "ACTIVE",
       },
     });
     await this.auditLog.record({ userId: user.id, action: AuditAction.CREATE, metadata: { kind: "employee", employeeId: employee.id } });
@@ -85,10 +89,11 @@ export class HrService {
         phone: dto.phone,
         email: dto.email,
         passportSerial: dto.passportSerial,
+        passportExpiry: dto.passportExpiry ? new Date(dto.passportExpiry) : undefined,
         pinfl: dto.pinfl,
         address: dto.address,
         notes: dto.notes,
-        status: dto.status,
+        status: dto.status ?? (dto.dismissDate ? "DISMISSED" : undefined),
         dismissDate: dto.dismissDate ? new Date(dto.dismissDate) : undefined,
       },
     });

@@ -10,6 +10,7 @@ export interface Employee {
   phone?: string;
   email?: string;
   passportSerial?: string;
+  passportExpiry?: string;
   pinfl?: string;
   address?: string;
   status: string;
