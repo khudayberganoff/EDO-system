@@ -75,7 +75,7 @@ export function DocumentsPage() {
         <h1 className="text-3xl font-semibold text-slate-900">{t("documents.title")}</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:opacity-90"
+          className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"
         >
           <Plus size={18} />
           {t("documents.new")}
@@ -87,11 +87,11 @@ export function DocumentsPage() {
           <button
             key={f.value}
             onClick={() => setSearchParams(f.value ? { status: f.value } : {})}
-            className={`rounded-full px-5 py-2.5 text-sm font-medium transition ${
+            className={`rounded-full px-6 py-2.5 text-sm font-medium transition ${
               status === f.value
-                ? "border-transparent bg-gradient-to-r from-brand-900 to-emerald-500 text-white shadow-sm"
-                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-            } border`}
+                ? "bg-brand-800 text-white shadow-sm"
+                : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            }`}
           >
             {t(f.labelKey as any)}
           </button>

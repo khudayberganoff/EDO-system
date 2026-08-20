@@ -62,14 +62,14 @@ export function LettersPage() {
       <div><h1 className="text-3xl font-semibold text-slate-900">{direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
       <div className="flex gap-2">
         <Link to="/letters/archive" className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"><Archive size={16}/> {t("letters.archive")}</Link>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:opacity-90"><Plus size={18}/> {t("letters.new")} {t(`letters.type.${selectedType}` as any).toLowerCase()}</button>
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {t(`letters.type.${selectedType}` as any).toLowerCase()}</button>
       </div>
     </div>
 
     {canApprove && <LetterheadPanel />}
 
     <div className="mb-5 flex flex-wrap gap-2">
-      {[undefined, LetterStatus.DRAFT, LetterStatus.PENDING_APPROVAL, LetterStatus.ARCHIVED].map((s) => <button key={s ?? "all"} onClick={() => setStatus(s)} className={clsx("rounded-full border px-5 py-2.5 text-sm font-medium transition", status === s ? "border-transparent bg-gradient-to-r from-brand-900 to-emerald-500 text-white shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100")}>{s ? t(STATUS_KEYS[s] as any) : t("letters.all")}</button>)}
+      {[undefined, LetterStatus.DRAFT, LetterStatus.PENDING_APPROVAL, LetterStatus.ARCHIVED].map((s) => <button key={s ?? "all"} onClick={() => setStatus(s)} className={clsx("rounded-full px-6 py-2.5 text-sm font-medium transition", status === s ? "bg-brand-800 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800")}>{s ? t(STATUS_KEYS[s] as any) : t("letters.all")}</button>)}
     </div>
 
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -174,7 +174,7 @@ function CreateLetterModal({ type, direction, onClose }: { type: LetterType; dir
     ) : (
       <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-4"><div className="mb-2 flex items-center justify-between"><div><div className="flex items-center gap-2 font-semibold text-brand-900"><Sparkles size={17}/> {t("letterForm.aiTitle")}</div><p className="text-xs text-slate-500">{t("letterForm.aiDescription")}{agentLearnedCount > 0 && <> Hozircha <strong>{agentLearnedCount} ta</strong> tasdiqlangan "{t(`letters.type.${type}` as any).toLowerCase()}" namunasidan o'rgangan.</>}</p></div><button type="button" disabled={aiLoading || !summary || !counterpartyName} onClick={generate} className="rounded-lg bg-brand-800 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 whitespace-nowrap">{aiLoading ? t("letterForm.aiWriting") : t("letterForm.aiGenerate")}</button></div>{provider && <div className="mb-2 text-[11px] text-slate-500">Provayder: {provider === "openai" ? "AI" : "mahalliy yordamchi"}{learnedFrom != null && learnedFrom > 0 && <> &middot; {learnedFrom} ta namunadan foydalanildi</>}</div>}<textarea value={bodyText} onChange={e=>setBodyText(e.target.value)} rows={10} placeholder={t("letterForm.aiPlaceholder")} className="input bg-white"/></div>
     )}
-    <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("letterForm.cancel")}</button><button disabled={!canSubmit} onClick={()=>mutation.mutate()} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{t("letterForm.save")}</button></div>
+    <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("letterForm.cancel")}</button><button disabled={!canSubmit} onClick={()=>mutation.mutate()} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50">{t("letterForm.save")}</button></div>
   </div></div>;
 }
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>{children}</label>; }

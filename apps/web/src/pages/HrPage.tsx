@@ -490,7 +490,7 @@ function RejectLeaveModal({ leave, onClose }: { leave: any; onClose: () => void 
       </Field>
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button>
-        <button disabled={mutation.isPending || reason.trim().length < 3} onClick={() => mutation.mutate()} className="rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Rad etish</button>
+        <button disabled={mutation.isPending || reason.trim().length < 3} onClick={() => mutation.mutate()} className="rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50">Rad etish</button>
       </div>
     </Modal>
   );
@@ -668,7 +668,7 @@ function AttendanceCellModal({ cell, year, month, onClose, onSave }: {
         <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button>
         <button
           onClick={() => onSave(status, note || undefined, lateMinutes ? Number(lateMinutes) : undefined)}
-          className="rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+          className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white"
         >
           Saqlash
         </button>
@@ -810,7 +810,7 @@ function Empty({ colSpan, children }: { colSpan: number; children: ReactNode }) 
 
 function NewButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:opacity-90">
+    <button onClick={onClick} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700">
       <Plus size={18} /> {children}
     </button>
   );
@@ -838,7 +838,7 @@ function Actions({ onClose, onSave, disabled }: { onClose: () => void; onSave: (
   return (
     <div className="mt-6 flex justify-end gap-2">
       <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button>
-      <button disabled={disabled} onClick={onSave} className="rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Saqlash</button>
+      <button disabled={disabled} onClick={onSave} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50">Saqlash</button>
     </div>
   );
 }
