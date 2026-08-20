@@ -16,6 +16,10 @@ import {
   ScrollText,
   FileSignature,
   Palmtree,
+  Building2,
+  Briefcase,
+  CalendarCheck,
+  PartyPopper,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -37,10 +41,14 @@ const MAIL_SUB_ITEMS = [
 ] as const;
 
 const HR_SUB_ITEMS = [
+  { to: "/hr/departments", labelKey: "nav.hrDepartments", icon: Building2 },
   { to: "/hr/employees", labelKey: "nav.hrEmployees", icon: Users },
+  { to: "/hr/positions", labelKey: "nav.hrPositions", icon: Briefcase },
+  { to: "/hr/attendance", labelKey: "nav.hrAttendance", icon: CalendarCheck },
+  { to: "/hr/leaves", labelKey: "nav.hrLeaves", icon: Palmtree },
   { to: "/hr/orders", labelKey: "nav.hrOrders", icon: ScrollText },
   { to: "/hr/contracts", labelKey: "nav.hrContracts", icon: FileSignature },
-  { to: "/hr/leaves", labelKey: "nav.hrLeaves", icon: Palmtree },
+  { to: "/hr/holidays", labelKey: "nav.hrHolidays", icon: PartyPopper },
 ] as const;
 
 const WARNING_SUB_ITEMS = [

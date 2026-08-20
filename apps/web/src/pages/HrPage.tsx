@@ -8,6 +8,10 @@ import {
   fetchContracts, createContract, deleteContract,
   fetchLeaves, createLeave, approveLeave, rejectLeave, deleteLeave,
   fetchHrStats, type Employee,
+  fetchDepartments, createDepartment, deleteDepartment,
+  fetchPositions, createPosition, deletePosition,
+  fetchHolidays, createHoliday, deleteHoliday,
+  fetchAttendance, setAttendance,
 } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
 import { formatUzPhone, normalizeUzPhone, formatMoney, parseMoney } from "../utils/format";
@@ -51,6 +55,10 @@ export function HrPage() {
     orders: { title: "Buyruqlar", description: "Ishga qabul, bo'shatish va boshqa kadrlar buyruqlari" },
     contracts: { title: "Mehnat shartnomalari", description: "Xodimlar bilan tuzilgan shartnomalar" },
     leaves: { title: "Ta'tillar", description: "Ta'til arizalari va grafigi" },
+    attendance: { title: "Davomat", description: "Xodimlarning kunlik davomat jadvali" },
+    departments: { title: "Bo'limlar", description: "Tashkilot bo'linmalari" },
+    positions: { title: "Lavozimlar", description: "Shtat jadvali va lavozimlar" },
+    holidays: { title: "Bayram kunlari", description: "Bayram va dam olish kunlari" },
   };
   const meta = TITLES[section] ?? TITLES.employees;
 
@@ -74,6 +82,10 @@ export function HrPage() {
       {section === "orders" && <OrdersTab canEdit={canEdit} />}
       {section === "contracts" && <ContractsTab canEdit={canEdit} />}
       {section === "leaves" && <LeavesTab canEdit={canEdit} />}
+      {section === "attendance" && <AttendanceTab canEdit={canEdit} />}
+      {section === "departments" && <DepartmentsTab canEdit={canEdit} />}
+      {section === "positions" && <PositionsTab canEdit={canEdit} />}
+      {section === "holidays" && <HolidaysTab canEdit={canEdit} />}
     </div>
   );
 }
@@ -481,6 +493,299 @@ function RejectLeaveModal({ leave, onClose }: { leave: any; onClose: () => void 
         <button disabled={mutation.isPending || reason.trim().length < 3} onClick={() => mutation.mutate()} className="rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Rad etish</button>
       </div>
     </Modal>
+  );
+}
+
+
+// ==================== DAVOMAT ====================
+
+const ATT_STATUSES = [
+  { value: "PRESENT", label: "Ishda", short: "✓", cls: "bg-emerald-100 text-emerald-700" },
+  { value: "LATE", label: "Kechikdi", short: "!", cls: "bg-amber-100 text-amber-700" },
+  { value: "ABSENT", label: "Kelmadi", short: "×", cls: "bg-rose-100 text-rose-700" },
+  { value: "LEAVE", label: "Ta'tilda", short: "T", cls: "bg-sky-100 text-sky-700" },
+  { value: "SICK", label: "Kasal", short: "K", cls: "bg-violet-100 text-violet-700" },
+  { value: "BUSINESS_TRIP", label: "Xizmat safari", short: "S", cls: "bg-indigo-100 text-indigo-700" },
+  { value: "DAYOFF", label: "Dam olish", short: "D", cls: "bg-slate-100 text-slate-500" },
+];
+
+const UZ_MONTHS = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentyabr", "Oktyabr", "Noyabr", "Dekabr"];
+const WEEKDAY_SHORT = ["ya", "du", "se", "ch", "pa", "ju", "sh"];
+
+function AttendanceTab({ canEdit }: { canEdit: boolean }) {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [cell, setCell] = useState<{ employeeId: string; day: number; name: string } | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["hr", "attendance", year, month],
+    queryFn: () => fetchAttendance(year, month),
+  });
+
+  const save = useMutation({
+    mutationFn: setAttendance,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["hr", "attendance"] }),
+  });
+
+  const days = Array.from({ length: data?.daysInMonth ?? 30 }, (_, i) => i + 1);
+  const statusOf = (v?: string) => ATT_STATUSES.find((s) => s.value === v);
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input max-w-[180px]">
+          {UZ_MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+        </select>
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input max-w-[120px]">
+          {[year - 2, year - 1, year, year + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+
+        <div className="ml-auto flex flex-wrap gap-2">
+          {ATT_STATUSES.map((s) => (
+            <span key={s.value} className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${s.cls}`}>
+              <span className="font-bold">{s.short}</span> {s.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500">
+            <tr>
+              <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3 text-left">Xodim</th>
+              {days.map((d) => {
+                const dow = new Date(year, month - 1, d).getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const holiday = data?.holidays?.[String(d)];
+                return (
+                  <th key={d} title={holiday} className={`w-9 px-1 py-2 text-center font-medium ${holiday ? "text-rose-600" : isWeekend ? "text-rose-400" : "text-slate-500"}`}>
+                    <div>{d}</div>
+                    <div className="text-[10px] font-normal opacity-70">{WEEKDAY_SHORT[dow]}</div>
+                  </th>
+                );
+              })}
+              <th className="px-3 py-2 text-center">Jami</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {isLoading && <tr><td colSpan={days.length + 2} className="px-4 py-8 text-center text-slate-400">Yuklanmoqda...</td></tr>}
+            {!isLoading && data?.employees.length === 0 && <tr><td colSpan={days.length + 2} className="px-4 py-8 text-center text-slate-400">Faol xodimlar yo'q.</td></tr>}
+            {data?.employees.map((e) => {
+              const present = days.filter((d) => ["PRESENT", "LATE"].includes(e.days?.[String(d)]?.status ?? "")).length;
+              return (
+                <tr key={e.id} className="hover:bg-slate-50">
+                  <td className="sticky left-0 z-10 bg-white px-4 py-2.5 hover:bg-slate-50">
+                    <div className="font-medium text-slate-900">{e.fullName}</div>
+                    <div className="text-xs text-slate-400">{e.position}</div>
+                  </td>
+                  {days.map((d) => {
+                    const rec = e.days?.[String(d)];
+                    const st = statusOf(rec?.status);
+                    const holiday = data?.holidays?.[String(d)];
+                    return (
+                      <td key={d} className="px-0.5 py-2 text-center">
+                        <button
+                          disabled={!canEdit}
+                          onClick={() => canEdit && setCell({ employeeId: e.id, day: d, name: e.fullName })}
+                          title={st ? st.label : holiday ? holiday : "Belgilanmagan"}
+                          className={`mx-auto flex h-6 w-6 items-center justify-center rounded text-xs font-bold transition ${
+                            st ? st.cls : holiday ? "bg-rose-50 text-rose-400" : "text-slate-200 hover:bg-slate-100"
+                          } ${canEdit ? "cursor-pointer" : "cursor-default"}`}
+                        >
+                          {st ? st.short : holiday ? "B" : "·"}
+                        </button>
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-center text-slate-600">{present} / {data?.daysInMonth}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {cell && (
+        <AttendanceCellModal
+          cell={cell}
+          year={year}
+          month={month}
+          onClose={() => setCell(null)}
+          onSave={(status, note, lateMinutes) => {
+            const date = `${year}-${String(month).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`;
+            save.mutate({ employeeId: cell.employeeId, date, status, note, lateMinutes });
+            setCell(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function AttendanceCellModal({ cell, year, month, onClose, onSave }: {
+  cell: { employeeId: string; day: number; name: string };
+  year: number; month: number;
+  onClose: () => void;
+  onSave: (status: string, note?: string, lateMinutes?: number) => void;
+}) {
+  const [status, setStatus] = useState("PRESENT");
+  const [note, setNote] = useState("");
+  const [lateMinutes, setLateMinutes] = useState("");
+
+  return (
+    <Modal title={`${cell.name} — ${cell.day} ${UZ_MONTHS[month - 1]} ${year}`} onClose={onClose}>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {ATT_STATUSES.map((s) => (
+          <button
+            key={s.value}
+            onClick={() => setStatus(s.value)}
+            className={`rounded-lg border px-3 py-3 text-sm font-medium transition ${
+              status === s.value ? "border-brand-700 bg-brand-50 text-brand-900" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <span className={`mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-xs font-bold ${s.cls}`}>{s.short}</span>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {status === "LATE" && (
+        <div className="mt-4">
+          <Field label="Necha daqiqa kechikdi">
+            <input type="number" min="1" value={lateMinutes} onChange={(e) => setLateMinutes(e.target.value)} className="input" />
+          </Field>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <Field label="Izoh"><input value={note} onChange={(e) => setNote(e.target.value)} className="input" /></Field>
+      </div>
+
+      <div className="mt-6 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button>
+        <button
+          onClick={() => onSave(status, note || undefined, lateMinutes ? Number(lateMinutes) : undefined)}
+          className="rounded-lg bg-gradient-to-r from-brand-900 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+        >
+          Saqlash
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ==================== BO'LIMLAR ====================
+
+function DepartmentsTab({ canEdit }: { canEdit: boolean }) {
+  const [name, setName] = useState("");
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["hr", "departments"], queryFn: fetchDepartments });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["hr"] });
+  const add = useMutation({ mutationFn: () => createDepartment({ name }), onSuccess: () => { setName(""); invalidate(); } });
+  const remove = useMutation({ mutationFn: deleteDepartment, onSuccess: invalidate });
+
+  return (
+    <>
+      {canEdit && (
+        <div className="mb-4 flex gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bo'lim nomi (masalan: Moliya bo'limi)" className="input max-w-md flex-1" />
+          <NewButton onClick={() => name.trim() && add.mutate()}>Qo'shish</NewButton>
+        </div>
+      )}
+      <Table head={["Bo'lim nomi", "Xodimlar", "Lavozimlar", ""]}>
+        {isLoading && <Empty colSpan={4}>Yuklanmoqda...</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={4}>Bo'limlar qo'shilmagan.</Empty>}
+        {data?.map((d: any) => (
+          <tr key={d.id} className="hover:bg-slate-50">
+            <td className="px-4 py-3 font-medium text-slate-900">{d.name}</td>
+            <td className="px-4 py-3 text-slate-500">{d._count?.employees ?? 0}</td>
+            <td className="px-4 py-3 text-slate-500">{d._count?.positions ?? 0}</td>
+            <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(d.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
+          </tr>
+        ))}
+      </Table>
+    </>
+  );
+}
+
+// ==================== LAVOZIMLAR ====================
+
+function PositionsTab({ canEdit }: { canEdit: boolean }) {
+  const [form, setForm] = useState({ title: "", departmentId: "", headcount: "1" });
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["hr", "positions"], queryFn: fetchPositions });
+  const { data: departments } = useQuery({ queryKey: ["hr", "departments"], queryFn: fetchDepartments });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["hr"] });
+  const add = useMutation({
+    mutationFn: () => createPosition({ title: form.title, departmentId: form.departmentId || undefined, headcount: Number(form.headcount) || 1 }),
+    onSuccess: () => { setForm({ title: "", departmentId: "", headcount: "1" }); invalidate(); },
+  });
+  const remove = useMutation({ mutationFn: deletePosition, onSuccess: invalidate });
+
+  return (
+    <>
+      {canEdit && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Lavozim nomi" className="input max-w-xs flex-1" />
+          <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className="input max-w-xs">
+            <option value="">— bo'limsiz —</option>
+            {departments?.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <input type="number" min="1" value={form.headcount} onChange={(e) => setForm({ ...form, headcount: e.target.value })} className="input max-w-[120px]" placeholder="Shtat" />
+          <NewButton onClick={() => form.title.trim() && add.mutate()}>Qo'shish</NewButton>
+        </div>
+      )}
+      <Table head={["Lavozim", "Bo'lim", "Shtat birligi", ""]}>
+        {isLoading && <Empty colSpan={4}>Yuklanmoqda...</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={4}>Lavozimlar qo'shilmagan.</Empty>}
+        {data?.map((p: any) => (
+          <tr key={p.id} className="hover:bg-slate-50">
+            <td className="px-4 py-3 font-medium text-slate-900">{p.title}</td>
+            <td className="px-4 py-3 text-slate-500">{p.department?.name ?? "—"}</td>
+            <td className="px-4 py-3 text-slate-500">{p.headcount}</td>
+            <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(p.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
+          </tr>
+        ))}
+      </Table>
+    </>
+  );
+}
+
+// ==================== BAYRAM KUNLARI ====================
+
+function HolidaysTab({ canEdit }: { canEdit: boolean }) {
+  const [form, setForm] = useState({ date: "", name: "" });
+  const queryClient = useQueryClient();
+  const year = new Date().getFullYear();
+  const { data, isLoading } = useQuery({ queryKey: ["hr", "holidays", year], queryFn: () => fetchHolidays(year) });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["hr"] });
+  const add = useMutation({ mutationFn: () => createHoliday(form), onSuccess: () => { setForm({ date: "", name: "" }); invalidate(); } });
+  const remove = useMutation({ mutationFn: deleteHoliday, onSuccess: invalidate });
+
+  return (
+    <>
+      {canEdit && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="input max-w-[200px]" />
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Bayram nomi (masalan: Mustaqillik kuni)" className="input max-w-md flex-1" />
+          <NewButton onClick={() => form.date && form.name.trim() && add.mutate()}>Qo'shish</NewButton>
+        </div>
+      )}
+      <Table head={["Sana", "Nomi", ""]}>
+        {isLoading && <Empty colSpan={3}>Yuklanmoqda...</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={3}>Bu yil uchun bayram kunlari kiritilmagan.</Empty>}
+        {data?.map((h: any) => (
+          <tr key={h.id} className="hover:bg-slate-50">
+            <td className="px-4 py-3 font-medium text-slate-900">{fmtDate(h.date)}</td>
+            <td className="px-4 py-3 text-slate-600">{h.name}</td>
+            <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(h.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
+          </tr>
+        ))}
+      </Table>
+    </>
   );
 }
 

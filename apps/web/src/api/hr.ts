@@ -97,3 +97,68 @@ export async function fetchHrStats() {
   const { data } = await apiClient.get("/hr/stats");
   return data as { total: number; active: number; dismissed: number; pendingLeaves: number };
 }
+
+// --- Bo'limlar ---
+export async function fetchDepartments() {
+  const { data } = await apiClient.get("/hr/departments");
+  return data as any[];
+}
+export async function createDepartment(payload: { name: string; parentId?: string }) {
+  const { data } = await apiClient.post("/hr/departments", payload);
+  return data;
+}
+export async function deleteDepartment(id: string) {
+  const { data } = await apiClient.delete(`/hr/departments/${id}`);
+  return data;
+}
+
+// --- Lavozimlar ---
+export async function fetchPositions() {
+  const { data } = await apiClient.get("/hr/positions");
+  return data as any[];
+}
+export async function createPosition(payload: { title: string; departmentId?: string; headcount?: number }) {
+  const { data } = await apiClient.post("/hr/positions", payload);
+  return data;
+}
+export async function deletePosition(id: string) {
+  const { data } = await apiClient.delete(`/hr/positions/${id}`);
+  return data;
+}
+
+// --- Bayram kunlari ---
+export async function fetchHolidays(year?: number) {
+  const { data } = await apiClient.get("/hr/holidays", { params: { year } });
+  return data as any[];
+}
+export async function createHoliday(payload: { date: string; name: string; type?: string }) {
+  const { data } = await apiClient.post("/hr/holidays", payload);
+  return data;
+}
+export async function deleteHoliday(id: string) {
+  const { data } = await apiClient.delete(`/hr/holidays/${id}`);
+  return data;
+}
+
+// --- Davomat ---
+export interface AttendanceMonth {
+  year: number;
+  month: number;
+  daysInMonth: number;
+  holidays: Record<string, string>;
+  employees: {
+    id: string;
+    fullName: string;
+    position: string;
+    department?: string;
+    days: Record<string, { status: string; note?: string; lateMinutes?: number }>;
+  }[];
+}
+export async function fetchAttendance(year: number, month: number) {
+  const { data } = await apiClient.get<AttendanceMonth>("/hr/attendance", { params: { year, month } });
+  return data;
+}
+export async function setAttendance(payload: { employeeId: string; date: string; status: string; lateMinutes?: number; note?: string }) {
+  const { data } = await apiClient.post("/hr/attendance", payload);
+  return data;
+}

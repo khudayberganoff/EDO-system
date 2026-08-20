@@ -260,6 +260,144 @@ export class HrService {
     return { deleted: true };
   }
 
+
+  // ---------- Bo'limlar ----------
+
+  async listDepartments() {
+    return this.prisma.department.findMany({
+      orderBy: { name: "asc" },
+      include: { _count: { select: { employees: true, positions: true } }, parent: { select: { id: true, name: true } } },
+    });
+  }
+
+  async createDepartment(data: { name: string; parentId?: string }, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    const dept = await this.prisma.department.create({ data: { name: data.name, parentId: data.parentId || undefined } });
+    await this.auditLog.record({ userId: user.id, action: AuditAction.CREATE, metadata: { kind: "department", id: dept.id } });
+    return dept;
+  }
+
+  async removeDepartment(id: string, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    await this.prisma.department.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  // ---------- Lavozimlar ----------
+
+  async listPositions() {
+    return this.prisma.position.findMany({
+      orderBy: { title: "asc" },
+      include: { department: { select: { id: true, name: true } } },
+    });
+  }
+
+  async createPosition(data: { title: string; departmentId?: string; headcount?: number }, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    const position = await this.prisma.position.create({
+      data: { title: data.title, departmentId: data.departmentId || undefined, headcount: data.headcount ?? 1 },
+    });
+    await this.auditLog.record({ userId: user.id, action: AuditAction.CREATE, metadata: { kind: "position", id: position.id } });
+    return position;
+  }
+
+  async removePosition(id: string, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    await this.prisma.position.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  // ---------- Bayram kunlari ----------
+
+  async listHolidays(year?: number) {
+    const where: any = {};
+    if (year) {
+      where.date = { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) };
+    }
+    return this.prisma.holiday.findMany({ where, orderBy: { date: "asc" } });
+  }
+
+  async createHoliday(data: { date: string; name: string; type?: string }, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    const holiday = await this.prisma.holiday.create({
+      data: { date: new Date(data.date), name: data.name, type: data.type ?? "HOLIDAY" },
+    });
+    return holiday;
+  }
+
+  async removeHoliday(id: string, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    await this.prisma.holiday.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  // ---------- Davomat ----------
+
+  /**
+   * Bir oylik davomat jadvali: har bir xodim uchun kunlar bo'yicha holat.
+   * Bayram kunlari va tasdiqlangan ta'tillar avtomatik belgilanadi.
+   */
+  async attendanceMonth(year: number, month: number) {
+    const from = new Date(Date.UTC(year, month - 1, 1));
+    const to = new Date(Date.UTC(year, month, 1));
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+    const [employees, records, holidays, leaves] = await this.prisma.$transaction([
+      this.prisma.employee.findMany({ where: { status: "ACTIVE" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, position: true, department: true } }),
+      this.prisma.attendance.findMany({ where: { date: { gte: from, lt: to } } }),
+      this.prisma.holiday.findMany({ where: { date: { gte: from, lt: to } } }),
+      this.prisma.leave.findMany({ where: { status: "APPROVED", startDate: { lt: to }, endDate: { gte: from } } }),
+    ]);
+
+    const holidayDays = new Map<number, string>();
+    for (const h of holidays) {
+      if (h.type === "HOLIDAY") holidayDays.set(new Date(h.date).getUTCDate(), h.name);
+    }
+
+    // Har bir xodim uchun kun -> holat xaritasi
+    const grid: Record<string, Record<number, { status: string; note?: string | null; lateMinutes?: number | null }>> = {};
+    for (const e of employees) grid[e.id] = {};
+
+    // Tasdiqlangan ta'tillar
+    for (const l of leaves) {
+      if (!grid[l.employeeId]) continue;
+      const start = new Date(l.startDate);
+      const end = new Date(l.endDate);
+      for (let d = 1; d <= daysInMonth; d++) {
+        const day = new Date(Date.UTC(year, month - 1, d));
+        if (day >= start && day <= end) grid[l.employeeId][d] = { status: "LEAVE" };
+      }
+    }
+
+    // Qo'lda kiritilgan yozuvlar ta'tildan ustun turadi
+    for (const r of records) {
+      if (!grid[r.employeeId]) continue;
+      grid[r.employeeId][new Date(r.date).getUTCDate()] = { status: r.status, note: r.note, lateMinutes: r.lateMinutes };
+    }
+
+    return {
+      year,
+      month,
+      daysInMonth,
+      holidays: Object.fromEntries(holidayDays),
+      employees: employees.map((e) => ({ ...e, days: grid[e.id] })),
+    };
+  }
+
+  /** Bitta kunning holatini belgilash (jadvaldagi katakni bosganda). */
+  async setAttendance(data: { employeeId: string; date: string; status: string; lateMinutes?: number; note?: string }, user: { id: string; role: string }) {
+    this.ensureHrAccess(user.role);
+    const day = new Date(data.date);
+    const normalized = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()));
+
+    const record = await this.prisma.attendance.upsert({
+      where: { employeeId_date: { employeeId: data.employeeId, date: normalized } },
+      create: { employeeId: data.employeeId, date: normalized, status: data.status, lateMinutes: data.lateMinutes, note: data.note },
+      update: { status: data.status, lateMinutes: data.lateMinutes, note: data.note },
+    });
+    return record;
+  }
+
   /** Kadrlar bo'limi bosh sahifasi uchun qisqacha statistika. */
   async stats() {
     const [total, active, dismissed, pendingLeaves] = await this.prisma.$transaction([

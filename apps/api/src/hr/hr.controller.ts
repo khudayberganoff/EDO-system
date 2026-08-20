@@ -116,4 +116,81 @@ export class HrController {
   removeLeave(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.hrService.removeLeave(id, user);
   }
+  // ---------- Bo'limlar ----------
+
+  @Get("departments")
+  listDepartments() {
+    return this.hrService.listDepartments();
+  }
+
+  @Post("departments")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  createDepartment(@Body() body: { name: string; parentId?: string }, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.createDepartment(body, user);
+  }
+
+  @Delete("departments/:id")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  removeDepartment(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.removeDepartment(id, user);
+  }
+
+  // ---------- Lavozimlar ----------
+
+  @Get("positions")
+  listPositions() {
+    return this.hrService.listPositions();
+  }
+
+  @Post("positions")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  createPosition(@Body() body: { title: string; departmentId?: string; headcount?: number }, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.createPosition(body, user);
+  }
+
+  @Delete("positions/:id")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  removePosition(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.removePosition(id, user);
+  }
+
+  // ---------- Bayram kunlari ----------
+
+  @Get("holidays")
+  listHolidays(@Query("year") year?: string) {
+    return this.hrService.listHolidays(year ? Number(year) : undefined);
+  }
+
+  @Post("holidays")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  createHoliday(@Body() body: { date: string; name: string; type?: string }, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.createHoliday(body, user);
+  }
+
+  @Delete("holidays/:id")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  removeHoliday(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.removeHoliday(id, user);
+  }
+
+  // ---------- Davomat ----------
+
+  @Get("attendance")
+  @ApiOperation({ summary: "Bir oylik davomat jadvali" })
+  attendanceMonth(@Query("year") year: string, @Query("month") month: string) {
+    const now = new Date();
+    return this.hrService.attendanceMonth(
+      year ? Number(year) : now.getFullYear(),
+      month ? Number(month) : now.getMonth() + 1,
+    );
+  }
+
+  @Post("attendance")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  setAttendance(
+    @Body() body: { employeeId: string; date: string; status: string; lateMinutes?: number; note?: string },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.hrService.setAttendance(body, user);
+  }
 }

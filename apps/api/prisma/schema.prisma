@@ -235,6 +235,11 @@ model Employee {
   orders    HrOrder[]
   contracts EmploymentContract[]
   leaves    Leave[]
+  attendance Attendance[]
+
+  /// Bo'lim ma'lumotnomasi bilan bog'lanish (department matn maydoni saqlanib qoladi)
+  departmentRef   Department? @relation(fields: [departmentRefId], references: [id])
+  departmentRefId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -311,4 +316,62 @@ model Leave {
 
   @@index([employeeId])
   @@index([status])
+}
+
+/// Tashkilot bo'limlari (bo'linmalar). Ierarxiya uchun parentId ishlatiladi.
+model Department {
+  id       String  @id @default(cuid())
+  name     String
+  parent   Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
+  parentId String?
+  children Department[] @relation("DepartmentTree")
+
+  positions Position[]
+  employees Employee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Shtat lavozimlari
+model Position {
+  id           String      @id @default(cuid())
+  title        String
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+  /// Shtat birliklari soni
+  headcount    Int         @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Bayram va dam olish kunlari - davomat jadvalida ajratib ko'rsatiladi
+model Holiday {
+  id   String   @id @default(cuid())
+  date DateTime @unique
+  name String
+  /// HOLIDAY (bayram) | WORKDAY (dam olish kuni ish kuniga ko'chirilgan)
+  type String   @default("HOLIDAY")
+
+  createdAt DateTime @default(now())
+}
+
+/// Xodimlarning kunlik davomati
+model Attendance {
+  id         String   @id @default(cuid())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  date       DateTime
+  /// PRESENT | LATE | ABSENT | LEAVE | DAYOFF | HOLIDAY | SICK | BUSINESS_TRIP
+  status     String   @default("PRESENT")
+  /// Kechikkan daqiqalar (LATE holati uchun)
+  lateMinutes Int?
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([date])
 }
