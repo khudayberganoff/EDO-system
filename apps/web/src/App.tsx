@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./i18n/LanguageContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { RequireAuth } from "./components/RequireAuth";
 import { AppLayout } from "./components/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
@@ -18,6 +19,7 @@ const queryClient = new QueryClient();
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
       <AuthProvider>
@@ -44,5 +46,6 @@ export default function App() {
       </AuthProvider>
       </LanguageProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

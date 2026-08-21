@@ -44,6 +44,14 @@ const LEAVE_TYPES = [
 ];
 
 const label = (list: { value: string; label: string }[], v: string) => list.find((x) => x.value === v)?.label ?? v;
+
+/** Server xatosini doim matn ko'rinishiga keltiradi (massiv bo'lsa - birlashtiradi). */
+function errorText(e: any): string {
+  const msg = e?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(". ");
+  if (typeof msg === "string") return msg;
+  return "Saqlab bo'lmadi. Ma'lumotlarni tekshiring.";
+}
 const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString("uz-UZ") : "—");
 
 export function HrPage() {
@@ -128,7 +136,7 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
         {canEdit && <NewButton onClick={() => setShowCreate(true)}>{t("hr.newEmployee")}</NewButton>}
       </div>
 
-      <Table head={[t("hr.colFullName"), t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHireDate"), t("hr.colExperience"), t("hr.colPassportExpiry"), t("hr.colSystemAccount"), t("hr.colStatus"), ""]}>
+      <Table head={[t("hr.colFullName"), t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHireDate"), t("hr.colExperience"), t("hr.colPassportExpiry"), t("hr.colSystemAccount"), t("hr.colStatus"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={9}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={9}>{t("hr.noEmployees")}</Empty>}
         {data?.map((e: Employee) => (
@@ -273,7 +281,7 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
       notes: form.notes || undefined,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
-    onError: (e: any) => setError(e?.response?.data?.message ?? "Saqlab bo'lmadi."),
+    onError: (e: any) => setError(errorText(e)),
   });
 
   return (
@@ -345,7 +353,7 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
         </button>
         {canEdit && <NewButton onClick={() => setShowCreate(true)}>{t("hr.newOrder")}</NewButton>}
       </div>
-      <Table head={[t("hr.colNumber"), t("hr.colDate"), t("hr.colEmployee"), t("hr.colType"), t("hr.colSubject"), ""]}>
+      <Table head={[t("hr.colNumber"), t("hr.colDate"), t("hr.colEmployee"), t("hr.colType"), t("hr.colSubject"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={6}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={6}>{t("hr.noOrders")}</Empty>}
         {data?.map((o: any) => (
@@ -391,7 +399,7 @@ function OrderModal({ onClose }: { onClose: () => void }) {
       rate: isHire && form.rate ? Number(form.rate) : undefined,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
-    onError: (e: any) => setError(e?.response?.data?.message ?? "Saqlab bo'lmadi."),
+    onError: (e: any) => setError(errorText(e)),
   });
 
   return (
@@ -441,7 +449,7 @@ function ContractsTab({ canEdit }: { canEdit: boolean }) {
   return (
     <>
       {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newContract")}</NewButton></div>}
-      <Table head={[t("hr.colNumber"), t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colSalary"), ""]}>
+      <Table head={[t("hr.colNumber"), t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colSalary"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={7}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={7}>{t("hr.noContracts")}</Empty>}
         {data?.map((c: any) => (
@@ -523,7 +531,7 @@ function LeavesTab({ canEdit }: { canEdit: boolean }) {
   return (
     <>
       {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newLeave")}</NewButton></div>}
-      <Table head={[t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colDays"), t("hr.colStatus"), ""]}>
+      <Table head={[t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colDays"), t("hr.colStatus"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={7}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={7}>{t("hr.noLeaves")}</Empty>}
         {data?.map((l: any) => (
@@ -821,7 +829,7 @@ function DepartmentsTab({ canEdit }: { canEdit: boolean }) {
           <NewButton onClick={() => name.trim() && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={[t("hr.colName"), t("hr.colEmployeesCount"), t("hr.colPositionsCount"), ""]}>
+      <Table head={[t("hr.colName"), t("hr.colEmployeesCount"), t("hr.colPositionsCount"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={4}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={4}>{t("hr.noDepartments")}</Empty>}
         {data?.map((d: any) => (
@@ -865,7 +873,7 @@ function PositionsTab({ canEdit }: { canEdit: boolean }) {
           <NewButton onClick={() => form.title.trim() && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={[t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHeadcount"), ""]}>
+      <Table head={[t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHeadcount"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={4}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={4}>{t("hr.noPositions")}</Empty>}
         {data?.map((p: any) => (
@@ -902,7 +910,7 @@ function HolidaysTab({ canEdit }: { canEdit: boolean }) {
           <NewButton onClick={() => form.date && form.name.trim() && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={[t("hr.colDate"), t("hr.colName"), ""]}>
+      <Table head={[t("hr.colDate"), t("hr.colName"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={3}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={3}>{t("hr.noHolidays")}</Empty>}
         {data?.map((h: any) => (
@@ -941,7 +949,7 @@ function GratitudesTab({ canEdit }: { canEdit: boolean }) {
           <NewButton onClick={() => form.employeeId && form.message.trim().length > 2 && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={[t("hr.colEmployee"), t("hr.colText"), t("hr.colAuthor"), t("hr.colDate"), ""]}>
+      <Table head={[t("hr.colEmployee"), t("hr.colText"), t("hr.colAuthor"), t("hr.colDate"), t("letters.colActions")]}>
         {isLoading && <Empty colSpan={5}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={5}>{t("hr.noGratitudes")}</Empty>}
         {data?.map((g: any) => (

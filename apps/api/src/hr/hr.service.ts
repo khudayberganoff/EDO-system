@@ -140,7 +140,9 @@ export class HrService {
       throw new BadRequestException(`№ ${number} raqamli buyruq allaqachon mavjud. Boshqa raqam kiriting.`);
     }
 
-    const order = await this.prisma.hrOrder.create({
+    let order;
+    try {
+      order = await this.prisma.hrOrder.create({
       data: {
         employeeId: dto.employeeId,
         type: dto.type,
@@ -152,7 +154,14 @@ export class HrService {
         createdById: user.id,
       },
       include: { employee: { select: { fullName: true } } },
-    });
+      });
+    } catch (err: any) {
+      // Baza darajasidagi takrorlanish (bir vaqtda ikkita so'rov kelgan holat)
+      if (err?.code === "P2002") {
+        throw new BadRequestException(`№ ${number} raqamli buyruq allaqachon mavjud. Boshqa raqam kiriting.`);
+      }
+      throw err;
+    }
     await this.auditLog.record({ userId: user.id, action: AuditAction.CREATE, metadata: { kind: "hrOrder", orderId: order.id } });
     return order;
   }
