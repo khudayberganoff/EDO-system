@@ -1,16 +1,42 @@
 import { PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { Role } from "./common/enums";
 
+const execFileAsync = promisify(execFile);
+
 /**
- * Bo'sh bazaga boshlang'ich foydalanuvchilarni qo'shadi.
+ * Baza sxemasini yangilaydi va bo'sh bazaga boshlang'ich foydalanuvchilarni qo'shadi.
  *
- * Nima uchun bu yerda: ilgari seed alohida ts-node jarayoni sifatida server
- * ishga tushishidan OLDIN bajarilardi. Bu sekin va og'ir edi - platforma
- * portni kutib turolmay konteynerni o'chirib yuborardi (SIGTERM).
- * Endi server avval portni ochadi, seed esa fonda bajariladi.
+ * Nima uchun bu ish serverdan KEYIN bajariladi:
+ * ilgari `prisma db push` va seed server ishga tushishidan oldin bajarilardi.
+ * Bepul tarifdagi cheklangan resurslarda bu uzoq davom etib, platforma port
+ * ochilishini kutolmay konteynerni o'chirib yuborardi (SIGTERM).
+ * Endi server avval portni ochadi - shundan keyin baza fonda tayyorlanadi.
  */
 export async function runBootstrapSeed(): Promise<void> {
+  await syncDatabaseSchema();
+  await seedInitialUsers();
+}
+
+/** `prisma db push` - sxemadagi o'zgarishlarni bazaga qo'llaydi. */
+async function syncDatabaseSchema(): Promise<void> {
+  try {
+    console.log("Baza sxemasi tekshirilmoqda...");
+    const { stdout } = await execFileAsync(
+      "npx",
+      ["prisma", "db", "push", "--accept-data-loss", "--skip-generate"],
+      { cwd: process.cwd(), timeout: 180_000, maxBuffer: 10 * 1024 * 1024 },
+    );
+    console.log(stdout.trim());
+  } catch (err: any) {
+    console.error("Baza sxemasini yangilashda xatolik:", err?.message ?? err);
+  }
+}
+
+/** Bo'sh bazaga standart hisoblar (admin / manager / employee). */
+async function seedInitialUsers(): Promise<void> {
   const prisma = new PrismaClient();
   try {
     const userCount = await prisma.user.count();
@@ -34,10 +60,8 @@ export async function runBootstrapSeed(): Promise<void> {
         },
       });
     }
-
     console.log("Boshlang'ich foydalanuvchilar yaratildi (admin/manager/employee).");
   } catch (err) {
-    // Seed muvaffaqiyatsiz bo'lsa ham server ishlashda davom etadi
     console.error("Boshlang'ich ma'lumotlarni yaratishda xatolik:", err);
   } finally {
     await prisma.$disconnect();
