@@ -61,6 +61,10 @@ export async function downloadHrOrder(id: string, format: "docx" | "pdf") {
   const { data } = await apiClient.get<Blob>(`/hr/orders/${id}/download`, { params: { format }, responseType: "blob" });
   return data;
 }
+export async function exportHrOrders() {
+  const { data } = await apiClient.get<Blob>("/hr/orders/export", { responseType: "blob" });
+  return data;
+}
 export async function deleteHrOrder(id: string) {
   const { data } = await apiClient.delete(`/hr/orders/${id}`);
   return data;

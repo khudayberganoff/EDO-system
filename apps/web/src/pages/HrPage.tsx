@@ -1,10 +1,10 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2, Download, FileText } from "lucide-react";
+import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2, FileText, FileSpreadsheet } from "lucide-react";
 import {
   fetchEmployees, createEmployee, deleteEmployee,
-  fetchHrOrders, createHrOrder, deleteHrOrder, fetchNextOrderNumber, downloadHrOrder,
+  fetchHrOrders, createHrOrder, deleteHrOrder, fetchNextOrderNumber, downloadHrOrder, exportHrOrders,
   fetchContracts, createContract, deleteContract,
   fetchLeaves, createLeave, approveLeave, rejectLeave, deleteLeave,
   fetchHrStats, type Employee,
@@ -310,6 +310,18 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
   const { data, isLoading } = useQuery({ queryKey: ["hr", "orders"], queryFn: () => fetchHrOrders() });
   const remove = useMutation({ mutationFn: deleteHrOrder, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["hr"] }) });
 
+  const exportToExcel = async () => {
+    try {
+      const blob = await exportHrOrders();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `buyruqlar-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { alert("Excel faylni yuklab bo'lmadi."); }
+  };
+
   const downloadOrder = async (id: string, format: "docx" | "pdf", number: string) => {
     try {
       const blob = await downloadHrOrder(id, format);
@@ -324,7 +336,15 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
 
   return (
     <>
-      {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newOrder")}</NewButton></div>}
+      <div className="mb-4 flex justify-end gap-2">
+        <button
+          onClick={exportToExcel}
+          className="flex items-center gap-2 rounded-lg border border-emerald-600 px-5 py-3 text-base font-medium text-emerald-700 transition hover:bg-emerald-50"
+        >
+          <FileSpreadsheet size={18} /> Excel
+        </button>
+        {canEdit && <NewButton onClick={() => setShowCreate(true)}>{t("hr.newOrder")}</NewButton>}
+      </div>
       <Table head={[t("hr.colNumber"), t("hr.colDate"), t("hr.colEmployee"), t("hr.colType"), t("hr.colSubject"), ""]}>
         {isLoading && <Empty colSpan={6}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={6}>{t("hr.noOrders")}</Empty>}
@@ -337,7 +357,7 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
             <td className="px-4 py-3 text-slate-600">{o.subject}</td>
             <td className="px-4 py-3">
               <div className="flex gap-1">
-                <button title="Word" onClick={() => downloadOrder(o.id, "docx", o.number)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16} /></button>
+                <button title="Word" onClick={() => downloadOrder(o.id, "docx", o.number)} className="rounded-lg p-2 text-sky-600 hover:bg-sky-50"><FileText size={16} /></button>
                 <button title="PDF" onClick={() => downloadOrder(o.id, "pdf", o.number)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><FileText size={16} /></button>
                 {canEdit && <button title={t("hr.delete")} onClick={() => remove.mutate(o.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16} /></button>}
               </div>

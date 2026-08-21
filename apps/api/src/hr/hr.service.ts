@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
+import * as XLSX from "xlsx";
 import { PrismaService } from "../prisma/prisma.service";
 import { LetterPdfService } from "../letters/letter-pdf.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -220,6 +221,42 @@ export class HrService {
     const { buffer: docx, name } = await this.buildOrderDocx(id);
     const pdf = await this.pdfService.docxToPdf(docx);
     return { buffer: pdf, name: name.replace(/\.docx$/, ".pdf") };
+  }
+
+  /** Buyruqlar ro'yxatini Excel (.xlsx) fayl sifatida shakllantiradi. */
+  async exportOrdersXlsx(): Promise<Buffer> {
+    const orders = await this.prisma.hrOrder.findMany({
+      orderBy: { orderDate: "desc" },
+      include: { employee: { select: { fullName: true, position: true, department: true } } },
+    });
+
+    const TYPE_LABELS: Record<string, string> = {
+      HIRE: "Ishga qabul qilish", DISMISS: "Ishdan bo'shatish", TRANSFER: "Lavozimga o'tkazish",
+      VACATION: "Ta'til berish", BONUS: "Rag'batlantirish", PENALTY: "Intizomiy jazo", OTHER: "Boshqa",
+    };
+
+    const rows = orders.map((o, i) => ({
+      "№": i + 1,
+      "Buyruq raqami": o.number,
+      "Sanasi": new Date(o.orderDate).toLocaleDateString("uz-UZ"),
+      "Xodim": o.employee?.fullName ?? "",
+      "Lavozimi": o.employee?.position ?? "",
+      "Bo'limi": o.employee?.department ?? "",
+      "Buyruq turi": TYPE_LABELS[o.type] ?? o.type,
+      "Mavzusi": o.subject,
+      "Shtat stavkasi": o.rate ?? "",
+      "Matni": o.content ?? "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    // Ustun kengliklari - fayl ochilganda o'qishga qulay bo'lishi uchun
+    worksheet["!cols"] = [
+      { wch: 5 }, { wch: 16 }, { wch: 12 }, { wch: 28 }, { wch: 22 },
+      { wch: 20 }, { wch: 22 }, { wch: 40 }, { wch: 14 }, { wch: 50 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Buyruqlar");
+    return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   }
 
   async removeOrder(id: string, user: { id: string; role: string }) {

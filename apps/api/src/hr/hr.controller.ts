@@ -62,6 +62,15 @@ export class HrController {
     return this.hrService.nextOrderNumber();
   }
 
+  @Get("orders/export")
+  @ApiOperation({ summary: "Buyruqlar ro'yxatini Excel sifatida yuklab olish" })
+  async exportOrders(@Res() res: Response) {
+    const buffer = await this.hrService.exportOrdersXlsx();
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", 'attachment; filename="buyruqlar.xlsx"');
+    res.send(buffer);
+  }
+
   /** Buyruqni Word yoki PDF sifatida yuklab olish. */
   @Get("orders/:id/download")
   async downloadOrder(@Param("id") id: string, @Query("format") format: string, @Res() res: Response) {
