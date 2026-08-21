@@ -89,6 +89,7 @@ export function LettersPage() {
         {letters.map((letter: any) => <tr key={letter.id} className="align-top hover:bg-slate-50">
           <td className="px-4 py-4"><LetterStatusPill status={letter.status}/></td>
           <td className="px-4 py-4 text-slate-500">{new Date(letter.documentDate).toLocaleDateString("uz-UZ")}</td>
+          {isWarningSection && <td className="px-4 py-4 text-slate-600">{t(`letters.type.${letter.type}` as any)}</td>}
           <td className="px-4 py-4"><div className="font-medium text-slate-800">{letter.counterpartyName}</div><div className="text-xs text-slate-400">{letter.counterpartyAddress || ""}</div></td>
           <td className="px-4 py-4 text-slate-500">№ {letter.documentNumber}</td>
           <td className="px-4 py-4 text-slate-600"><div className="max-w-[360px]">{letter.summary}</div></td>
