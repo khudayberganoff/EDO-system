@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from "@nestjs/common";
+import { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { HrService } from "./hr.service";
 import { CreateEmployeeDto, UpdateEmployeeDto, CreateHrOrderDto, CreateContractDto, CreateLeaveDto } from "./dto/hr.dto";
@@ -53,6 +54,26 @@ export class HrController {
   @Get("orders")
   listOrders(@Query("employeeId") employeeId?: string, @Query("type") type?: string) {
     return this.hrService.listOrders({ employeeId, type });
+  }
+
+  @Get("orders/next-number")
+  @ApiOperation({ summary: "Keyingi bo'sh buyruq raqami" })
+  nextOrderNumber() {
+    return this.hrService.nextOrderNumber();
+  }
+
+  /** Buyruqni Word yoki PDF sifatida yuklab olish. */
+  @Get("orders/:id/download")
+  async downloadOrder(@Param("id") id: string, @Query("format") format: string, @Res() res: Response) {
+    const isPdf = format === "pdf";
+    const { buffer, name } = isPdf
+      ? await this.hrService.buildOrderPdf(id)
+      : await this.hrService.buildOrderDocx(id);
+    res.setHeader("Content-Type", isPdf
+      ? "application/pdf"
+      : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.send(buffer);
   }
 
   @Post("orders")

@@ -264,11 +264,14 @@ model HrOrder {
   employeeId String
   /// HIRE | DISMISS | TRANSFER | VACATION | BONUS | PENALTY | OTHER
   type       String
-  number     String
+  /// Buyruq raqami - takrorlanmasligi kerak
+  number     String   @unique
   orderDate  DateTime
   subject    String
   content    String?
   fileUrl    String?
+  /// Ishga qabul buyrug'ida - shtat stavkasi (1.0 = to'liq stavka, 0.5 = yarim)
+  rate       Float?
 
   createdBy   User?   @relation(fields: [createdById], references: [id])
   createdById String?

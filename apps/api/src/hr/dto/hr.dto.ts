@@ -88,6 +88,10 @@ export class CreateHrOrderDto {
 
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(5000)
   content?: string;
+
+  @ApiPropertyOptional({ example: 1, description: "Shtat stavkasi (1 = to'liq, 0.5 = yarim)" })
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
+  rate?: number;
 }
 
 export class CreateContractDto {

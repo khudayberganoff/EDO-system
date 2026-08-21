@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2 } from "lucide-react";
+import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2, Download, FileText } from "lucide-react";
 import {
   fetchEmployees, createEmployee, deleteEmployee,
-  fetchHrOrders, createHrOrder, deleteHrOrder,
+  fetchHrOrders, createHrOrder, deleteHrOrder, fetchNextOrderNumber, downloadHrOrder,
   fetchContracts, createContract, deleteContract,
   fetchLeaves, createLeave, approveLeave, rejectLeave, deleteLeave,
   fetchHrStats, type Employee,
@@ -310,6 +310,18 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
   const { data, isLoading } = useQuery({ queryKey: ["hr", "orders"], queryFn: () => fetchHrOrders() });
   const remove = useMutation({ mutationFn: deleteHrOrder, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["hr"] }) });
 
+  const downloadOrder = async (id: string, format: "docx" | "pdf", number: string) => {
+    try {
+      const blob = await downloadHrOrder(id, format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `buyruq-${number}.${format}`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { alert("Faylni yuklab bo'lmadi."); }
+  };
+
   return (
     <>
       {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newOrder")}</NewButton></div>}
@@ -323,7 +335,13 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
             <td className="px-4 py-3 text-slate-700">{o.employee?.fullName}</td>
             <td className="px-4 py-3 text-slate-500">{label(ORDER_TYPES, o.type)}</td>
             <td className="px-4 py-3 text-slate-600">{o.subject}</td>
-            <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(o.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
+            <td className="px-4 py-3">
+              <div className="flex gap-1">
+                <button title="Word" onClick={() => downloadOrder(o.id, "docx", o.number)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Download size={16} /></button>
+                <button title="PDF" onClick={() => downloadOrder(o.id, "pdf", o.number)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><FileText size={16} /></button>
+                {canEdit && <button title={t("hr.delete")} onClick={() => remove.mutate(o.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16} /></button>}
+              </div>
+            </td>
           </tr>
         ))}
       </Table>
@@ -336,11 +354,24 @@ function OrderModal({ onClose }: { onClose: () => void }) {
   const t = useT();
   const queryClient = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
-  const [form, setForm] = useState({ employeeId: "", type: "HIRE", number: "", orderDate: new Date().toISOString().slice(0, 10), subject: "", content: "" });
+  const [form, setForm] = useState({ employeeId: "", type: "HIRE", number: "", orderDate: new Date().toISOString().slice(0, 10), subject: "", content: "", rate: "1" });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [error, setError] = useState<string | null>(null);
+
+  // Keyingi bo'sh raqamni avtomatik taklif qilamiz - takrorlanish bo'lmasligi uchun
+  useEffect(() => {
+    fetchNextOrderNumber().then((n) => setForm((f) => (f.number ? f : { ...f, number: n }))).catch(() => {});
+  }, []);
+
+  const isHire = form.type === "HIRE";
   const mutation = useMutation({
-    mutationFn: () => createHrOrder({ ...form, content: form.content || undefined }),
+    mutationFn: () => createHrOrder({
+      ...form,
+      content: form.content || undefined,
+      rate: isHire && form.rate ? Number(form.rate) : undefined,
+    }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Saqlab bo'lmadi."),
   });
 
   return (
@@ -359,9 +390,20 @@ function OrderModal({ onClose }: { onClose: () => void }) {
         </Field>
         <Field label="Buyruq raqami *"><input value={form.number} onChange={(e) => set("number", e.target.value)} placeholder="12-K" className="input" /></Field>
         <Field label="Sanasi *"><input type="date" value={form.orderDate} onChange={(e) => set("orderDate", e.target.value)} className="input" /></Field>
+        {isHire && (
+          <Field label="Shtat stavkasi">
+            <select value={form.rate} onChange={(e) => set("rate", e.target.value)} className="input">
+              <option value="1">1,0 — to'liq stavka</option>
+              <option value="0.75">0,75 stavka</option>
+              <option value="0.5">0,5 — yarim stavka</option>
+              <option value="0.25">0,25 stavka</option>
+            </select>
+          </Field>
+        )}
       </div>
       <div className="mt-4"><Field label="Mavzusi *"><input value={form.subject} onChange={(e) => set("subject", e.target.value)} placeholder="Ishga qabul qilish to'g'risida" className="input" /></Field></div>
       <div className="mt-4"><Field label="Matni"><textarea value={form.content} onChange={(e) => set("content", e.target.value)} rows={4} className="input" /></Field></div>
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
       <Actions onClose={onClose} disabled={mutation.isPending || !form.employeeId || !form.number || !form.subject} onSave={() => mutation.mutate()} />
     </Modal>
   );

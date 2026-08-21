@@ -53,6 +53,14 @@ export async function createHrOrder(payload: Record<string, unknown>) {
   const { data } = await apiClient.post("/hr/orders", payload);
   return data;
 }
+export async function fetchNextOrderNumber() {
+  const { data } = await apiClient.get<{ number: string }>("/hr/orders/next-number");
+  return data.number;
+}
+export async function downloadHrOrder(id: string, format: "docx" | "pdf") {
+  const { data } = await apiClient.get<Blob>(`/hr/orders/${id}/download`, { params: { format }, responseType: "blob" });
+  return data;
+}
 export async function deleteHrOrder(id: string) {
   const { data } = await apiClient.delete(`/hr/orders/${id}`);
   return data;

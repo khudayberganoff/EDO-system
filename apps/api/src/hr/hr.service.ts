@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 import { PrismaService } from "../prisma/prisma.service";
+import { LetterPdfService } from "../letters/letter-pdf.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { AuditAction, Role } from "../common/enums";
 import { CreateEmployeeDto, UpdateEmployeeDto, CreateHrOrderDto, CreateContractDto, CreateLeaveDto } from "./dto/hr.dto";
@@ -10,6 +12,7 @@ export class HrService {
   constructor(
     private prisma: PrismaService,
     private auditLog: AuditLogService,
+    private pdfService: LetterPdfService,
   ) {}
 
   private ensureHrAccess(role: string) {
@@ -128,20 +131,95 @@ export class HrService {
 
   async createOrder(dto: CreateHrOrderDto, user: { id: string; role: string }) {
     this.ensureHrAccess(user.role);
+
+    // Buyruq raqami takrorlanmasligi shart - bir xil raqamli ikkita buyruq bo'lmasin
+    const number = dto.number.trim();
+    const duplicate = await this.prisma.hrOrder.findUnique({ where: { number } });
+    if (duplicate) {
+      throw new BadRequestException(`№ ${number} raqamli buyruq allaqachon mavjud. Boshqa raqam kiriting.`);
+    }
+
     const order = await this.prisma.hrOrder.create({
       data: {
         employeeId: dto.employeeId,
         type: dto.type,
-        number: dto.number,
+        number,
         orderDate: new Date(dto.orderDate),
         subject: dto.subject,
         content: dto.content,
+        rate: dto.rate,
         createdById: user.id,
       },
       include: { employee: { select: { fullName: true } } },
     });
     await this.auditLog.record({ userId: user.id, action: AuditAction.CREATE, metadata: { kind: "hrOrder", orderId: order.id } });
     return order;
+  }
+
+  /**
+   * Keyingi bo'sh buyruq raqamini taklif qiladi: "1-K", "2-K", ...
+   * Mavjud raqamlardagi eng katta sonni topib, undan keyingisini beradi.
+   */
+  async nextOrderNumber() {
+    const orders = await this.prisma.hrOrder.findMany({ select: { number: true } });
+    let max = 0;
+    for (const o of orders) {
+      const m = /^(\d+)/.exec(o.number.trim());
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return { number: `${max + 1}-K` };
+  }
+
+  /** Buyruqni Word (.docx) hujjat sifatida shakllantiradi. */
+  async buildOrderDocx(id: string): Promise<{ buffer: Buffer; name: string }> {
+    const order = await this.prisma.hrOrder.findUnique({
+      where: { id },
+      include: { employee: { select: { fullName: true, position: true, department: true } } },
+    });
+    if (!order) throw new NotFoundException("Buyruq topilmadi.");
+
+    const TYPE_LABELS: Record<string, string> = {
+      HIRE: "Ishga qabul qilish", DISMISS: "Ishdan bo'shatish", TRANSFER: "Lavozimga o'tkazish",
+      VACATION: "Ta'til berish", BONUS: "Rag'batlantirish", PENALTY: "Intizomiy jazo", OTHER: "Boshqa",
+    };
+
+    const p = (text: string, opts: any = {}) =>
+      new Paragraph({
+        alignment: opts.align ?? AlignmentType.LEFT,
+        spacing: { after: opts.after ?? 140, line: 300 },
+        children: [new TextRun({ text, bold: opts.bold, size: opts.size ?? 24, font: "Times New Roman" })],
+      });
+
+    const doc = new Document({
+      sections: [{
+        properties: { page: { margin: { top: 850, right: 850, bottom: 850, left: 1100 } } },
+        children: [
+          p("«WAFA LEASING» MAS'ULIYATI CHEKLANGAN JAMIYATI", { bold: true, align: AlignmentType.CENTER, size: 26 }),
+          p("BUYRUQ", { bold: true, align: AlignmentType.CENTER, size: 28, after: 60 }),
+          p(`№ ${order.number}`, { bold: true, align: AlignmentType.CENTER, size: 24, after: 40 }),
+          p(new Date(order.orderDate).toLocaleDateString("uz-UZ"), { align: AlignmentType.CENTER, size: 22, after: 300 }),
+          p(order.subject, { bold: true, align: AlignmentType.CENTER, after: 300 }),
+          p(`Xodim: ${order.employee?.fullName ?? "—"}`),
+          p(`Lavozimi: ${order.employee?.position ?? "—"}`),
+          ...(order.employee?.department ? [p(`Bo'limi: ${order.employee.department}`)] : []),
+          p(`Buyruq turi: ${TYPE_LABELS[order.type] ?? order.type}`),
+          ...(order.rate != null ? [p(`Shtat stavkasi: ${order.rate}`)] : []),
+          ...(order.content ? [p(""), ...String(order.content).split(/\n+/).map((line) => p(line.trim(), { align: AlignmentType.JUSTIFIED }))] : []),
+          p("", { after: 500 }),
+          p("Direktor\t\t\t\tM. Xudayberganov", { bold: true }),
+        ],
+      }],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    return { buffer, name: `buyruq-${order.number}.docx` };
+  }
+
+  /** Buyruqning PDF nusxasi (Word hujjatidan aylantiriladi). */
+  async buildOrderPdf(id: string): Promise<{ buffer: Buffer; name: string }> {
+    const { buffer: docx, name } = await this.buildOrderDocx(id);
+    const pdf = await this.pdfService.docxToPdf(docx);
+    return { buffer: pdf, name: name.replace(/\.docx$/, ".pdf") };
   }
 
   async removeOrder(id: string, user: { id: string; role: string }) {
