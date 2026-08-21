@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { join } from "path";
 import { existsSync } from "fs";
 import { AppModule } from "./app.module";
+import { runBootstrapSeed } from "./bootstrap-seed";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -52,6 +53,9 @@ async function bootstrap() {
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
   await app.listen(port);
   console.log(`EDO API ${port}-portda ishga tushdi. Docs: /api/docs`);
+
+  // Port ochilgandan keyin - shunda platforma serverni "tirik" deb hisoblaydi
+  void runBootstrapSeed();
 }
 
 bootstrap();

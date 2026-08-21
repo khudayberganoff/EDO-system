@@ -6,7 +6,7 @@
     "postinstall": "prisma generate",
     "build": "nest build",
     "start": "node dist/main",
-    "start:prod": "prisma db push --accept-data-loss --skip-generate && npm run seed && node dist/main",
+    "start:prod": "prisma db push --accept-data-loss --skip-generate && node dist/main",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "prisma:generate": "prisma generate",
