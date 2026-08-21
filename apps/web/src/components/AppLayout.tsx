@@ -34,6 +34,7 @@ const TOP_NAV_ITEMS = [
 ] as const;
 
 const LETTER_SUB_ITEMS = [
+  { to: "/letters/warning", labelKey: "nav.warnings", icon: AlertTriangle },
   { to: "/letters/reference", labelKey: "nav.reference", icon: FileQuestion },
 ] as const;
 
@@ -55,10 +56,6 @@ const HR_SUB_ITEMS = [
   { to: "/hr/gratitudes", labelKey: "nav.hrGratitudes", icon: Award },
 ] as const;
 
-const WARNING_SUB_ITEMS = [
-  { to: "/letters/first-warning", labelKey: "nav.firstWarning", icon: AlertTriangle },
-  { to: "/letters/final-warning", labelKey: "nav.finalWarning", icon: AlertTriangle },
-] as const;
 
 function Item({ to, label, icon: Icon }: { to: string; label: string; icon: typeof Mail }) {
   return (
@@ -115,9 +112,7 @@ export function AppLayout() {
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const isInLettersSection = location.pathname.startsWith("/letters") && location.pathname !== "/letters/archive";
-  const isInWarningSection = location.pathname.startsWith("/letters/first-warning") || location.pathname.startsWith("/letters/final-warning");
   const [lettersOpen, setLettersOpen] = useState(isInLettersSection);
-  const [warningsOpen, setWarningsOpen] = useState(isInWarningSection);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const isInHrSection = location.pathname.startsWith("/hr");
   const [hrOpen, setHrOpen] = useState(isInHrSection);
@@ -128,10 +123,9 @@ export function AppLayout() {
   // faqat shu bo'lim ichida qolsak ochiq turadi.
   useEffect(() => {
     setLettersOpen(isInLettersSection);
-    setWarningsOpen(isInWarningSection);
     setHrOpen(isInHrSection);
     setMailOpen(isInMailSection);
-  }, [location.pathname, isInLettersSection, isInWarningSection, isInHrSection, isInMailSection]);
+  }, [location.pathname, isInLettersSection, isInHrSection, isInMailSection]);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -196,33 +190,6 @@ export function AppLayout() {
                   {mailOpen && (
                     <div className="mt-0.5 space-y-0.5">
                       {MAIL_SUB_ITEMS.map((x) => (
-                        <SubSubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Yig'iladigan "Ogohlantirish" guruhi - 1-ogohlantirish / Yakuniy ogohlantirish */}
-                <div>
-                  <button
-                    onClick={() => setWarningsOpen((v) => !v)}
-                    className={`flex w-full items-center justify-between rounded-lg py-2 pl-9 pr-3 text-[13px] transition ${
-                      isInWarningSection ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <AlertTriangle size={15} />
-                      {t("nav.warnings")}
-                    </span>
-                    <ChevronDown
-                      size={14}
-                      className={`transition-transform ${warningsOpen ? "rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {warningsOpen && (
-                    <div className="mt-0.5 space-y-0.5">
-                      {WARNING_SUB_ITEMS.map((x) => (
                         <SubSubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
                       ))}
                     </div>

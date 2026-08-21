@@ -15,9 +15,10 @@ const STATUS_KEYS: Record<string, string> = { DRAFT: "letters.drafts", PENDING_A
 export function LettersPage() {
   const t = useT();
   const { kind } = useParams<{ kind?: string }>();
+  // "Ogohlantirish" bo'limi ikkala turni (1-ogohlantirish va yakuniy) birga ko'rsatadi
+  const isWarningSection = kind === "warning";
   const selectedType =
-    kind === "first-warning" ? LetterType.FIRST_WARNING :
-    kind === "final-warning" ? LetterType.FINAL_WARNING :
+    isWarningSection ? LetterType.FIRST_WARNING :
     kind === "reference" ? LetterType.REFERENCE : LetterType.LETTER;
   // "Xat" bo'limi chiquvchi va kiruvchiga bo'lingan
   const direction = kind === "incoming" ? "INCOMING" : kind === "outgoing" ? "OUTGOING" : undefined;
@@ -27,7 +28,15 @@ export function LettersPage() {
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { data, isLoading } = useQuery({ queryKey: ["letters", selectedType, status, direction], queryFn: () => fetchLetters({ type: selectedType, status: status as any, direction: direction as any }) });
+  const { data, isLoading } = useQuery({
+    queryKey: ["letters", isWarningSection ? "warnings" : selectedType, status, direction],
+    queryFn: () => fetchLetters(isWarningSection
+      ? { status: status as any }
+      : { type: selectedType, status: status as any, direction: direction as any }),
+  });
+  // Ogohlantirish bo'limida faqat ikkala ogohlantirish turi qoldiriladi
+  const letters = (data?.items ?? []).filter((l: any) =>
+    !isWarningSection || l.type === LetterType.FIRST_WARNING || l.type === LetterType.FINAL_WARNING);
   const approve = useMutation({ mutationFn: approveLetter, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letters"] }) });
   const del = useMutation({ mutationFn: deleteLetter, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["letters"] }) });
   const download = async (id: string, kind: "draft" | "final", documentNumber?: string) => {
@@ -59,10 +68,10 @@ export function LettersPage() {
 
   return <div className="p-8">
     <div className="mb-6 flex items-start justify-between">
-      <div><h1 className="text-3xl font-semibold text-slate-900">{direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
+      <div><h1 className="text-3xl font-semibold text-slate-900">{isWarningSection ? t("nav.warnings") : direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{isWarningSection ? t("letters.descWarnings") : direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
       <div className="flex gap-2">
         <Link to="/letters/archive" className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"><Archive size={16}/> {t("letters.archive")}</Link>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {t(`letters.type.${selectedType}` as any).toLowerCase()}</button>
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {(isWarningSection ? t("nav.warnings") : t(`letters.type.${selectedType}` as any)).toLowerCase()}</button>
       </div>
     </div>
 
@@ -73,11 +82,11 @@ export function LettersPage() {
     </div>
 
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">{t("letters.colStatus")}</th><th className="px-4 py-3">{t("letters.colDate")}</th><th className="px-4 py-3">{t("letters.colTo")}</th><th className="px-4 py-3">{t("letters.colNumber")}</th><th className="px-4 py-3">{t("letters.colSummary")}</th><th className="px-4 py-3">{t("letters.colActions")}</th></tr></thead>
+      <table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">{t("letters.colStatus")}</th><th className="px-4 py-3">{t("letters.colDate")}</th>{isWarningSection && <th className="px-4 py-3">{t("hr.colType")}</th>}<th className="px-4 py-3">{t("letters.colTo")}</th><th className="px-4 py-3">{t("letters.colNumber")}</th><th className="px-4 py-3">{t("letters.colSummary")}</th><th className="px-4 py-3">{t("letters.colActions")}</th></tr></thead>
       <tbody className="divide-y divide-slate-100">
-        {isLoading && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">{t("documents.loading")}</td></tr>}
-        {!isLoading && !data?.items?.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">{t("letters.empty")}</td></tr>}
-        {data?.items?.map((letter: any) => <tr key={letter.id} className="align-top hover:bg-slate-50">
+        {isLoading && <tr><td colSpan={isWarningSection ? 7 : 6} className="px-4 py-8 text-center text-slate-400">{t("documents.loading")}</td></tr>}
+        {!isLoading && letters.length === 0 && <tr><td colSpan={isWarningSection ? 7 : 6} className="px-4 py-8 text-center text-slate-400">{t("letters.empty")}</td></tr>}
+        {letters.map((letter: any) => <tr key={letter.id} className="align-top hover:bg-slate-50">
           <td className="px-4 py-4"><LetterStatusPill status={letter.status}/></td>
           <td className="px-4 py-4 text-slate-500">{new Date(letter.documentDate).toLocaleDateString("uz-UZ")}</td>
           <td className="px-4 py-4"><div className="font-medium text-slate-800">{letter.counterpartyName}</div><div className="text-xs text-slate-400">{letter.counterpartyAddress || ""}</div></td>
@@ -96,13 +105,14 @@ export function LettersPage() {
         </tr>)}
       </tbody></table>
     </div>
-    {showCreate && <CreateLetterModal type={selectedType} direction={direction} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>}
+    {showCreate && <CreateLetterModal type={selectedType} direction={direction} allowTypeChoice={isWarningSection} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>}
     {viewLetter && <ViewLetterModal letter={viewLetter} onClose={() => setViewLetter(null)} />}
     {rejectTarget && <RejectLetterModal letter={rejectTarget} onClose={() => setRejectTarget(null)} />}
   </div>;
 }
 
-function CreateLetterModal({ type, direction, onClose }: { type: LetterType; direction?: string; onClose: () => void }) {
+function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onClose }: { type: LetterType; direction?: string; allowTypeChoice?: boolean; onClose: () => void }) {
+  const [type, setType] = useState<LetterType>(initialType);
   const [documentDate, setDocumentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const t = useT();
   const [counterpartyType, setCounterpartyType] = useState(type === LetterType.FIRST_WARNING ? "CITIZEN" : "ORGANIZATION");
@@ -146,7 +156,12 @@ function CreateLetterModal({ type, direction, onClose }: { type: LetterType; dir
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><div className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
     <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-slate-900">{t("letterForm.title", { type: t(`letters.type.${type}` as any) })}</h2><p className="text-xs text-slate-500">{t("letterForm.subtitle")}</p></div><button onClick={onClose}><X size={20}/></button></div>
     <div className="grid grid-cols-2 gap-4">
-      <Field label={t("letterForm.type")}><input readOnly value={t(`letters.type.${type}` as any)} className="input bg-slate-50"/></Field><Field label={t("letterForm.number")}><input readOnly value={nextNumber ? `№ ${nextNumber}` : "—"} className="input bg-slate-50"/></Field>
+      <Field label={t("letterForm.type")}>{allowTypeChoice
+        ? <select value={type} onChange={(e) => setType(e.target.value as LetterType)} className="input">
+            <option value={LetterType.FIRST_WARNING}>{t("letters.type.FIRST_WARNING")}</option>
+            <option value={LetterType.FINAL_WARNING}>{t("letters.type.FINAL_WARNING")}</option>
+          </select>
+        : <input readOnly value={t(`letters.type.${type}` as any)} className="input bg-slate-50"/>}</Field><Field label={t("letterForm.number")}><input readOnly value={nextNumber ? `№ ${nextNumber}` : "—"} className="input bg-slate-50"/></Field>
       <Field label={t("letterForm.date")}><input type="date" value={documentDate} onChange={e=>setDocumentDate(e.target.value)} className="input"/></Field>{isFirstWarning ? <Field label={t("letterForm.recipientType")}><input value={t("letterForm.citizen")} disabled className="input bg-slate-50 text-slate-500"/></Field> : <Field label={t("letterForm.recipientType")}><select value={counterpartyType} onChange={e=>setCounterpartyType(e.target.value)} className="input"><option value="ORGANIZATION">{t("letterForm.organization")}</option><option value="CITIZEN">{t("letterForm.citizen")}</option></select></Field>}
     </div>
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : t("letterForm.orgName")}><input required value={counterpartyName} onChange={e=>setCounterpartyName(e.target.value)} placeholder={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : '"MISOL KOMPANIYASI" MCHJ'} className="input"/></Field><Field label={t("letterForm.address")}><input value={counterpartyAddress} onChange={e=>setCounterpartyAddress(e.target.value)} className="input"/></Field></div>
@@ -233,8 +248,10 @@ function LetterheadPanel() {
       </div>
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
       <p className="mt-2 text-xs text-slate-400">
-        Faqat Word (.docx) fayl, max 10 MB. Blank ichida quyidagi teglardan istalganini yozing — tizim ularni avtomatik to'ldiradi:
-        {" "}<code className="rounded bg-slate-100 px-1">{"{raqam}"}</code> <code className="rounded bg-slate-100 px-1">{"{sana}"}</code> <code className="rounded bg-slate-100 px-1">{"{kimga}"}</code> <code className="rounded bg-slate-100 px-1">{"{manzil}"}</code> <code className="rounded bg-slate-100 px-1">{"{matn}"}</code> — va ogohlantirish xatlari uchun qo'shimcha: <code className="rounded bg-slate-100 px-1">{"{shartnoma_raqami}"}</code> <code className="rounded bg-slate-100 px-1">{"{oylik_tolov}"}</code> <code className="rounded bg-slate-100 px-1">{"{kechikkan_kun}"}</code> <code className="rounded bg-slate-100 px-1">{"{xayriya_summasi}"}</code>.
+        {t("letterhead.hintIntro")}{" "}
+        <code className="rounded bg-slate-100 px-1">{"{raqam}"}</code> <code className="rounded bg-slate-100 px-1">{"{sana}"}</code> <code className="rounded bg-slate-100 px-1">{"{kimga}"}</code> <code className="rounded bg-slate-100 px-1">{"{manzil}"}</code> <code className="rounded bg-slate-100 px-1">{"{telefon}"}</code> <code className="rounded bg-slate-100 px-1">{"{sarlavha}"}</code> <code className="rounded bg-slate-100 px-1">{"{matn}"}</code> <code className="rounded bg-slate-100 px-1">{"{%qr_kod}"}</code>
+        {" — "}{t("letterhead.hintWarning")}{" "}
+        <code className="rounded bg-slate-100 px-1">{"{shartnoma_raqami}"}</code> <code className="rounded bg-slate-100 px-1">{"{shartnoma_sanasi}"}</code> <code className="rounded bg-slate-100 px-1">{"{oylik_tolov}"}</code> <code className="rounded bg-slate-100 px-1">{"{kechikkan_kun}"}</code> <code className="rounded bg-slate-100 px-1">{"{xayriya_summasi}"}</code>.
       </p>
     </div>
   );
