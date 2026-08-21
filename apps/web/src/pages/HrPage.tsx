@@ -105,6 +105,7 @@ function StatBox({ icon: Icon, label, value, accent = "text-brand-700 bg-brand-5
 // ==================== XODIMLAR ====================
 
 function EmployeesTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [linkTarget, setLinkTarget] = useState<Employee | null>(null);
@@ -121,15 +122,15 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="F.I.Sh., lavozim yoki bo'lim bo'yicha qidirish..."
+          placeholder={t("hr.searchEmployee")}
           className="input max-w-md flex-1"
         />
-        {canEdit && <NewButton onClick={() => setShowCreate(true)}>Yangi xodim</NewButton>}
+        {canEdit && <NewButton onClick={() => setShowCreate(true)}>{t("hr.newEmployee")}</NewButton>}
       </div>
 
-      <Table head={["F.I.Sh.", "Lavozim", "Bo'lim", "Ishga kirgan", "Staj", "Pasport muddati", "Tizim hisobi", "Holati", ""]}>
-        {isLoading && <Empty colSpan={9}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={9}>Xodimlar topilmadi.</Empty>}
+      <Table head={[t("hr.colFullName"), t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHireDate"), t("hr.colExperience"), t("hr.colPassportExpiry"), t("hr.colSystemAccount"), t("hr.colStatus"), ""]}>
+        {isLoading && <Empty colSpan={9}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={9}>{t("hr.noEmployees")}</Empty>}
         {data?.map((e: Employee) => (
           <tr key={e.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{e.fullName}
@@ -143,8 +144,8 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
               {(() => {
                 const st = passportState(e.passportExpiry);
                 if (!st) return <span className="text-slate-400">—</span>;
-                if (st.level === "expired") return <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800">Muddati tugagan</span>;
-                if (st.level === "soon") return <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">{st.days} kun qoldi</span>;
+                if (st.level === "expired") return <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800">{t("hr.passportExpired")}</span>;
+                if (st.level === "soon") return <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">{st.days} {t("hr.daysLeft")}</span>;
                 return <span className="text-slate-500">{fmtDate(e.passportExpiry)}</span>;
               })()}
             </td>
@@ -156,15 +157,15 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
                     e.userId ? "bg-brand-50 text-brand-800 hover:bg-brand-100" : "text-slate-400 hover:bg-slate-100"
                   }`}
                 >
-                  <Link2 size={13} /> {e.userId ? "Bog'langan" : "Bog'lash"}
+                  <Link2 size={13} /> {e.userId ? t("hr.linked") : t("hr.link")}
                 </button>
               ) : (
-                <span className="text-xs text-slate-400">{e.userId ? "Bog'langan" : "—"}</span>
+                <span className="text-xs text-slate-400">{e.userId ? t("hr.linked") : "—"}</span>
               )}
             </td>
             <td className="px-4 py-3">
               <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
-                {e.status === "ACTIVE" ? "Faol" : "Bo'shatilgan"}
+                {e.status === "ACTIVE" ? t("hr.statusActive") : t("hr.statusDismissed")}
               </span>
             </td>
             <td className="px-4 py-3">
@@ -303,6 +304,7 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
 // ==================== BUYRUQLAR ====================
 
 function OrdersTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "orders"], queryFn: () => fetchHrOrders() });
@@ -310,10 +312,10 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
 
   return (
     <>
-      {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>Yangi buyruq</NewButton></div>}
-      <Table head={["Raqami", "Sanasi", "Xodim", "Turi", "Mavzusi", ""]}>
-        {isLoading && <Empty colSpan={6}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={6}>Buyruqlar topilmadi.</Empty>}
+      {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newOrder")}</NewButton></div>}
+      <Table head={[t("hr.colNumber"), t("hr.colDate"), t("hr.colEmployee"), t("hr.colType"), t("hr.colSubject"), ""]}>
+        {isLoading && <Empty colSpan={6}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={6}>{t("hr.noOrders")}</Empty>}
         {data?.map((o: any) => (
           <tr key={o.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">№ {o.number}</td>
@@ -331,6 +333,7 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
 }
 
 function OrderModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
   const [form, setForm] = useState({ employeeId: "", type: "HIRE", number: "", orderDate: new Date().toISOString().slice(0, 10), subject: "", content: "" });
@@ -345,7 +348,7 @@ function OrderModal({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Xodim *">
           <select value={form.employeeId} onChange={(e) => set("employeeId", e.target.value)} className="input">
-            <option value="">— tanlang —</option>
+            <option value="">{t("hr.selectEmployee")}</option>
             {employees?.map((e: Employee) => <option key={e.id} value={e.id}>{e.fullName} ({e.position})</option>)}
           </select>
         </Field>
@@ -367,6 +370,7 @@ function OrderModal({ onClose }: { onClose: () => void }) {
 // ==================== SHARTNOMALAR ====================
 
 function ContractsTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "contracts"], queryFn: () => fetchContracts() });
@@ -374,17 +378,17 @@ function ContractsTab({ canEdit }: { canEdit: boolean }) {
 
   return (
     <>
-      {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>Yangi shartnoma</NewButton></div>}
-      <Table head={["Raqami", "Xodim", "Turi", "Boshlanish", "Tugash", "Oylik maosh", ""]}>
-        {isLoading && <Empty colSpan={7}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={7}>Shartnomalar topilmadi.</Empty>}
+      {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newContract")}</NewButton></div>}
+      <Table head={[t("hr.colNumber"), t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colSalary"), ""]}>
+        {isLoading && <Empty colSpan={7}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={7}>{t("hr.noContracts")}</Empty>}
         {data?.map((c: any) => (
           <tr key={c.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">№ {c.number}</td>
             <td className="px-4 py-3 text-slate-700">{c.employee?.fullName}</td>
             <td className="px-4 py-3 text-slate-500">{label(CONTRACT_TYPES, c.type)}</td>
             <td className="px-4 py-3 text-slate-500">{fmtDate(c.startDate)}</td>
-            <td className="px-4 py-3 text-slate-500">{c.endDate ? fmtDate(c.endDate) : "muddatsiz"}</td>
+            <td className="px-4 py-3 text-slate-500">{c.endDate ? fmtDate(c.endDate) : t("hr.permanent")}</td>
             <td className="px-4 py-3 text-slate-600">{c.salary ? `${formatMoney(String(c.salary))} so'm` : "—"}</td>
             <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(c.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
           </tr>
@@ -396,6 +400,7 @@ function ContractsTab({ canEdit }: { canEdit: boolean }) {
 }
 
 function ContractModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
   const [form, setForm] = useState({ employeeId: "", number: "", type: "PERMANENT", startDate: new Date().toISOString().slice(0, 10), endDate: "", salary: "", notes: "" });
@@ -414,7 +419,7 @@ function ContractModal({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Xodim *">
           <select value={form.employeeId} onChange={(e) => set("employeeId", e.target.value)} className="input">
-            <option value="">— tanlang —</option>
+            <option value="">{t("hr.selectEmployee")}</option>
             {employees?.map((e: Employee) => <option key={e.id} value={e.id}>{e.fullName} ({e.position})</option>)}
           </select>
         </Field>
@@ -437,6 +442,7 @@ function ContractModal({ onClose }: { onClose: () => void }) {
 // ==================== TA'TILLAR ====================
 
 function LeavesTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [showCreate, setShowCreate] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const queryClient = useQueryClient();
@@ -454,10 +460,10 @@ function LeavesTab({ canEdit }: { canEdit: boolean }) {
 
   return (
     <>
-      {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>Yangi ta'til</NewButton></div>}
-      <Table head={["Xodim", "Turi", "Boshlanish", "Tugash", "Kunlar", "Holati", ""]}>
-        {isLoading && <Empty colSpan={7}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={7}>Ta'tillar topilmadi.</Empty>}
+      {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newLeave")}</NewButton></div>}
+      <Table head={[t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colDays"), t("hr.colStatus"), ""]}>
+        {isLoading && <Empty colSpan={7}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={7}>{t("hr.noLeaves")}</Empty>}
         {data?.map((l: any) => (
           <tr key={l.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{l.employee?.fullName}</td>
@@ -474,11 +480,11 @@ function LeavesTab({ canEdit }: { canEdit: boolean }) {
                 <div className="flex gap-1">
                   {l.status === "REQUESTED" && (
                     <>
-                      <button title="Tasdiqlash" onClick={() => approve.mutate(l.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16} /></button>
-                      <button title="Rad etish" onClick={() => setRejectTarget(l)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><XCircle size={16} /></button>
+                      <button title={t("hr.approve")} onClick={() => approve.mutate(l.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16} /></button>
+                      <button title={t("hr.reject")} onClick={() => setRejectTarget(l)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><XCircle size={16} /></button>
                     </>
                   )}
-                  <button title="O'chirish" onClick={() => remove.mutate(l.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16} /></button>
+                  <button title={t("hr.delete")} onClick={() => remove.mutate(l.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16} /></button>
                 </div>
               )}
             </td>
@@ -492,6 +498,7 @@ function LeavesTab({ canEdit }: { canEdit: boolean }) {
 }
 
 function LeaveModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
   const [form, setForm] = useState({ employeeId: "", type: "ANNUAL", startDate: "", endDate: "", reason: "" });
@@ -510,7 +517,7 @@ function LeaveModal({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Xodim *">
           <select value={form.employeeId} onChange={(e) => set("employeeId", e.target.value)} className="input">
-            <option value="">— tanlang —</option>
+            <option value="">{t("hr.selectEmployee")}</option>
             {employees?.map((e: Employee) => <option key={e.id} value={e.id}>{e.fullName} ({e.position})</option>)}
           </select>
         </Field>
@@ -568,6 +575,7 @@ const UZ_MONTHS = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "
 const WEEKDAY_SHORT = ["ya", "du", "se", "ch", "pa", "ju", "sh"];
 
 function AttendanceTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -622,12 +630,12 @@ function AttendanceTab({ canEdit }: { canEdit: boolean }) {
                   </th>
                 );
               })}
-              <th className="px-3 py-2 text-center">Jami</th>
+              <th className="px-3 py-2 text-center">{t("hr.total")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading && <tr><td colSpan={days.length + 2} className="px-4 py-8 text-center text-slate-400">Yuklanmoqda...</td></tr>}
-            {!isLoading && data?.employees.length === 0 && <tr><td colSpan={days.length + 2} className="px-4 py-8 text-center text-slate-400">Faol xodimlar yo'q.</td></tr>}
+            {!isLoading && data?.employees.length === 0 && <tr><td colSpan={days.length + 2} className="px-4 py-8 text-center text-slate-400">{t("hr.noActiveEmployees")}</td></tr>}
             {data?.employees.map((e) => {
               const present = days.filter((d) => ["PRESENT", "LATE"].includes(e.days?.[String(d)]?.status ?? "")).length;
               return (
@@ -735,6 +743,7 @@ function AttendanceCellModal({ cell, year, month, onClose, onSave }: {
 // ==================== BO'LIMLAR ====================
 
 function DepartmentsTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [name, setName] = useState("");
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "departments"], queryFn: fetchDepartments });
@@ -747,12 +756,12 @@ function DepartmentsTab({ canEdit }: { canEdit: boolean }) {
       {canEdit && (
         <div className="mb-4 flex gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bo'lim nomi (masalan: Moliya bo'limi)" className="input max-w-md flex-1" />
-          <NewButton onClick={() => name.trim() && add.mutate()}>Qo'shish</NewButton>
+          <NewButton onClick={() => name.trim() && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={["Bo'lim nomi", "Xodimlar", "Lavozimlar", ""]}>
-        {isLoading && <Empty colSpan={4}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={4}>Bo'limlar qo'shilmagan.</Empty>}
+      <Table head={[t("hr.colName"), t("hr.colEmployeesCount"), t("hr.colPositionsCount"), ""]}>
+        {isLoading && <Empty colSpan={4}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={4}>{t("hr.noDepartments")}</Empty>}
         {data?.map((d: any) => (
           <tr key={d.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{d.name}</td>
@@ -769,6 +778,7 @@ function DepartmentsTab({ canEdit }: { canEdit: boolean }) {
 // ==================== LAVOZIMLAR ====================
 
 function PositionsTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [form, setForm] = useState({ title: "", departmentId: "", headcount: "1" });
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "positions"], queryFn: fetchPositions });
@@ -786,16 +796,16 @@ function PositionsTab({ canEdit }: { canEdit: boolean }) {
         <div className="mb-4 flex flex-wrap gap-2">
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Lavozim nomi" className="input max-w-xs flex-1" />
           <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className="input max-w-xs">
-            <option value="">— bo'limsiz —</option>
+            <option value="">{t("hr.noDepartment")}</option>
             {departments?.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           <input type="number" min="1" value={form.headcount} onChange={(e) => setForm({ ...form, headcount: e.target.value })} className="input max-w-[120px]" placeholder="Shtat" />
-          <NewButton onClick={() => form.title.trim() && add.mutate()}>Qo'shish</NewButton>
+          <NewButton onClick={() => form.title.trim() && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={["Lavozim", "Bo'lim", "Shtat birligi", ""]}>
-        {isLoading && <Empty colSpan={4}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={4}>Lavozimlar qo'shilmagan.</Empty>}
+      <Table head={[t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHeadcount"), ""]}>
+        {isLoading && <Empty colSpan={4}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={4}>{t("hr.noPositions")}</Empty>}
         {data?.map((p: any) => (
           <tr key={p.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{p.title}</td>
@@ -812,6 +822,7 @@ function PositionsTab({ canEdit }: { canEdit: boolean }) {
 // ==================== BAYRAM KUNLARI ====================
 
 function HolidaysTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [form, setForm] = useState({ date: "", name: "" });
   const queryClient = useQueryClient();
   const year = new Date().getFullYear();
@@ -826,12 +837,12 @@ function HolidaysTab({ canEdit }: { canEdit: boolean }) {
         <div className="mb-4 flex flex-wrap gap-2">
           <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="input max-w-[200px]" />
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Bayram nomi (masalan: Mustaqillik kuni)" className="input max-w-md flex-1" />
-          <NewButton onClick={() => form.date && form.name.trim() && add.mutate()}>Qo'shish</NewButton>
+          <NewButton onClick={() => form.date && form.name.trim() && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={["Sana", "Nomi", ""]}>
-        {isLoading && <Empty colSpan={3}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={3}>Bu yil uchun bayram kunlari kiritilmagan.</Empty>}
+      <Table head={[t("hr.colDate"), t("hr.colName"), ""]}>
+        {isLoading && <Empty colSpan={3}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={3}>{t("hr.noHolidays")}</Empty>}
         {data?.map((h: any) => (
           <tr key={h.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{fmtDate(h.date)}</td>
@@ -847,6 +858,7 @@ function HolidaysTab({ canEdit }: { canEdit: boolean }) {
 // ==================== MINNATDORCHILIK ====================
 
 function GratitudesTab({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [form, setForm] = useState({ employeeId: "", message: "" });
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "gratitudes"], queryFn: () => fetchGratitudes() });
@@ -860,16 +872,16 @@ function GratitudesTab({ canEdit }: { canEdit: boolean }) {
       {canEdit && (
         <div className="mb-4 flex flex-wrap gap-2">
           <select value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} className="input max-w-xs">
-            <option value="">— xodimni tanlang —</option>
+            <option value="">{t("hr.selectEmployee")}</option>
             {employees?.map((e: Employee) => <option key={e.id} value={e.id}>{e.fullName}</option>)}
           </select>
           <input value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Minnatdorchilik matni" className="input max-w-lg flex-1" />
-          <NewButton onClick={() => form.employeeId && form.message.trim().length > 2 && add.mutate()}>Qo'shish</NewButton>
+          <NewButton onClick={() => form.employeeId && form.message.trim().length > 2 && add.mutate()}>{t("hr.add")}</NewButton>
         </div>
       )}
-      <Table head={["Xodim", "Matn", "Kim tomonidan", "Sana", ""]}>
-        {isLoading && <Empty colSpan={5}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={5}>Hozircha yozuvlar yo'q.</Empty>}
+      <Table head={[t("hr.colEmployee"), t("hr.colText"), t("hr.colAuthor"), t("hr.colDate"), ""]}>
+        {isLoading && <Empty colSpan={5}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={5}>{t("hr.noGratitudes")}</Empty>}
         {data?.map((g: any) => (
           <tr key={g.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{g.employee?.fullName}</td>
