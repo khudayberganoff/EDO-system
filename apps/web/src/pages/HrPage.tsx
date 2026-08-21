@@ -406,11 +406,12 @@ function OrderModal({ onClose }: { onClose: () => void }) {
       rate: isHire && form.rate ? Number(form.rate) : undefined,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
-    onError: (e: any) => setError(
-      e?.response?.status === 400 || e?.response?.status === 500
-        ? (errorText(e).includes("mavjud") ? errorText(e) : t("hr.duplicateOrderNumber", { number: form.number }))
-        : errorText(e),
-    ),
+    onError: (e: any) => {
+      const serverText = errorText(e);
+      // Server aniq sabab qaytarsa - o'shani, aks holda eng ehtimoliy sababni ko'rsatamiz
+      const looksLikeDuplicate = /kiritilgan|mavjud|already|уже/i.test(serverText) || isDuplicate;
+      setError(looksLikeDuplicate ? t("hr.duplicateOrderNumber", { number: form.number }) : serverText);
+    },
   });
 
   return (

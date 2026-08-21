@@ -135,9 +135,14 @@ export class HrService {
 
     // Buyruq raqami takrorlanmasligi shart - bir xil raqamli ikkita buyruq bo'lmasin
     const number = dto.number.trim();
-    const duplicate = await this.prisma.hrOrder.findUnique({ where: { number } });
+    const duplicate = await this.prisma.hrOrder.findFirst({
+      where: { number: { equals: number, mode: "insensitive" } },
+    });
     if (duplicate) {
-      throw new BadRequestException(`№ ${number} raqamli buyruq allaqachon mavjud. Boshqa raqam kiriting.`);
+      throw new BadRequestException(
+        `№ ${number} raqamli buyruq oldin kiritilgan (${new Date(duplicate.orderDate).toLocaleDateString("uz-UZ")}). ` +
+        "Buyruq raqami takrorlanmasligi kerak - boshqa raqam kiriting.",
+      );
     }
 
     let order;

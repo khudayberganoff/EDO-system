@@ -264,8 +264,9 @@ model HrOrder {
   employeeId String
   /// HIRE | DISMISS | TRANSFER | VACATION | BONUS | PENALTY | OTHER
   type       String
-  /// Buyruq raqami - takrorlanmasligi kerak
-  number     String   @unique
+  /// Buyruq raqami - takrorlanmasligi dastur darajasida tekshiriladi
+  /// (bazada @unique qo'yilmagan, chunki eski yozuvlarda dublikatlar bo'lishi mumkin)
+  number     String
   orderDate  DateTime
   subject    String
   content    String?
