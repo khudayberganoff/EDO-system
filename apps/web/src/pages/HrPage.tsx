@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X, Check, XCircle, Users, Palmtree } from "lucide-react";
+import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2 } from "lucide-react";
 import {
   fetchEmployees, createEmployee, deleteEmployee,
   fetchHrOrders, createHrOrder, deleteHrOrder,
@@ -13,6 +13,7 @@ import {
   fetchHolidays, createHoliday, deleteHoliday,
   fetchAttendance, setAttendance,
   fetchGratitudes, createGratitude, deleteGratitude,
+  fetchSystemUsers, linkEmployeeUser,
 } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
 import { formatUzPhone, normalizeUzPhone, formatMoney, parseMoney } from "../utils/format";
@@ -108,6 +109,7 @@ function StatBox({ icon: Icon, label, value, accent = "text-brand-700 bg-brand-5
 function EmployeesTab({ canEdit }: { canEdit: boolean }) {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<Employee | null>(null);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "employees", search], queryFn: () => fetchEmployees({ search: search || undefined }) });
   const remove = useMutation({
@@ -127,9 +129,9 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
         {canEdit && <NewButton onClick={() => setShowCreate(true)}>Yangi xodim</NewButton>}
       </div>
 
-      <Table head={["F.I.Sh.", "Lavozim", "Bo'lim", "Ishga kirgan", "Staj", "Pasport muddati", "Holati", ""]}>
-        {isLoading && <Empty colSpan={8}>Yuklanmoqda...</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={8}>Xodimlar topilmadi.</Empty>}
+      <Table head={["F.I.Sh.", "Lavozim", "Bo'lim", "Ishga kirgan", "Staj", "Pasport muddati", "Tizim hisobi", "Holati", ""]}>
+        {isLoading && <Empty colSpan={9}>Yuklanmoqda...</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={9}>Xodimlar topilmadi.</Empty>}
         {data?.map((e: Employee) => (
           <tr key={e.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{e.fullName}
@@ -149,6 +151,20 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
               })()}
             </td>
             <td className="px-4 py-3">
+              {canEdit ? (
+                <button
+                  onClick={() => setLinkTarget(e)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    e.userId ? "bg-brand-50 text-brand-800 hover:bg-brand-100" : "text-slate-400 hover:bg-slate-100"
+                  }`}
+                >
+                  <Link2 size={13} /> {e.userId ? "Bog'langan" : "Bog'lash"}
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400">{e.userId ? "Bog'langan" : "—"}</span>
+              )}
+            </td>
+            <td className="px-4 py-3">
               <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                 {e.status === "ACTIVE" ? "Faol" : "Bo'shatilgan"}
               </span>
@@ -165,6 +181,7 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
       </Table>
 
       {showCreate && <EmployeeModal onClose={() => setShowCreate(false)} />}
+      {linkTarget && <LinkUserModal employee={linkTarget} onClose={() => setLinkTarget(null)} />}
     </>
   );
 }
@@ -179,6 +196,43 @@ function passportState(expiry?: string | null): { level: "expired" | "soon" | "o
   if (days < 0) return { level: "expired", days };
   if (days <= 60) return { level: "soon", days };
   return { level: "ok", days };
+}
+
+/** Xodim kartasini tizim foydalanuvchisiga bog'lash oynasi. */
+function LinkUserModal({ employee, onClose }: { employee: Employee; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [userId, setUserId] = useState(employee.userId ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const { data: users, isLoading } = useQuery({ queryKey: ["system-users"], queryFn: fetchSystemUsers });
+
+  const mutation = useMutation({
+    mutationFn: () => linkEmployeeUser(employee.id, userId || null),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Bog'lab bo'lmadi."),
+  });
+
+  return (
+    <Modal title="Tizim hisobiga bog'lash" onClose={onClose}>
+      <p className="mb-4 text-sm text-slate-500">
+        <strong className="text-slate-800">{employee.fullName}</strong> kartasini tizim foydalanuvchisiga bog'lang —
+        shundan so'ng u "Mening HR" sahifasida o'z ma'lumotlarini ko'radi.
+      </p>
+
+      <Field label="Tizim foydalanuvchisi">
+        {isLoading ? (
+          <p className="text-sm text-slate-400">Yuklanmoqda...</p>
+        ) : (
+          <select value={userId} onChange={(e) => setUserId(e.target.value)} className="input">
+            <option value="">— bog'lanmagan —</option>
+            {users?.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>)}
+          </select>
+        )}
+      </Field>
+
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+      <Actions onClose={onClose} disabled={mutation.isPending} onSave={() => mutation.mutate()} />
+    </Modal>
+  );
 }
 
 /** Ish staji: yil va oy hisobida */

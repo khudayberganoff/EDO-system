@@ -17,6 +17,7 @@ export interface Employee {
   address?: string;
   status: string;
   dismissDate?: string;
+  userId?: string | null;
   notes?: string;
   _count?: { orders: number; contracts: number; leaves: number };
 }
@@ -195,4 +196,10 @@ export async function deleteGratitude(id: string) {
 export async function linkEmployeeUser(employeeId: string, userId: string | null) {
   const { data } = await apiClient.post(`/hr/employees/${employeeId}/link-user`, { userId });
   return data;
+}
+
+/** Tizim foydalanuvchilari - xodim kartasini bog'lash uchun */
+export async function fetchSystemUsers() {
+  const { data } = await apiClient.get("/users");
+  return data as { id: string; fullName: string; email: string; role: string }[];
 }
