@@ -40,6 +40,7 @@ model User {
   approvedLeaves   Leave[]           @relation("LeaveApprover")
   employeeCard     Employee?         @relation("EmployeeUser")
   givenGratitudes  Gratitude[]       @relation("GratitudeFrom")
+  apiKeys          ApiKey[]          @relation("ApiKeyAuthor")
 
   @@index([email])
 }
@@ -421,4 +422,28 @@ model Gratitude {
   createdAt  DateTime @default(now())
 
   @@index([employeeId])
+}
+
+/// Tashqi tizimlar (boshqa saytlar) uchun API kalit.
+/// Kalitning o'zi saqlanmaydi - faqat xeshi, shuning uchun u bir marta ko'rsatiladi.
+model ApiKey {
+  id          String    @id @default(cuid())
+  /// Kalit nomi - qaysi tizim foydalanayotgani (masalan "Korporativ sayt")
+  name        String
+  /// Kalitning boshlanishi (edo_live_ab12...) - ro'yxatda tanib olish uchun
+  prefix      String
+  keyHash     String    @unique
+  /// Ruxsat etilgan bo'limlar: hr, letters, documents (vergul bilan)
+  scopes      String    @default("hr,letters,documents")
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+
+  createdBy   User?   @relation("ApiKeyAuthor", fields: [createdById], references: [id])
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
 }

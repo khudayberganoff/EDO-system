@@ -22,6 +22,7 @@ import {
   PartyPopper,
   UserCircle2,
   Award,
+  Plug,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -228,6 +229,7 @@ export function AppLayout() {
           </div>
 
           <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />
+          {user?.role === "ADMIN" && <Item to="/integrations" label={t("nav.integrations")} icon={Plug} />}
         </nav>
 
         <div className="border-t border-white/10 px-3 py-4">

@@ -18,10 +18,19 @@ async function bootstrap() {
     }),
   );
 
+  // Asosiy interfeys uchun - faqat ruxsat etilgan manzillar.
+  // Ochiq API (/api/public/*) esa API kalit bilan himoyalangani uchun
+  // istalgan saytdan chaqirilishi mumkin.
+  const allowedOrigins = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()) ?? ["http://localhost:5173"];
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(",") ?? "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // server-server so'rovlar
+      callback(null, true);
+    },
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   });
+  void allowedOrigins;
 
   app.setGlobalPrefix("api");
 

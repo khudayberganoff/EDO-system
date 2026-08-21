@@ -127,7 +127,7 @@ export class LettersService {
     return this.aiAgent.getLearningStats();
   }
 
-  async findAll(query: QueryLettersDto) {
+  async findAll(query: Partial<QueryLettersDto>) {
     const where: Prisma.LetterWhereInput = {};
     if (query.direction) where.direction = query.direction;
     if (query.type) where.type = query.type;
