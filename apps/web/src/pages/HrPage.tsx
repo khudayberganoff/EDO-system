@@ -391,6 +391,13 @@ function OrderModal({ onClose }: { onClose: () => void }) {
     fetchNextOrderNumber().then((n) => setForm((f) => (f.number ? f : { ...f, number: n }))).catch(() => {});
   }, []);
 
+  // Mavjud buyruq raqamlari - takrorlanishni serverga bormasdan oldin aniqlaymiz
+  const { data: existingOrders } = useQuery({ queryKey: ["hr", "orders"], queryFn: () => fetchHrOrders() });
+  const trimmedNumber = form.number.trim().toLowerCase();
+  const isDuplicate = !!trimmedNumber && (existingOrders ?? []).some(
+    (o: any) => String(o.number).trim().toLowerCase() === trimmedNumber,
+  );
+
   const isHire = form.type === "HIRE";
   const mutation = useMutation({
     mutationFn: () => createHrOrder({
@@ -399,7 +406,11 @@ function OrderModal({ onClose }: { onClose: () => void }) {
       rate: isHire && form.rate ? Number(form.rate) : undefined,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
-    onError: (e: any) => setError(errorText(e)),
+    onError: (e: any) => setError(
+      e?.response?.status === 400 || e?.response?.status === 500
+        ? (errorText(e).includes("mavjud") ? errorText(e) : t("hr.duplicateOrderNumber", { number: form.number }))
+        : errorText(e),
+    ),
   });
 
   return (
@@ -416,7 +427,17 @@ function OrderModal({ onClose }: { onClose: () => void }) {
             {ORDER_TYPES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
           </select>
         </Field>
-        <Field label="Buyruq raqami *"><input value={form.number} onChange={(e) => set("number", e.target.value)} placeholder="12-K" className="input" /></Field>
+        <Field label="Buyruq raqami *">
+          <input
+            value={form.number}
+            onChange={(e) => { set("number", e.target.value); setError(null); }}
+            placeholder="12-K"
+            className={`input ${isDuplicate ? "border-rose-400 focus:border-rose-500" : ""}`}
+          />
+          <span className={`mt-1 block text-xs ${isDuplicate ? "text-rose-600" : "text-slate-400"}`}>
+            {isDuplicate ? t("hr.duplicateOrderNumber", { number: form.number }) : t("hr.orderNumberHint")}
+          </span>
+        </Field>
         <Field label="Sanasi *"><input type="date" value={form.orderDate} onChange={(e) => set("orderDate", e.target.value)} className="input" /></Field>
         {isHire && (
           <Field label="Shtat stavkasi">
@@ -432,7 +453,7 @@ function OrderModal({ onClose }: { onClose: () => void }) {
       <div className="mt-4"><Field label="Mavzusi *"><input value={form.subject} onChange={(e) => set("subject", e.target.value)} placeholder="Ishga qabul qilish to'g'risida" className="input" /></Field></div>
       <div className="mt-4"><Field label="Matni"><textarea value={form.content} onChange={(e) => set("content", e.target.value)} rows={4} className="input" /></Field></div>
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
-      <Actions onClose={onClose} disabled={mutation.isPending || !form.employeeId || !form.number || !form.subject} onSave={() => mutation.mutate()} />
+      <Actions onClose={onClose} disabled={mutation.isPending || isDuplicate || !form.employeeId || !form.number || !form.subject} onSave={() => mutation.mutate()} />
     </Modal>
   );
 }
