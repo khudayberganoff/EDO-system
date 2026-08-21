@@ -447,3 +447,18 @@ model ApiKey {
 
   @@index([isActive])
 }
+
+/// Rolga qaysi bo'limlar ochiqligi. Yozuv bo'lmasa - standart ruxsat ishlaydi.
+model ModulePermission {
+  id       String  @id @default(cuid())
+  /// ADMIN | MANAGER | EMPLOYEE
+  role     String
+  /// Bo'lim kaliti: dashboard, my-hr, approvals, letters, hr, deleted, integrations, settings
+  module   String
+  canView  Boolean @default(true)
+  canEdit  Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, module])
+}

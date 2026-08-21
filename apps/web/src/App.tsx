@@ -15,6 +15,7 @@ import { LetterVerifyPage } from "./pages/LetterVerifyPage";
 import { HrPage } from "./pages/HrPage";
 import { MyHrPage } from "./pages/MyHrPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ export default function App() {
                 <Route path="/letters/archive" element={<LetterArchivePage />} />
                 <Route path="/my-hr" element={<MyHrPage />} />
                 <Route path="/integrations" element={<IntegrationsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/hr" element={<HrPage />} />
                 <Route path="/hr/:tab" element={<HrPage />} />
               </Route>

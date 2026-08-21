@@ -23,8 +23,11 @@ import {
   UserCircle2,
   Award,
   Plug,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { fetchMyAccess } from "../api/settings";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 
@@ -110,6 +113,9 @@ function SubSubItem({ to, label, icon: Icon }: { to: string; label: string; icon
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  // Interfeys foydalanuvchining ruxsatlariga qarab quriladi
+  const { data: access } = useQuery({ queryKey: ["settings", "my-access"], queryFn: fetchMyAccess });
+  const can = (module: string) => access?.[module]?.canView !== false;
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const isInLettersSection = location.pathname.startsWith("/letters") && location.pathname !== "/letters/archive";
@@ -153,9 +159,8 @@ export function AppLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
-          {TOP_NAV_ITEMS.map((x) => (
-            <Item key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
-          ))}
+          {TOP_NAV_ITEMS.filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : "approvals"))
+            .map((x) => <Item key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />)}
 
           {/* Yig'iladigan "Hujjatlar" bo'limi - Xat / Ogohlantirish / Ma'lumotnoma */}
           <div>
@@ -228,8 +233,9 @@ export function AppLayout() {
             )}
           </div>
 
-          <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />
-          {user?.role === "ADMIN" && <Item to="/integrations" label={t("nav.integrations")} icon={Plug} />}
+          {can("deleted") && <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />}
+          {can("integrations") && <Item to="/integrations" label={t("nav.integrations")} icon={Plug} />}
+          {can("settings") && <Item to="/settings" label={t("nav.settings")} icon={Settings} />}
         </nav>
 
         <div className="border-t border-white/10 px-3 py-4">
