@@ -2,18 +2,20 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Cake, PartyPopper, Award, Clock, Palmtree, UserCircle2 } from "lucide-react";
 import { fetchMyHr } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
+import { useT } from "../i18n/LanguageContext";
 
 const WEEKDAYS = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // dushanbadan boshlab
 
-const LEAVE_TYPE_LABELS: Record<string, string> = {
-  ANNUAL: "Mehnat ta'tili", UNPAID: "Haq to'lanmaydigan", SICK: "Kasallik varaqasi",
-  MATERNITY: "Homiladorlik ta'tili", STUDY: "O'quv ta'tili",
+const LEAVE_TYPE_KEYS: Record<string, string> = {
+  ANNUAL: "leave.annual", UNPAID: "leave.unpaid", SICK: "leave.sick",
+  MATERNITY: "leave.maternity", STUDY: "leave.study",
 };
-const LEAVE_STATUS: Record<string, { label: string; dot: string }> = {
-  REQUESTED: { label: "Kutilmoqda", dot: "bg-amber-400" },
-  APPROVED: { label: "Tasdiqlangan", dot: "bg-emerald-500" },
-  REJECTED: { label: "Rad etilgan", dot: "bg-rose-500" },
+const LEAVE_STATUS_DOT: Record<string, string> = {
+  REQUESTED: "bg-amber-400", APPROVED: "bg-emerald-500", REJECTED: "bg-rose-500",
+};
+const LEAVE_STATUS_KEYS: Record<string, string> = {
+  REQUESTED: "leaveStatus.requested", APPROVED: "leaveStatus.approved", REJECTED: "leaveStatus.rejected",
 };
 const ATT_LABELS: Record<string, { short: string; cls: string }> = {
   PRESENT: { short: "✓", cls: "bg-emerald-100 text-emerald-700" },
@@ -28,7 +30,7 @@ const ATT_LABELS: Record<string, { short: string; cls: string }> = {
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString("uz-UZ") : "—");
 
 /** Ish staji: yil, oy va kun hisobida */
-function experience(hireDate: string): string {
+function experience(hireDate: string, t: (k: any) => string): string {
   const start = new Date(hireDate);
   const now = new Date();
   let years = now.getFullYear() - start.getFullYear();
@@ -36,14 +38,15 @@ function experience(hireDate: string): string {
   let days = now.getDate() - start.getDate();
   if (days < 0) { months -= 1; days += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); }
   if (months < 0) { years -= 1; months += 12; }
-  return [years > 0 ? `${years} yil` : "", months > 0 ? `${months} oy` : "", `${days} kun`].filter(Boolean).join(" ");
+  return [years > 0 ? `${years} ${t("myhr.year")}` : "", months > 0 ? `${months} ${t("myhr.month")}` : "", `${days} ${t("myhr.days")}`].filter(Boolean).join(" ");
 }
 
 export function MyHrPage() {
   const { user } = useAuth();
+  const t = useT();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "my"], queryFn: fetchMyHr });
 
-  if (isLoading) return <div className="p-8 text-slate-400">Yuklanmoqda...</div>;
+  if (isLoading) return <div className="p-8 text-slate-400">{t("hr.loading")}</div>;
 
   const emp = data?.employee;
 
@@ -57,52 +60,51 @@ export function MyHrPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">{emp?.fullName ?? user?.fullName}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {emp ? [emp.position, emp.department].filter(Boolean).join(" · ") : "Kadrlar kartotekasiga bog'lanmagan"}
+            {emp ? [emp.position, emp.department].filter(Boolean).join(" · ") : t("myhr.notLinked")}
           </p>
         </div>
       </div>
 
       {!emp && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Sizning hisobingiz kadrlar bo'limidagi xodim kartasiga hali bog'lanmagan.
-          Kadrlar bo'limiga murojaat qiling — shundan so'ng bu sahifada shaxsiy ma'lumotlaringiz ko'rinadi.
+          {t("myhr.notLinkedWarning")}
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Profil ma'lumotlari */}
-        <Card icon={UserCircle2} title="Profil ma'lumotlari">
+        <Card icon={UserCircle2} title={t("myhr.profile")}>
           {emp ? (
             <dl className="space-y-3 text-sm">
-              <Row label="Bo'linma" value={emp.department ?? "—"} />
-              <Row label="Lavozim" value={emp.position} />
-              <Row label="Ishga qabul" value={fmt(emp.hireDate)} />
-              <Row label="Ish staji" value={experience(emp.hireDate)} />
-              {emp.phone && <Row label="Telefon" value={emp.phone} />}
-              {emp.email && <Row label="Email" value={emp.email} />}
+              <Row label={t("myhr.department")} value={emp.department ?? "—"} />
+              <Row label={t("myhr.position")} value={emp.position} />
+              <Row label={t("myhr.hireDate")} value={fmt(emp.hireDate)} />
+              <Row label={t("myhr.experience")} value={experience(emp.hireDate, t)} />
+              {emp.phone && <Row label={t("myhr.phone")} value={emp.phone} />}
+              {emp.email && <Row label={t("myhr.email")} value={emp.email} />}
             </dl>
-          ) : <Empty>Ma'lumot yo'q</Empty>}
+          ) : <Empty>{t("myhr.noData")}</Empty>}
         </Card>
 
         {/* Ta'til arizalarim */}
-        <Card icon={Palmtree} title="Ta'til arizalarim">
+        <Card icon={Palmtree} title={t("myhr.myLeaves")}>
           {data?.myLeaves?.length ? (
             <ul className="space-y-3">
               {data.myLeaves.map((l: any) => (
                 <li key={l.id} className="flex items-start gap-2.5">
-                  <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${LEAVE_STATUS[l.status]?.dot}`} />
+                  <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${LEAVE_STATUS_DOT[l.status]}`} />
                   <div className="text-sm">
-                    <div className="text-slate-800">{LEAVE_TYPE_LABELS[l.type] ?? l.type} — {fmt(l.startDate)}</div>
-                    <div className="text-xs text-slate-400">{LEAVE_STATUS[l.status]?.label} · {l.days} kun</div>
+                    <div className="text-slate-800">{t(LEAVE_TYPE_KEYS[l.type] as any)} — {fmt(l.startDate)}</div>
+                    <div className="text-xs text-slate-400">{t(LEAVE_STATUS_KEYS[l.status] as any)} · {l.days} {t("myhr.days")}</div>
                   </div>
                 </li>
               ))}
             </ul>
-          ) : <Empty>Ta'til arizalari yo'q</Empty>}
+          ) : <Empty>{t("myhr.noLeaves")}</Empty>}
         </Card>
 
         {/* Bugun ta'tilda */}
-        <Card icon={Palmtree} title="Bugun ta'tilda">
+        <Card icon={Palmtree} title={t("myhr.onLeaveToday")}>
           {data?.onLeaveToday?.length ? (
             <ul className="space-y-3">
               {data.onLeaveToday.map((l: any) => (
@@ -110,16 +112,16 @@ export function MyHrPage() {
                   <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500" />
                   <div className="text-sm">
                     <div className="text-slate-800">{l.employee?.fullName}</div>
-                    <div className="text-xs text-slate-400">{LEAVE_TYPE_LABELS[l.type] ?? l.type} · {fmt(l.endDate)} gacha</div>
+                    <div className="text-xs text-slate-400">{t(LEAVE_TYPE_KEYS[l.type] as any)} · {fmt(l.endDate)} {t("myhr.until")}</div>
                   </div>
                 </li>
               ))}
             </ul>
-          ) : <Empty>Bugun hamma ishda</Empty>}
+          ) : <Empty>{t("myhr.everyoneAtWork")}</Empty>}
         </Card>
 
         {/* Smena tarkibi */}
-        <Card icon={Clock} title="Ish jadvalim" className="lg:col-span-2">
+        <Card icon={Clock} title={t("myhr.mySchedule")} className="lg:col-span-2">
           {data?.schedules?.length ? (
             <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
               {WEEKDAY_ORDER.map((wd) => {
@@ -129,19 +131,19 @@ export function MyHrPage() {
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
                       {WEEKDAYS[wd].slice(0, 2)}
                     </span>
-                    <span className="flex-1 text-sm text-slate-700">{sch?.shiftName ?? "Belgilanmagan"}</span>
+                    <span className="flex-1 text-sm text-slate-700">{sch?.shiftName ?? t("myhr.notSet")}</span>
                     <span className="text-sm text-slate-400">
-                      {sch ? (sch.isDayOff ? "Dam olish" : `${sch.startTime ?? "—"} – ${sch.endTime ?? "—"}`) : "—"}
+                      {sch ? (sch.isDayOff ? t("myhr.dayOff") : `${sch.startTime ?? "—"} – ${sch.endTime ?? "—"}`) : "—"}
                     </span>
                   </div>
                 );
               })}
             </div>
-          ) : <Empty>Ish jadvali belgilanmagan</Empty>}
+          ) : <Empty>{t("myhr.noSchedule")}</Empty>}
         </Card>
 
         {/* Davomat - oxirgi 7 kun */}
-        <Card icon={CalendarDays} title="Davomatim (oxirgi 7 kun)">
+        <Card icon={CalendarDays} title={t("myhr.myAttendance")}>
           {data?.attendance?.length ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -158,14 +160,14 @@ export function MyHrPage() {
                 })}
               </div>
               <p className="mt-3 text-xs text-slate-400">
-                Ishda: {data.attendance.filter((a: any) => ["PRESENT", "LATE"].includes(a.status)).length} / {data.attendance.length}
+                {t("myhr.atWork")}: {data.attendance.filter((a: any) => ["PRESENT", "LATE"].includes(a.status)).length} / {data.attendance.length}
               </p>
             </>
-          ) : <Empty>Davomat yozuvlari yo'q</Empty>}
+          ) : <Empty>{t("myhr.noAttendance")}</Empty>}
         </Card>
 
         {/* Bayram kunlari */}
-        <Card icon={PartyPopper} title="Yaqin bayramlar">
+        <Card icon={PartyPopper} title={t("myhr.holidays")}>
           {data?.holidays?.length ? (
             <ul className="space-y-2.5">
               {data.holidays.map((h: any) => (
@@ -176,11 +178,11 @@ export function MyHrPage() {
                 </li>
               ))}
             </ul>
-          ) : <Empty>Bayram kunlari kiritilmagan</Empty>}
+          ) : <Empty>{t("myhr.noHolidays")}</Empty>}
         </Card>
 
         {/* Tug'ilgan kunlar */}
-        <Card icon={Cake} title="Tug'ilgan kunlar">
+        <Card icon={Cake} title={t("myhr.birthdays")}>
           {data?.upcomingBirthdays?.length ? (
             <ul className="space-y-2.5">
               {data.upcomingBirthdays.map((b: any) => (
@@ -191,16 +193,16 @@ export function MyHrPage() {
                     <div className="text-xs text-slate-400">{b.position}</div>
                   </div>
                   <span className="text-xs text-slate-400">
-                    {b.daysLeft === 0 ? "Bugun!" : `${b.daysLeft} kundan keyin`}
+                    {b.daysLeft === 0 ? t("myhr.today") : `${b.daysLeft} ${t("myhr.inDays")}`}
                   </span>
                 </li>
               ))}
             </ul>
-          ) : <Empty>Yaqin 30 kunda tug'ilgan kunlar yo'q</Empty>}
+          ) : <Empty>{t("myhr.noBirthdays")}</Empty>}
         </Card>
 
         {/* Minnatdorchilik */}
-        <Card icon={Award} title="Minnatdorchilik">
+        <Card icon={Award} title={t("myhr.gratitude")}>
           {data?.recentGratitudes?.length ? (
             <ul className="space-y-3">
               {data.recentGratitudes.map((g: any) => (
@@ -211,7 +213,7 @@ export function MyHrPage() {
                 </li>
               ))}
             </ul>
-          ) : <Empty>Hozircha yozuvlar yo'q</Empty>}
+          ) : <Empty>{t("myhr.noGratitude")}</Empty>}
         </Card>
       </div>
     </div>

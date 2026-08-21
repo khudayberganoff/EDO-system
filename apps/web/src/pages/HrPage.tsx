@@ -16,6 +16,7 @@ import {
   fetchSystemUsers, linkEmployeeUser,
 } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
+import { useT } from "../i18n/LanguageContext";
 import { formatUzPhone, normalizeUzPhone, formatMoney, parseMoney } from "../utils/format";
 
 const ORDER_TYPES = [
@@ -49,21 +50,18 @@ export function HrPage() {
   const { tab } = useParams<{ tab?: string }>();
   const section = tab ?? "employees";
   const { user } = useAuth();
+  const t = useT();
   const canEdit = user?.role === "ADMIN" || user?.role === "MANAGER";
   const { data: stats } = useQuery({ queryKey: ["hr", "stats"], queryFn: fetchHrStats });
 
-  const TITLES: Record<string, { title: string; description: string }> = {
-    employees: { title: "Xodimlar", description: "Shaxsiy kartoteka: lavozim, bo'lim va ish staji" },
-    orders: { title: "Buyruqlar", description: "Ishga qabul, bo'shatish va boshqa kadrlar buyruqlari" },
-    contracts: { title: "Mehnat shartnomalari", description: "Xodimlar bilan tuzilgan shartnomalar" },
-    leaves: { title: "Ta'tillar", description: "Ta'til arizalari va grafigi" },
-    attendance: { title: "Davomat", description: "Xodimlarning kunlik davomat jadvali" },
-    departments: { title: "Bo'limlar", description: "Tashkilot bo'linmalari" },
-    positions: { title: "Lavozimlar", description: "Shtat jadvali va lavozimlar" },
-    holidays: { title: "Bayram kunlari", description: "Bayram va dam olish kunlari" },
-    gratitudes: { title: "Minnatdorchilik", description: "Xodimlarga bildirilgan tashakkurnomalar" },
+  // Har bir bo'lim uchun tarjima kaliti
+  const SECTION_KEYS: Record<string, string> = {
+    employees: "hr.employees", orders: "hr.orders", contracts: "hr.contracts",
+    leaves: "hr.leaves", attendance: "hr.attendance", departments: "hr.departments",
+    positions: "hr.positions", holidays: "hr.holidays", gratitudes: "hr.gratitudes",
   };
-  const meta = TITLES[section] ?? TITLES.employees;
+  const key = SECTION_KEYS[section] ?? SECTION_KEYS.employees;
+  const meta = { title: t(key as any), description: t(`${key}Desc` as any) };
 
   return (
     <div className="p-8">
@@ -74,10 +72,10 @@ export function HrPage() {
 
       {section === "employees" && stats && (
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatBox icon={Users} label="Jami xodimlar" value={stats.total} />
-          <StatBox icon={Check} label="Faol" value={stats.active} accent="text-emerald-600 bg-emerald-50" />
-          <StatBox icon={XCircle} label="Bo'shatilgan" value={stats.dismissed} accent="text-slate-500 bg-slate-100" />
-          <StatBox icon={Palmtree} label="Ta'til kutilmoqda" value={stats.pendingLeaves} accent="text-amber-600 bg-amber-50" />
+          <StatBox icon={Users} label={t("hr.totalEmployees")} value={stats.total} />
+          <StatBox icon={Check} label={t("hr.active")} value={stats.active} accent="text-emerald-600 bg-emerald-50" />
+          <StatBox icon={XCircle} label={t("hr.dismissed")} value={stats.dismissed} accent="text-slate-500 bg-slate-100" />
+          <StatBox icon={Palmtree} label={t("hr.pendingLeaves")} value={stats.pendingLeaves} accent="text-amber-600 bg-amber-50" />
         </div>
       )}
 
