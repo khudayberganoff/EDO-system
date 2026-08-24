@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { AlertTriangle, Archive, Check, Eye, FileText, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
+import { AlertTriangle, Check, Eye, FileText, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
 import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead, downloadLetterPdf } from "../api/letters";
@@ -77,7 +77,7 @@ export function LettersPage() {
     {canApprove && <LetterheadPanel />}
 
     <div className="mb-5 flex flex-wrap gap-2">
-      {[undefined, LetterStatus.DRAFT, LetterStatus.PENDING_APPROVAL, LetterStatus.ARCHIVED].map((s) => <button key={s ?? "all"} onClick={() => setStatus(s)} className={clsx("rounded-full px-6 py-2.5 text-sm font-medium transition", status === s ? "bg-brand-800 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800")}>{s ? t(STATUS_KEYS[s] as any) : t("letters.all")}</button>)}
+      {[undefined, LetterStatus.DRAFT, LetterStatus.PENDING_APPROVAL].map((s) => <button key={s ?? "all"} onClick={() => setStatus(s)} className={clsx("rounded-full px-6 py-2.5 text-sm font-medium transition", status === s ? "bg-brand-800 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800")}>{s ? t(STATUS_KEYS[s] as any) : t("letters.all")}</button>)}
     </div>
 
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -99,7 +99,6 @@ export function LettersPage() {
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title={t("letters.reject")} onClick={() => setRejectTarget(letter)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><XCircle size={16}/></button>}
             {letter.status === LetterStatus.ARCHIVED && <button title="PDF" onClick={() => downloadPdf(letter.id, letter.documentNumber)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><FileText size={16}/></button>}
-            {letter.status === LetterStatus.ARCHIVED && letter.finalFileUrl && <button title="Tasdiqlangan fayl" onClick={() => download(letter.id, "final", letter.documentNumber)} className="rounded-lg p-2 text-emerald-700 hover:bg-emerald-50"><Archive size={16}/></button>}
             {letter.status !== LetterStatus.ARCHIVED && <button title="O‘chirish" onClick={() => del.mutate(letter.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16}/></button>}
           </div></td>
         </tr>)}
