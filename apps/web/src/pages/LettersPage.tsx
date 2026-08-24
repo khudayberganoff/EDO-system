@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { AlertTriangle, Archive, Check, Eye, FileText, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
@@ -70,7 +70,6 @@ export function LettersPage() {
     <div className="mb-6 flex items-start justify-between">
       <div><h1 className="text-3xl font-semibold text-slate-900">{isWarningSection ? t("nav.warnings") : direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{isWarningSection ? t("letters.descWarnings") : direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
       <div className="flex gap-2">
-        <Link to="/letters/archive" className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"><Archive size={16}/> {t("letters.archive")}</Link>
         <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {(isWarningSection ? t("nav.warnings") : t(`letters.type.${selectedType}` as any)).toLowerCase()}</button>
       </div>
     </div>
