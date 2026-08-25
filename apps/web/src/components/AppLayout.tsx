@@ -24,6 +24,7 @@ import {
   Award,
   Plug,
   Settings,
+  Inbox,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -37,15 +38,11 @@ const TOP_NAV_ITEMS = [
   { to: "/documents?status=PENDING_SIGNATURE", labelKey: "nav.needApproval", icon: ClipboardList },
 ] as const;
 
-const LETTER_SUB_ITEMS = [
-  { to: "/letters/warning", labelKey: "nav.warnings", icon: AlertTriangle },
+/** Chiquvchi bo'limi ichidagi xat turlari */
+const OUTGOING_SUB_ITEMS = [
+  { to: "/letters/outgoing", labelKey: "nav.letter", icon: Mail },
   { to: "/letters/reference", labelKey: "nav.reference", icon: FileQuestion },
-] as const;
-
-/** "Xat" ikkiga bo'lingan: chiquvchi va kiruvchi */
-const MAIL_SUB_ITEMS = [
-  { to: "/letters/outgoing", labelKey: "nav.outgoing", icon: Mail },
-  { to: "/letters/incoming", labelKey: "nav.incoming", icon: Mail },
+  { to: "/letters/warning", labelKey: "nav.warnings", icon: AlertTriangle },
 ] as const;
 
 const HR_SUB_ITEMS = [
@@ -123,16 +120,19 @@ export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const isInHrSection = location.pathname.startsWith("/hr");
   const [hrOpen, setHrOpen] = useState(isInHrSection);
-  const isInMailSection = location.pathname.startsWith("/letters/outgoing") || location.pathname.startsWith("/letters/incoming");
-  const [mailOpen, setMailOpen] = useState(isInMailSection);
+  const isInOutgoingSection =
+    location.pathname.startsWith("/letters/outgoing") ||
+    location.pathname.startsWith("/letters/reference") ||
+    location.pathname.startsWith("/letters/warning");
+  const [outgoingOpen, setOutgoingOpen] = useState(isInOutgoingSection);
 
   // Boshqa sahifaga o'tilganda "Hujjatlar" ro'yxati avtomatik yig'iladi -
   // faqat shu bo'lim ichida qolsak ochiq turadi.
   useEffect(() => {
     setLettersOpen(isInLettersSection);
     setHrOpen(isInHrSection);
-    setMailOpen(isInMailSection);
-  }, [location.pathname, isInLettersSection, isInHrSection, isInMailSection]);
+    setOutgoingOpen(isInOutgoingSection);
+  }, [location.pathname, isInLettersSection, isInHrSection, isInOutgoingSection]);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -182,29 +182,27 @@ export function AppLayout() {
 
             {lettersOpen && (
               <div className="mt-0.5 space-y-0.5">
-                {/* Yig'iladigan "Xat" guruhi - chiquvchi / kiruvchi */}
+                {/* Yig'iladigan "Chiquvchi" guruhi - xat, ma'lumotnoma, ogohlantirish */}
                 <div>
                   <button
-                    onClick={() => setMailOpen((v) => !v)}
+                    onClick={() => setOutgoingOpen((v) => !v)}
                     className={`flex w-full items-center justify-between rounded-lg py-2 pl-9 pr-3 text-[13px] transition ${
-                      isInMailSection ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                      isInOutgoingSection ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
                     }`}
                   >
-                    <span className="flex items-center gap-2.5"><Mail size={15} />{t("nav.letter")}</span>
-                    <ChevronDown size={14} className={`transition-transform ${mailOpen ? "rotate-180" : ""}`} />
+                    <span className="flex items-center gap-2.5"><Mail size={15} />{t("nav.outgoing")}</span>
+                    <ChevronDown size={14} className={`transition-transform ${outgoingOpen ? "rotate-180" : ""}`} />
                   </button>
-                  {mailOpen && (
+                  {outgoingOpen && (
                     <div className="mt-0.5 space-y-0.5">
-                      {MAIL_SUB_ITEMS.map((x) => (
+                      {OUTGOING_SUB_ITEMS.map((x) => (
                         <SubSubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
                       ))}
                     </div>
                   )}
                 </div>
 
-                {LETTER_SUB_ITEMS.map((x) => (
-                  <SubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
-                ))}
+                <SubItem to="/letters/incoming" label={t("nav.incoming")} icon={Inbox} />
               </div>
             )}
           </div>

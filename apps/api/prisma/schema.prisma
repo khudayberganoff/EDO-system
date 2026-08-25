@@ -462,3 +462,48 @@ model ModulePermission {
 
   @@unique([role, module])
 }
+
+/// Tashqi pochta qutisi (IMAP) - kiruvchi xatlarni olib kelish uchun
+model MailAccount {
+  id         String    @id @default(cuid())
+  /// Ko'rsatiladigan nom, masalan "Kotibiyat pochtasi"
+  name       String
+  email      String
+  imapHost   String
+  imapPort   Int       @default(993)
+  useSsl     Boolean   @default(true)
+  username   String
+  /// Parol shifrlangan holda saqlanadi
+  password   String
+  isActive   Boolean   @default(true)
+  lastSyncAt DateTime?
+  lastError  String?
+
+  mails IncomingMail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Pochtadan olib kelingan kiruvchi xat
+model IncomingMail {
+  id        String      @id @default(cuid())
+  account   MailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+
+  /// Pochta serveridagi xabar identifikatori - takror yuklamaslik uchun
+  messageId  String   @unique
+  fromName   String?
+  fromEmail  String
+  subject    String
+  body       String?
+  receivedAt DateTime
+  hasAttachments Boolean @default(false)
+  /// Ko'rib chiqilgan/ro'yxatga olingan
+  isRead     Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId])
+  @@index([receivedAt])
+}
