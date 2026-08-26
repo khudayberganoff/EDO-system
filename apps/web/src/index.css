@@ -21,9 +21,9 @@ body {
   inset: 0;
   pointer-events: none;
   background-color: #F7F9F8;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%230F4A38' stroke-width='1' stroke-opacity='0.14'%3E%3Cpath d='M60.0 112.0 L50.1 84.0 L23.2 96.8 L36.0 69.9 L8.0 60.0 L36.0 50.1 L23.2 23.2 L50.1 36.0 L60.0 8.0 L69.9 36.0 L96.8 23.2 L84.0 50.1 L112.0 60.0 L84.0 69.9 L96.8 96.8 L69.9 84.0 Z'/%3E%3Cpath d='M87.7 71.5 L71.5 87.7 L48.5 87.7 L32.3 71.5 L32.3 48.5 L48.5 32.3 L71.5 32.3 L87.7 48.5 Z'/%3E%3Ccircle cx='60' cy='60' r='7'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke-width='1.1'%3E%3Cpath d='M80.0 126.0 L71.6 100.3 L47.5 112.5 L59.7 88.4 L34.0 80.0 L59.7 71.6 L47.5 47.5 L71.6 59.7 L80.0 34.0 L88.4 59.7 L112.5 47.5 L100.3 71.6 L126.0 80.0 L100.3 88.4 L112.5 112.5 L88.4 100.3 Z' stroke='%23C9A227' stroke-opacity='0.28'/%3E%3Cpath d='M111.4 93.0 L93.0 111.4 L67.0 111.4 L48.6 93.0 L48.6 67.0 L67.0 48.6 L93.0 48.6 L111.4 67.0 Z' stroke='%230F4A38' stroke-opacity='0.20'/%3E%3Cpath d='M80.0 110.0 L74.3 93.9 L58.8 101.2 L66.1 85.7 L50.0 80.0 L66.1 74.3 L58.8 58.8 L74.3 66.1 L80.0 50.0 L85.7 66.1 L101.2 58.8 L93.9 74.3 L110.0 80.0 L93.9 85.7 L101.2 101.2 L85.7 93.9 Z' stroke='%230F4A38' stroke-opacity='0.16'/%3E%3Ccircle cx='80' cy='80' r='8' stroke='%23C9A227' stroke-opacity='0.30'/%3E%3Cg transform='translate(0,0)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3Cg transform='translate(160,0)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3Cg transform='translate(0,160)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3Cg transform='translate(160,160)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   background-repeat: repeat;
-  background-size: 240px 240px;
+  background-size: 200px 200px;
 }
 
 /* Yumshoq oq nur - markazda mazmun tiniq ko'rinishi uchun */
@@ -31,7 +31,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.55) 45%, rgba(255, 255, 255, 0.15) 100%);
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.80) 0%, rgba(255, 255, 255, 0.40) 50%, rgba(255, 255, 255, 0.05) 100%);
 }
 
 /* Kartaning tepasidagi ingichka oltin chiziq - vazmin urg'u */
