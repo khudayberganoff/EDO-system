@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff, ShieldCheck, GitBranch, BarChart3 } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Inbox, AlertTriangle, Users, CalendarCheck, QrCode } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
@@ -30,10 +30,14 @@ export function LoginPage() {
     }
   }
 
-  const features = [
-    { icon: GitBranch, key: "login.featureFlow" },
-    { icon: BarChart3, key: "login.featureAnalytics" },
-    { icon: ShieldCheck, key: "login.featureShariah" },
+  // Tizimdagi asosiy bo'limlar - foydalanuvchi kirishdan oldin nima borligini biladi
+  const modules = [
+    { icon: Mail, titleKey: "login.modOutgoing", textKey: "login.modOutgoingText" },
+    { icon: Inbox, titleKey: "login.modIncoming", textKey: "login.modIncomingText" },
+    { icon: AlertTriangle, titleKey: "login.modWarnings", textKey: "login.modWarningsText" },
+    { icon: Users, titleKey: "login.modHr", textKey: "login.modHrText" },
+    { icon: CalendarCheck, titleKey: "login.modAttendance", textKey: "login.modAttendanceText" },
+    { icon: QrCode, titleKey: "login.modQr", textKey: "login.modQrText" },
   ] as const;
 
   return (
@@ -58,11 +62,10 @@ export function LoginPage() {
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col items-center gap-12 px-6 py-16 lg:flex-row lg:justify-between lg:gap-16">
-        {/* Chap tomon - tizim haqida */}
+        {/* Chap tomon - tizimda nimalar bor */}
         <div className="w-full max-w-xl">
-          <div className="mb-6 flex items-center gap-3">
+          <div className="mb-5 flex items-center gap-3">
             <span className="h-px w-8 bg-gold-500" />
-            {/* Xatam yulduzi - islomiy geometriyaga ishora */}
             <svg viewBox="0 0 24 24" className="h-4 w-4 text-gold-600" aria-hidden="true">
               <path
                 fill="none" stroke="currentColor" strokeWidth="1.3"
@@ -74,25 +77,25 @@ export function LoginPage() {
             </span>
           </div>
 
-          <h1 className="text-4xl font-bold leading-tight tracking-tight text-brand-950 sm:text-5xl">
-            {t("login.heroLine1")}{" "}
-            <span className="text-brand-600">{t("login.heroAccent")}</span>{" "}
-            {t("login.heroLine2")}
+          <h1 className="text-3xl font-bold leading-tight tracking-tight text-brand-950 sm:text-4xl">
+            {t("login.overviewTitle")}
           </h1>
-
-          <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-slate-500">
-            {t("login.heroText")}
+          <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-slate-500">
+            {t("login.overviewText")}
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-2.5">
-            {features.map((f) => (
-              <span
-                key={f.key}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 shadow-[0_2px_10px_-6px_rgba(11,51,39,0.4)] backdrop-blur-sm"
-              >
-                <f.icon size={15} className="text-brand-600" />
-                {t(f.key)}
-              </span>
+          {/* Bo'limlar ro'yxati */}
+          <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+            {modules.map((m) => (
+              <div key={m.titleKey} className="flex gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-700 shadow-[0_2px_10px_-6px_rgba(11,51,39,0.5)]">
+                  <m.icon size={16} />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{t(m.titleKey)}</p>
+                  <p className="mt-0.5 text-[13px] leading-snug text-slate-500">{t(m.textKey)}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
