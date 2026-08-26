@@ -25,6 +25,14 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
           <p className="mt-2 text-sm text-slate-500">
             Sahifani yangilab ko'ring. Xatolik takrorlansa, tizim administratoriga murojaat qiling.
           </p>
+          {/* Texnik tafsilot - muammoni tezroq aniqlash uchun */}
+          <details className="mt-4 text-left">
+            <summary className="cursor-pointer text-xs text-slate-400">Texnik tafsilot</summary>
+            <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-slate-50 p-3 text-[11px] text-slate-600">
+              {String(this.state.error?.message ?? this.state.error)}
+            </pre>
+          </details>
+
           <button
             onClick={() => window.location.reload()}
             className="mt-5 rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"

@@ -11,6 +11,17 @@ import { useAuth } from "../context/AuthContext";
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleString("uz-UZ") : "—");
 
 /**
+ * Server xatosini doim MATN ko'rinishiga keltiradi.
+ * Aks holda obyekt yoki massiv React ichida chizilmoqchi bo'lib, sahifa qulaydi.
+ */
+function errorText(e: any, fallback = "Amalni bajarib bo'lmadi."): string {
+  const msg = e?.response?.data?.message ?? e?.message;
+  if (typeof msg === "string") return msg;
+  if (Array.isArray(msg)) return msg.filter((x) => typeof x === "string").join(". ") || fallback;
+  return fallback;
+}
+
+/**
  * Mashhur pochta xizmatlari uchun tayyor IMAP sozlamalari.
  * Ko'pchilik xizmatlar oddiy parolni qabul qilmaydi - alohida "ilova paroli"
  * yaratish kerak, shuning uchun har biriga qisqacha yo'riqnoma berilgan.
@@ -89,7 +100,7 @@ export function IncomingMailPage() {
   const sync = useMutation({
     mutationFn: syncMailAccount,
     onSuccess: (r) => { setSyncMsg(`${r.imported} ta yangi xat yuklandi.`); invalidate(); },
-    onError: (e: any) => setSyncMsg(e?.response?.data?.message ?? "Xatlarni olib bo'lmadi."),
+    onError: (e: any) => setSyncMsg(errorText(e, "Xatlarni olib bo'lmadi.")),
   });
   const remove = useMutation({ mutationFn: deleteMail, onSuccess: invalidate });
   const read = useMutation({ mutationFn: ({ id, v }: { id: string; v: boolean }) => markMailRead(id, v), onSuccess: invalidate });
@@ -249,7 +260,7 @@ function MailModal({ mail, onClose }: { mail: IncomingMail; onClose: () => void 
         {isLoading && <p className="py-8 text-center text-sm text-slate-400">Xat matni yuklanmoqda...</p>}
         {isError && (
           <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-            {(error as any)?.response?.data?.message ?? "Xat matnini yuklab bo'lmadi."}
+            {errorText(error, "Xat matnini yuklab bo'lmadi.")}
           </p>
         )}
         {!isLoading && !isError && (
@@ -320,12 +331,12 @@ function AccountsModal({ onClose }: { onClose: () => void }) {
   const create = useMutation({
     mutationFn: () => createMailAccount({ ...form, imapPort: Number(form.imapPort) }),
     onSuccess: () => { setForm({ name: "", email: "", imapHost: "", imapPort: "993", username: "", password: "", useSsl: true }); invalidate(); },
-    onError: (e: any) => setError(e?.response?.data?.message ?? "Saqlab bo'lmadi."),
+    onError: (e: any) => setError(errorText(e, "Saqlab bo'lmadi.")),
   });
   const remove = useMutation({ mutationFn: deleteMailAccount, onSuccess: invalidate });
   const test = useMutation({
     mutationFn: testMailAccount,
-    onSuccess: (r, id) => setTestResult((prev) => ({ ...prev, [id]: r })),
+    onSuccess: (r, id) => setTestResult((prev) => ({ ...prev, [id]: { ok: !!r?.ok, message: String(r?.message ?? "") } })),
   });
 
   return (
@@ -365,7 +376,7 @@ function AccountsModal({ onClose }: { onClose: () => void }) {
                 {(testResult[a.id] || a.lastError) && (
                   <p className={`mt-2 flex items-center gap-1.5 text-xs ${testResult[a.id]?.ok ? "text-emerald-700" : "text-rose-600"}`}>
                     {testResult[a.id]?.ok ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
-                    {testResult[a.id]?.message ?? a.lastError}
+                    {String(testResult[a.id]?.message ?? a.lastError ?? "")}
                   </p>
                 )}
               </div>
