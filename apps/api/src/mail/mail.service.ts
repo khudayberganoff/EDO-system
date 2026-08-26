@@ -192,14 +192,23 @@ export class MailService {
       const { account, ...rest } = mail;
       return rest;
     }
-    if (!mail.uid) throw new BadRequestException("Bu xat uchun to'liq matnni yuklab bo'lmaydi (eski yozuv).");
-
     const client = this.buildClient(mail.account);
     try {
       await client.connect();
       const lock = await client.getMailboxLock("INBOX");
       try {
-        const message = await client.fetchOne(String(mail.uid), { source: true }, { uid: true });
+        // Eski yozuvlarda uid saqlanmagan - xatni Message-ID bo'yicha topamiz
+        let uid = mail.uid;
+        if (!uid) {
+          const found = await client.search({ header: { "message-id": mail.messageId } }, { uid: true });
+          uid = Array.isArray(found) && found.length ? found[found.length - 1] : undefined;
+          if (uid) await this.prisma.incomingMail.update({ where: { id }, data: { uid } });
+        }
+        if (!uid) {
+          throw new Error("Bu xat pochta qutisida topilmadi - u o'chirilgan yoki boshqa papkaga ko'chirilgan bo'lishi mumkin.");
+        }
+
+        const message = await client.fetchOne(String(uid), { source: true }, { uid: true });
         if (!message?.source) throw new Error("Xat manbasi topilmadi.");
 
         const parsed = await simpleParser(message.source);
@@ -221,22 +230,31 @@ export class MailService {
           });
         }
 
-        const updated = await this.prisma.incomingMail.update({
-          where: { id },
-          data: {
-            body: parsed.text ?? "",
-            bodyHtml: parsed.html || null,
-            hasAttachments: savedAttachments.length > 0,
-            attachments: { create: savedAttachments },
-          },
-          include: { attachments: true },
-        });
-        return updated;
+        try {
+          return await this.prisma.incomingMail.update({
+            where: { id },
+            data: {
+              body: parsed.text ?? "",
+              bodyHtml: parsed.html || null,
+              hasAttachments: savedAttachments.length > 0,
+              attachments: { create: savedAttachments },
+            },
+            include: { attachments: true },
+          });
+        } catch (dbErr) {
+          // Ilovalar jadvali hali tayyor bo'lmasa ham - hech bo'lmasa matnni qaytaramiz
+          this.logger.warn(`Ilovalarni saqlab bo'lmadi: ${dbErr}`);
+          return await this.prisma.incomingMail.update({
+            where: { id },
+            data: { body: parsed.text ?? "", bodyHtml: parsed.html || null },
+          });
+        }
       } finally {
         lock.release();
       }
     } catch (err: any) {
-      throw new BadRequestException(this.friendlyError(err, mail.account.imapHost));
+      this.logger.error(`Xat matnini yuklashda xatolik: ${err?.message ?? err}`);
+      throw new BadRequestException(err?.message ?? this.friendlyError(err, mail.account.imapHost));
     } finally {
       await client.logout().catch(() => {});
     }
