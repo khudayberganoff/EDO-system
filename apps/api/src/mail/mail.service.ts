@@ -59,7 +59,8 @@ export class MailService {
         imapPort: data.imapPort ?? 993,
         useSsl: data.useSsl ?? true,
         username: data.username.trim(),
-        password: this.encrypt(data.password),
+        // Gmail ilova parolini bo'shliqlar bilan ko'rsatadi - ularni tozalaymiz
+        password: this.encrypt(data.password.replace(/\s+/g, "")),
       },
     });
     const { password, ...rest } = account;
@@ -72,7 +73,7 @@ export class MailService {
       data: {
         name: data.name?.trim(),
         isActive: data.isActive,
-        ...(data.password ? { password: this.encrypt(data.password) } : {}),
+        ...(data.password ? { password: this.encrypt(data.password.replace(/\s+/g, "")) } : {}),
       },
     });
     const { password, ...rest } = account;
@@ -96,10 +97,48 @@ export class MailService {
       await this.prisma.mailAccount.update({ where: { id }, data: { lastError: null } });
       return { ok: true, message: "Ulanish muvaffaqiyatli." };
     } catch (err: any) {
-      const message = err?.message ?? "Ulanib bo'lmadi.";
+      const message = this.friendlyError(err, account.imapHost);
       await this.prisma.mailAccount.update({ where: { id }, data: { lastError: message } });
       return { ok: false, message };
     }
+  }
+
+
+  /**
+   * IMAP xatolarini foydalanuvchi tushunadigan, aniq maslahatli xabarga aylantiradi.
+   * Server odatda "Command failed" kabi quruq matn qaytaradi - undan foyda yo'q.
+   */
+  private friendlyError(err: any, host: string): string {
+    const raw = [err?.responseText, err?.response, err?.message, String(err ?? "")].filter(Boolean).join(" ");
+    const text = raw.toLowerCase();
+    const isGmail = host.includes("gmail") || host.includes("google");
+
+    if (text.includes("application-specific password") || text.includes("web login required")) {
+      return "Google oddiy parolni qabul qilmadi. Hisobingizda 2 bosqichli tasdiqlashni yoqing va \"Ilova parollari\" (App passwords) bo'limidan 16 belgili maxsus parol yarating - shu parolni kiriting.";
+    }
+    if (text.includes("authenticationfailed") || text.includes("invalid credentials") ||
+        text.includes("auth") && text.includes("fail") || text.includes("login failed") ||
+        text.includes("command failed")) {
+      return isGmail
+        ? "Login yoki parol qabul qilinmadi. Gmail uchun oddiy parol ishlamaydi: 2 bosqichli tasdiqlashni yoqib, \"Ilova parollari\" bo'limidan 16 belgili parol yarating (bo'sh joysiz kiriting). Shuningdek Gmail sozlamalarida IMAP yoqilganini tekshiring."
+        : "Login yoki parol qabul qilinmadi. Ko'pchilik xizmatlar oddiy parol o'rniga alohida \"ilova paroli\" talab qiladi - pochta sozlamalaridan shunday parol yarating.";
+    }
+    if (text.includes("enotfound") || text.includes("getaddrinfo")) {
+      return `IMAP server topilmadi (${host}). Manzil to'g'ri yozilganini tekshiring.`;
+    }
+    if (text.includes("econnrefused")) {
+      return `Server ulanishni rad etdi (${host}). Port yoki SSL sozlamasi noto'g'ri bo'lishi mumkin.`;
+    }
+    if (text.includes("etimedout") || text.includes("timeout")) {
+      return "Serverga ulanish vaqti tugadi. Tarmoq yoki server manzilini tekshiring.";
+    }
+    if (text.includes("certificate") || text.includes("self signed")) {
+      return "SSL sertifikati bilan muammo. Server sozlamalarini tekshiring.";
+    }
+    if (text.includes("imap") && text.includes("disabled")) {
+      return "Pochta qutingizda IMAP o'chirilgan. Pochta sozlamalaridan IMAP'ni yoqing.";
+    }
+    return err?.message ? `Ulanib bo'lmadi: ${err.message}` : "Ulanib bo'lmadi. Sozlamalarni tekshiring.";
   }
 
   private buildClient(account: { imapHost: string; imapPort: number; useSsl: boolean; username: string; password: string }) {
@@ -109,6 +148,10 @@ export class MailService {
       secure: account.useSsl,
       auth: { user: account.username, pass: this.decrypt(account.password) },
       logger: false,
+      // Server javob bermasa - uzoq kutib qolmasin
+      socketTimeout: 20000,
+      greetingTimeout: 10000,
+      connectionTimeout: 15000,
     });
   }
 
@@ -187,8 +230,8 @@ export class MailService {
       });
       return { imported };
     } catch (err: any) {
-      const message = err?.message ?? "Xatlarni olib bo'lmadi.";
-      this.logger.error(`Pochta sinxronizatsiyasi xatosi: ${message}`);
+      const message = this.friendlyError(err, account.imapHost);
+      this.logger.error(`Pochta sinxronizatsiyasi xatosi: ${err?.message ?? err}`);
       await this.prisma.mailAccount.update({ where: { id }, data: { lastError: message } });
       throw new BadRequestException(message);
     }

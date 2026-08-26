@@ -29,7 +29,7 @@ const PROVIDERS: Provider[] = [
   {
     id: "gmail", label: "Gmail / Google Workspace", host: "imap.gmail.com", port: 993,
     domains: ["gmail.com", "googlemail.com"],
-    note: "Google hisobida 2 bosqichli tasdiqlashni yoqing, so'ng \"Ilova parollari\" bo'limidan 16 belgili parol yarating va shu yerga kiriting.",
+    note: "Oddiy Google paroli ISHLAMAYDI. 1) Hisobingizda 2 bosqichli tasdiqlashni yoqing. 2) \"Ilova parollari\" (App passwords) bo'limidan 16 belgili parol yarating. 3) Shu parolni bu yerga kiriting (bo'shliqlarni tizim o'zi olib tashlaydi). 4) Gmail sozlamalarida IMAP yoqilganini tekshiring.",
     helpUrl: "https://myaccount.google.com/apppasswords",
   },
   {
@@ -347,7 +347,9 @@ function AccountsModal({ onClose }: { onClose: () => void }) {
               />
             </Field>
             <Field label="Login *"><input value={form.username} onChange={(e) => set("username", e.target.value)} className="input" /></Field>
-            <Field label="Parol *"><input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} className="input" /></Field>
+            <Field label={providerId === "custom" ? "Parol *" : "Ilova paroli *"}>
+              <input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} placeholder={providerId === "gmail" ? "abcd efgh ijkl mnop" : ""} className="input" />
+            </Field>
           </div>
           <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={form.useSsl} onChange={(e) => set("useSsl", e.target.checked)} className="h-4 w-4" />
