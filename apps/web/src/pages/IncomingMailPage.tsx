@@ -9,12 +9,68 @@ import { useAuth } from "../context/AuthContext";
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleString("uz-UZ") : "—");
 
-/** Mashhur pochta xizmatlari uchun tayyor IMAP sozlamalari. */
-const PRESETS: Record<string, { host: string; port: number }> = {
-  "gmail.com": { host: "imap.gmail.com", port: 993 },
-  "mail.ru": { host: "imap.mail.ru", port: 993 },
-  "yandex.ru": { host: "imap.yandex.ru", port: 993 },
-  "umail.uz": { host: "imap.umail.uz", port: 993 },
+/**
+ * Mashhur pochta xizmatlari uchun tayyor IMAP sozlamalari.
+ * Ko'pchilik xizmatlar oddiy parolni qabul qilmaydi - alohida "ilova paroli"
+ * yaratish kerak, shuning uchun har biriga qisqacha yo'riqnoma berilgan.
+ */
+interface Provider {
+  id: string;
+  label: string;
+  host: string;
+  port: number;
+  domains: string[];
+  /** Parol qanday olinishi haqida qisqacha izoh */
+  note: string;
+  helpUrl?: string;
+}
+
+const PROVIDERS: Provider[] = [
+  {
+    id: "gmail", label: "Gmail / Google Workspace", host: "imap.gmail.com", port: 993,
+    domains: ["gmail.com", "googlemail.com"],
+    note: "Google hisobida 2 bosqichli tasdiqlashni yoqing, so'ng \"Ilova parollari\" bo'limidan 16 belgili parol yarating va shu yerga kiriting.",
+    helpUrl: "https://myaccount.google.com/apppasswords",
+  },
+  {
+    id: "yahoo", label: "Yahoo Mail", host: "imap.mail.yahoo.com", port: 993,
+    domains: ["yahoo.com", "ymail.com", "rocketmail.com"],
+    note: "Yahoo hisobi sozlamalarida \"Generate app password\" orqali maxsus parol yarating.",
+    helpUrl: "https://login.yahoo.com/account/security",
+  },
+  {
+    id: "outlook", label: "Outlook / Hotmail / Office 365", host: "outlook.office365.com", port: 993,
+    domains: ["outlook.com", "hotmail.com", "live.com", "msn.com"],
+    note: "Microsoft hisobida 2 bosqichli tasdiqlash yoqilgan bo'lsa, \"App passwords\" bo'limidan parol yarating.",
+    helpUrl: "https://account.microsoft.com/security",
+  },
+  {
+    id: "mailru", label: "Mail.ru", host: "imap.mail.ru", port: 993,
+    domains: ["mail.ru", "inbox.ru", "bk.ru", "list.ru", "internet.ru"],
+    note: "Mail.ru sozlamalarida \"Пароли для внешних приложений\" bo'limidan alohida parol yarating.",
+    helpUrl: "https://account.mail.ru/user/2-step-auth/passwords",
+  },
+  {
+    id: "yandex", label: "Yandex Mail", host: "imap.yandex.ru", port: 993,
+    domains: ["yandex.ru", "yandex.com", "ya.ru", "yandex.uz"],
+    note: "Yandex sozlamalarida IMAP yoqilgan bo'lishi va \"Пароли приложений\" orqali parol yaratilishi kerak.",
+    helpUrl: "https://id.yandex.ru/security/app-passwords",
+  },
+  {
+    id: "umail", label: "Umail.uz", host: "imap.umail.uz", port: 993,
+    domains: ["umail.uz"],
+    note: "Pochta qutingiz paroli bilan ulanadi. IMAP yoqilganini tekshiring.",
+  },
+  {
+    id: "custom", label: "Boshqa (qo'lda kiritish)", host: "", port: 993, domains: [],
+    note: "Korporativ pochta serveringiz IMAP manzilini va portini administratordan so'rang.",
+  },
+];
+
+const findProviderByEmail = (email: string): Provider | undefined => {
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return undefined;
+  return PROVIDERS.find((p) => p.domains.includes(domain));
 };
 
 export function IncomingMailPage() {
@@ -158,22 +214,35 @@ function AccountsModal({ onClose }: { onClose: () => void }) {
   const { data: accounts } = useQuery({ queryKey: ["mail", "accounts"], queryFn: fetchMailAccounts });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["mail"] });
 
-  const [form, setForm] = useState({ name: "", email: "", imapHost: "", imapPort: "993", username: "", password: "", useSsl: true });
+  const [providerId, setProviderId] = useState("gmail");
+  const provider = PROVIDERS.find((p) => p.id === providerId) ?? PROVIDERS[0];
+  const [form, setForm] = useState({
+    name: "", email: "", imapHost: PROVIDERS[0].host, imapPort: String(PROVIDERS[0].port),
+    username: "", password: "", useSsl: true,
+  });
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; message: string }>>({});
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
-  // Email kiritilganda IMAP manzilini avtomatik taklif qilamiz
+  const selectProvider = (id: string) => {
+    const p = PROVIDERS.find((x) => x.id === id);
+    setProviderId(id);
+    if (p && p.id !== "custom") {
+      setForm((f) => ({ ...f, imapHost: p.host, imapPort: String(p.port) }));
+    }
+  };
+
+  // Email kiritilganda xizmat va IMAP manzili avtomatik aniqlanadi
   const onEmailChange = (email: string) => {
-    const domain = email.split("@")[1]?.toLowerCase();
-    const preset = domain ? PRESETS[domain] : undefined;
+    const detected = findProviderByEmail(email);
+    if (detected && detected.id !== providerId) setProviderId(detected.id);
     setForm((f) => ({
       ...f,
       email,
       username: f.username || email,
-      imapHost: preset ? preset.host : f.imapHost,
-      imapPort: preset ? String(preset.port) : f.imapPort,
+      imapHost: detected ? detected.host : f.imapHost,
+      imapPort: detected ? String(detected.port) : f.imapPort,
     }));
   };
 
@@ -238,11 +307,45 @@ function AccountsModal({ onClose }: { onClose: () => void }) {
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
             <Plus size={15} /> Yangi pochta qutisi
           </h3>
+          {/* Pochta xizmatini tanlash - sozlamalar avtomatik to'ldiriladi */}
+          <div className="mb-4">
+            <span className="mb-2 block text-sm font-medium text-slate-700">Pochta xizmati</span>
+            <div className="flex flex-wrap gap-2">
+              {PROVIDERS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectProvider(p.id)}
+                  className={`rounded-full px-4 py-2 text-xs font-medium transition ${
+                    providerId === p.id ? "bg-brand-800 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100"
+                  } border border-slate-200`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Field label="Nomi *"><input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Kotibiyat pochtasi" className="input" /></Field>
             <Field label="Email *"><input value={form.email} onChange={(e) => onEmailChange(e.target.value)} placeholder="info@wafagroup.uz" className="input" /></Field>
-            <Field label="IMAP server *"><input value={form.imapHost} onChange={(e) => set("imapHost", e.target.value)} placeholder="imap.gmail.com" className="input" /></Field>
-            <Field label="Port"><input value={form.imapPort} onChange={(e) => set("imapPort", e.target.value.replace(/\D/g, ""))} className="input" /></Field>
+            <Field label="IMAP server *">
+              <input
+                value={form.imapHost}
+                onChange={(e) => set("imapHost", e.target.value)}
+                readOnly={providerId !== "custom"}
+                placeholder="imap.example.com"
+                className={`input ${providerId !== "custom" ? "bg-slate-100 text-slate-500" : ""}`}
+              />
+            </Field>
+            <Field label="Port">
+              <input
+                value={form.imapPort}
+                onChange={(e) => set("imapPort", e.target.value.replace(/\D/g, ""))}
+                readOnly={providerId !== "custom"}
+                className={`input ${providerId !== "custom" ? "bg-slate-100 text-slate-500" : ""}`}
+              />
+            </Field>
             <Field label="Login *"><input value={form.username} onChange={(e) => set("username", e.target.value)} className="input" /></Field>
             <Field label="Parol *"><input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} className="input" /></Field>
           </div>
@@ -250,9 +353,15 @@ function AccountsModal({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={form.useSsl} onChange={(e) => set("useSsl", e.target.checked)} className="h-4 w-4" />
             SSL/TLS orqali ulanish (tavsiya etiladi)
           </label>
-          <p className="mt-2 text-xs text-slate-400">
-            Gmail va Yandex uchun oddiy parol emas, "ilova paroli" (app password) kerak bo'ladi.
-          </p>
+          <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+            <p className="font-medium">{provider.label} uchun:</p>
+            <p className="mt-1">{provider.note}</p>
+            {provider.helpUrl && (
+              <a href={provider.helpUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-block font-medium underline">
+                Parol yaratish sahifasi →
+              </a>
+            )}
+          </div>
           {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
           <div className="mt-4 flex justify-end">
             <button
