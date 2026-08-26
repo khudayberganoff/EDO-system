@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff, Mail, Inbox, AlertTriangle, Users, CalendarCheck, QrCode } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Users, QrCode } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
@@ -30,13 +30,10 @@ export function LoginPage() {
     }
   }
 
-  // Tizimdagi asosiy bo'limlar - foydalanuvchi kirishdan oldin nima borligini biladi
+  // Uchta asosiy yo'nalish - ortiqcha tafsilotsiz
   const modules = [
-    { icon: Mail, titleKey: "login.modOutgoing", textKey: "login.modOutgoingText" },
-    { icon: Inbox, titleKey: "login.modIncoming", textKey: "login.modIncomingText" },
-    { icon: AlertTriangle, titleKey: "login.modWarnings", textKey: "login.modWarningsText" },
+    { icon: Mail, titleKey: "login.modLetters", textKey: "login.modLettersText" },
     { icon: Users, titleKey: "login.modHr", textKey: "login.modHrText" },
-    { icon: CalendarCheck, titleKey: "login.modAttendance", textKey: "login.modAttendanceText" },
     { icon: QrCode, titleKey: "login.modQr", textKey: "login.modQrText" },
   ] as const;
 
@@ -85,7 +82,7 @@ export function LoginPage() {
           </p>
 
           {/* Bo'limlar ro'yxati */}
-          <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+          <div className="mt-8 space-y-4">
             {modules.map((m) => (
               <div key={m.titleKey} className="flex gap-3">
                 <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-700 shadow-[0_2px_10px_-6px_rgba(11,51,39,0.5)]">
