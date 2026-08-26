@@ -157,6 +157,8 @@ export function AppLayout() {
             <PanelLeftClose size={18} />
           </button>
         </div>
+        {/* Islom hoshiyasiga ishora - ingichka oltin chiziq */}
+        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-gold-500/40 to-transparent" aria-hidden="true" />
 
         <nav className="flex-1 space-y-1 px-3">
           {TOP_NAV_ITEMS.filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : "approvals"))

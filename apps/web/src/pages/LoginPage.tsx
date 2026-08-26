@@ -35,7 +35,10 @@ export function LoginPage() {
       <div className="login-pattern" aria-hidden="true" />
       <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-16">
         <div className="w-full max-w-md">
-          <div className="rounded-[28px] bg-white/95 p-8 shadow-[0_20px_60px_-25px_rgba(15,27,23,0.3)] backdrop-blur-sm sm:p-10">
+          <div className="overflow-hidden rounded-[24px] border border-slate-200/70 bg-white shadow-[0_24px_70px_-40px_rgba(11,51,39,0.45)]">
+            {/* Ingichka oltin chiziq - islom san'atidagi hoshiya kabi vazmin urg'u */}
+            <div className="gold-rule" aria-hidden="true" />
+            <div className="p-8 sm:p-10">
             {/* Tilni tanlash - tizimga kirishdan oldin */}
             <div className="mb-5">
               <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -69,6 +72,13 @@ export function LoginPage() {
             </div>
 
             <div className="mb-6 text-center">
+              {/* Sakkiz burchakli yulduz - kichik, nozik bezak */}
+              <svg viewBox="0 0 24 24" className="mx-auto mb-3 h-4 w-4 text-gold-500" aria-hidden="true">
+                <path
+                  fill="none" stroke="currentColor" strokeWidth="1.2"
+                  d="M12 2 L15.5 5.5 L20.5 5.5 L20.5 10.5 L17 14 L17 19 L12 19 L8.5 15.5 L3.5 15.5 L3.5 10.5 L7 7 L7 2 Z"
+                />
+              </svg>
               <h1 className="text-xl font-bold tracking-tight text-brand-950">{t("login.title")}</h1>
               <p className="mt-1 text-sm text-slate-500">{t("login.subtitle")}</p>
             </div>
@@ -147,6 +157,7 @@ export function LoginPage() {
                 {t("login.submit")}
               </button>
             </form>
+            </div>
           </div>
 
           <div className="mt-6 flex items-center justify-center">

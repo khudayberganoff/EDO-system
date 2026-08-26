@@ -11,37 +11,32 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Islom geometriyasi - "xatam" (sakkiz burchakli yulduz) motivi.
+ * Nozik chiziqlar, past kontrast: fon sifatida sezilib turadi, lekin
+ * diqqatni tortmaydi va mazmunni to'sib qo'ymaydi.
+ */
 .login-pattern {
   position: absolute;
-  inset: -18%;
+  inset: 0;
   pointer-events: none;
-  background-image: url("/assets/wafa-pattern.png");
+  background-color: #F7F9F8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%230F4A38' stroke-width='1' stroke-opacity='0.14'%3E%3Cpath d='M60.0 112.0 L50.1 84.0 L23.2 96.8 L36.0 69.9 L8.0 60.0 L36.0 50.1 L23.2 23.2 L50.1 36.0 L60.0 8.0 L69.9 36.0 L96.8 23.2 L84.0 50.1 L112.0 60.0 L84.0 69.9 L96.8 96.8 L69.9 84.0 Z'/%3E%3Cpath d='M87.7 71.5 L71.5 87.7 L48.5 87.7 L32.3 71.5 L32.3 48.5 L48.5 32.3 L71.5 32.3 L87.7 48.5 Z'/%3E%3Ccircle cx='60' cy='60' r='7'/%3E%3C/g%3E%3C/svg%3E");
   background-repeat: repeat;
-  background-size: 560px auto;
-  background-position: center;
-  transform: rotate(45deg) scale(1.05);
-  transform-origin: center;
-  opacity: 0.5;
-  filter: brightness(1.55) saturate(0.72);
-  animation: wafa-pattern-reveal 3.2s ease-in-out infinite alternate;
+  background-size: 240px 240px;
 }
 
-@keyframes wafa-pattern-reveal {
-  0% {
-    opacity: 0.5;
-    filter: brightness(1.55) saturate(0.72);
-  }
-  100% {
-    opacity: 1;
-    filter: brightness(1) saturate(1);
-  }
+/* Yumshoq oq nur - markazda mazmun tiniq ko'rinishi uchun */
+.login-pattern::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.55) 45%, rgba(255, 255, 255, 0.15) 100%);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .login-pattern {
-    animation: none;
-    opacity: 0.72;
-    filter: none;
-  }
+/* Kartaning tepasidagi ingichka oltin chiziq - vazmin urg'u */
+.gold-rule {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #C9A227 20%, #E4C77E 50%, #C9A227 80%, transparent);
 }
 .input { @apply w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100; }
