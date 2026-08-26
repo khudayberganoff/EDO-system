@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from "@nestjs/common";
+import { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { MailService } from "./mail.service";
 import { Roles } from "../common/decorators/roles.decorator";
@@ -54,6 +55,21 @@ export class MailController {
   @Get("inbox")
   inbox(@Query("accountId") accountId?: string, @Query("unread") unread?: string) {
     return this.mailService.listMails({ accountId, unreadOnly: unread === "true" });
+  }
+
+  @Get("inbox/:id")
+  @ApiOperation({ summary: "Xatning to'liq matni va ilovalari" })
+  fullMail(@Param("id") id: string) {
+    return this.mailService.loadFullMail(id);
+  }
+
+  @Get("attachments/:id")
+  @ApiOperation({ summary: "Biriktirilgan faylni yuklab olish" })
+  async downloadAttachment(@Param("id") id: string, @Res() res: Response) {
+    const { full, name, mimeType } = await this.mailService.getAttachment(id);
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(name)}"`);
+    res.sendFile(full);
   }
 
   @Patch("inbox/:id/read")

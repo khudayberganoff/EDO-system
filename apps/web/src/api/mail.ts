@@ -14,6 +14,13 @@ export interface MailAccount {
   _count?: { mails: number };
 }
 
+export interface MailAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
 export interface IncomingMail {
   id: string;
   fromName?: string | null;
@@ -23,6 +30,8 @@ export interface IncomingMail {
   receivedAt: string;
   hasAttachments: boolean;
   isRead: boolean;
+  bodyHtml?: string | null;
+  attachments?: MailAttachment[];
   account?: { name: string; email: string };
 }
 
@@ -54,6 +63,14 @@ export async function fetchInbox(params: { accountId?: string; unread?: boolean 
   const { data } = await apiClient.get<IncomingMail[]>("/mail/inbox", {
     params: { accountId: params.accountId, unread: params.unread ? "true" : undefined },
   });
+  return data;
+}
+export async function fetchFullMail(id: string) {
+  const { data } = await apiClient.get<IncomingMail>(`/mail/inbox/${id}`);
+  return data;
+}
+export async function downloadAttachment(id: string) {
+  const { data } = await apiClient.get<Blob>(`/mail/attachments/${id}`, { responseType: "blob" });
   return data;
 }
 export async function markMailRead(id: string, isRead: boolean) {

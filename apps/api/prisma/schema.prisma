@@ -497,13 +497,35 @@ model IncomingMail {
   fromEmail  String
   subject    String
   body       String?
+  /// Xatning HTML ko'rinishi (bo'lsa)
+  bodyHtml   String?
+  /// IMAP dagi xabar raqami - to'liq matn/ilovalarni keyin yuklab olish uchun
+  uid        Int?
   receivedAt DateTime
   hasAttachments Boolean @default(false)
   /// Ko'rib chiqilgan/ro'yxatga olingan
   isRead     Boolean  @default(false)
 
+  attachments MailAttachment[]
+
   createdAt DateTime @default(now())
 
   @@index([accountId])
   @@index([receivedAt])
+}
+
+/// Kiruvchi xatga biriktirilgan fayl
+model MailAttachment {
+  id       String       @id @default(cuid())
+  mail     IncomingMail @relation(fields: [mailId], references: [id], onDelete: Cascade)
+  mailId   String
+  filename String
+  mimeType String
+  size     Int
+  /// Fayl diskda saqlangan yo'l
+  filePath String
+
+  createdAt DateTime @default(now())
+
+  @@index([mailId])
 }

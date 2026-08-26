@@ -1,9 +1,15 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import * as fs from "fs";
+import * as path from "path";
 import { PrismaService } from "../prisma/prisma.service";
+
+const ATTACHMENTS_DIR = path.resolve(process.cwd(), "uploads", "mail-attachments");
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { ImapFlow } = require("imapflow");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { simpleParser } = require("mailparser");
 
 /**
  * Tashqi pochta qutilari (IMAP) bilan ishlash: sozlamalarni saqlash va
@@ -165,8 +171,84 @@ export class MailService {
       },
       orderBy: { receivedAt: "desc" },
       take: 200,
-      include: { account: { select: { name: true, email: true } } },
+      include: { account: { select: { name: true, email: true } }, attachments: true },
     });
+  }
+
+  /**
+   * Xatning to'liq matnini va ilovalarini pochta serveridan yuklab oladi.
+   * Ro'yxatni yuklashda faqat sarlavhalar olinadi (tez bo'lishi uchun),
+   * to'liq mazmun esa xat ochilganda talab bo'yicha yuklanadi.
+   */
+  async loadFullMail(id: string) {
+    const mail = await this.prisma.incomingMail.findUnique({
+      where: { id },
+      include: { account: true, attachments: true },
+    });
+    if (!mail) throw new NotFoundException("Xat topilmadi.");
+
+    // Allaqachon yuklangan bo'lsa - qaytadan serverga bormaymiz
+    if (mail.body !== null || mail.bodyHtml !== null) {
+      const { account, ...rest } = mail;
+      return rest;
+    }
+    if (!mail.uid) throw new BadRequestException("Bu xat uchun to'liq matnni yuklab bo'lmaydi (eski yozuv).");
+
+    const client = this.buildClient(mail.account);
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock("INBOX");
+      try {
+        const message = await client.fetchOne(String(mail.uid), { source: true }, { uid: true });
+        if (!message?.source) throw new Error("Xat manbasi topilmadi.");
+
+        const parsed = await simpleParser(message.source);
+
+        // Ilovalarni diskka saqlaymiz
+        fs.mkdirSync(ATTACHMENTS_DIR, { recursive: true });
+        const savedAttachments: { filename: string; mimeType: string; size: number; filePath: string }[] = [];
+
+        for (const att of parsed.attachments ?? []) {
+          if (!att.content) continue;
+          const safeName = String(att.filename ?? "fayl").replace(/[^\w.\-]/g, "_");
+          const stored = `${mail.id}-${Date.now()}-${safeName}`;
+          fs.writeFileSync(path.join(ATTACHMENTS_DIR, stored), att.content);
+          savedAttachments.push({
+            filename: String(att.filename ?? safeName),
+            mimeType: att.contentType ?? "application/octet-stream",
+            size: att.size ?? att.content.length,
+            filePath: `/uploads/mail-attachments/${stored}`,
+          });
+        }
+
+        const updated = await this.prisma.incomingMail.update({
+          where: { id },
+          data: {
+            body: parsed.text ?? "",
+            bodyHtml: parsed.html || null,
+            hasAttachments: savedAttachments.length > 0,
+            attachments: { create: savedAttachments },
+          },
+          include: { attachments: true },
+        });
+        return updated;
+      } finally {
+        lock.release();
+      }
+    } catch (err: any) {
+      throw new BadRequestException(this.friendlyError(err, mail.account.imapHost));
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  }
+
+  /** Ilova faylini yuklab olish uchun uning diskdagi yo'lini qaytaradi. */
+  async getAttachment(id: string) {
+    const att = await this.prisma.mailAttachment.findUnique({ where: { id } });
+    if (!att) throw new NotFoundException("Fayl topilmadi.");
+    const full = path.resolve(process.cwd(), att.filePath.replace(/^\//, ""));
+    if (!fs.existsSync(full)) throw new NotFoundException("Fayl diskda topilmadi.");
+    return { full, name: att.filename, mimeType: att.mimeType };
   }
 
   async markRead(id: string, isRead: boolean) {
@@ -213,6 +295,7 @@ export class MailService {
                 fromEmail: sender?.address ?? "—",
                 subject: envelope?.subject ?? "(mavzusiz)",
                 receivedAt: envelope?.date ?? new Date(),
+                uid: message.uid,
                 hasAttachments: Boolean(message.bodyStructure?.childNodes?.some((n: any) => n.disposition === "attachment")),
               },
             });

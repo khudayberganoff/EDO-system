@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Inbox, Plus, RefreshCw, Trash2, X, Paperclip, Mail, Plug, CheckCircle2, AlertCircle } from "lucide-react";
+import { Inbox, Plus, RefreshCw, Trash2, X, Paperclip, Mail, Plug, CheckCircle2, AlertCircle, Download, FileDown } from "lucide-react";
 import {
   fetchMailAccounts, createMailAccount, deleteMailAccount, testMailAccount, syncMailAccount,
-  fetchInbox, markMailRead, deleteMail, type MailAccount, type IncomingMail,
+  fetchInbox, markMailRead, deleteMail, fetchFullMail, downloadAttachment,
+  type MailAccount, type IncomingMail, type MailAttachment,
 } from "../api/mail";
 import { useAuth } from "../context/AuthContext";
 
@@ -184,25 +185,95 @@ export function IncomingMailPage() {
 }
 
 function MailModal({ mail, onClose }: { mail: IncomingMail; onClose: () => void }) {
+  // Xat ochilganda to'liq matn va ilovalar pochtadan yuklanadi
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["mail", "full", mail.id],
+    queryFn: () => fetchFullMail(mail.id),
+    retry: false,
+  });
+  const full = data ?? mail;
+  const [showHtml, setShowHtml] = useState(true);
+
+  const download = async (att: MailAttachment) => {
+    try {
+      const blob = await downloadAttachment(att.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = att.filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { alert("Faylni yuklab bo'lmadi."); }
+  };
+
+  const sizeText = (bytes: number) =>
+    bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">{mail.subject}</h2>
+            <h2 className="text-base font-semibold text-slate-900">{full.subject}</h2>
             <p className="mt-1 text-xs text-slate-500">
-              {mail.fromName ? `${mail.fromName} · ` : ""}{mail.fromEmail} · {fmt(mail.receivedAt)}
+              {full.fromName ? `${full.fromName} · ` : ""}{full.fromEmail} · {fmt(full.receivedAt)}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
         </div>
-        <div className="whitespace-pre-wrap rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">
-          {mail.body || "Xat matni yuklanmagan. To'liq matnni pochta qutisidan ko'ring."}
-        </div>
-        {mail.hasAttachments && (
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
-            <Paperclip size={13} /> Xatda ilova fayllar bor — ularni pochta qutisidan yuklab oling.
+
+        {/* Ilovalar */}
+        {full.attachments && full.attachments.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <Paperclip size={13} /> Biriktirilgan fayllar ({full.attachments.length})
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {full.attachments.map((att) => (
+                <button
+                  key={att.id}
+                  onClick={() => download(att)}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 transition hover:border-brand-300 hover:bg-white"
+                >
+                  <FileDown size={14} className="text-brand-700" />
+                  <span className="max-w-[220px] truncate">{att.filename}</span>
+                  <span className="text-slate-400">{sizeText(att.size)}</span>
+                  <Download size={12} className="text-slate-400" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Matn */}
+        {isLoading && <p className="py-8 text-center text-sm text-slate-400">Xat matni yuklanmoqda...</p>}
+        {isError && (
+          <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+            {(error as any)?.response?.data?.message ?? "Xat matnini yuklab bo'lmadi."}
           </p>
+        )}
+        {!isLoading && !isError && (
+          <>
+            {full.bodyHtml && (
+              <div className="mb-2 flex gap-2 text-xs">
+                <button onClick={() => setShowHtml(true)} className={`rounded-full px-3 py-1 ${showHtml ? "bg-brand-800 text-white" : "text-slate-500 hover:bg-slate-100"}`}>Ko'rinishi</button>
+                <button onClick={() => setShowHtml(false)} className={`rounded-full px-3 py-1 ${!showHtml ? "bg-brand-800 text-white" : "text-slate-500 hover:bg-slate-100"}`}>Oddiy matn</button>
+              </div>
+            )}
+            {full.bodyHtml && showHtml ? (
+              // Tashqi xat HTML si - alohida ramkada, sayt uslubiga ta'sir qilmaydi
+              <iframe
+                title="Xat matni"
+                sandbox=""
+                srcDoc={full.bodyHtml}
+                className="h-[420px] w-full rounded-lg border border-slate-200 bg-white"
+              />
+            ) : (
+              <div className="whitespace-pre-wrap rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">
+                {full.body || "Xat matni bo'sh."}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
