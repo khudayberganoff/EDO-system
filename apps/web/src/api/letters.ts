@@ -9,6 +9,10 @@ export async function fetchAiAgentStats() { const { data } = await apiClient.get
 export async function createLetter(input: any) { const { data } = await apiClient.post("/letters", input); return data; }
 export async function aiGenerateLetter(input: any) { const { data } = await apiClient.post("/letters/ai-generate", input); return data; }
 export async function submitLetter(id: string) { const { data } = await apiClient.post(`/letters/${id}/submit`); return data; }
+export async function updateLetterBody(id: string, payload: { bodyText?: string; summary?: string }) {
+  const { data } = await apiClient.patch(`/letters/${id}`, payload);
+  return data;
+}
 export async function approveLetter(id: string) { const { data } = await apiClient.post(`/letters/${id}/approve`); return data; }
 export async function rejectLetter(id: string, reason: string) { const { data } = await apiClient.post(`/letters/${id}/reject`, { reason }); return data; }
 export async function deleteLetter(id: string) { const { data } = await apiClient.post(`/letters/${id}/delete`); return data; }

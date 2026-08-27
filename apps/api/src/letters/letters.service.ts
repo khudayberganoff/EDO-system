@@ -208,6 +208,27 @@ export class LettersService {
     return updated;
   }
 
+  /** Xat matnini tahrirlash - faqat qoralama holatidagi xatlar uchun. */
+  async updateBody(id: string, data: { bodyText?: string; summary?: string }, userId: string) {
+    const letter = await this.findOne(id);
+    if (letter.status !== LetterStatus.DRAFT) {
+      throw new BadRequestException("Faqat qoralama holatidagi xatni tahrirlash mumkin.");
+    }
+
+    const updated = await this.prisma.letter.update({
+      where: { id },
+      data: {
+        bodyText: data.bodyText ?? letter.bodyText,
+        summary: data.summary ?? letter.summary,
+      },
+    });
+
+    // Matn o'zgargani uchun qoralama fayl qaytadan shakllantiriladi
+    await this.generateDraftFile(id);
+    await this.auditLog.record({ userId, action: AuditAction.UPDATE, metadata: { letterId: id, kind: "letterBody" } });
+    return updated;
+  }
+
   async softDelete(id: string, userId: string) {
     await this.findOne(id);
     const updated = await this.prisma.letter.update({ where: { id }, data: { status: LetterStatus.DELETED } });
@@ -426,12 +447,20 @@ export class LettersService {
         getSize: () => [90, 90],
       });
       const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, modules: [imageModule] });
+      const docDate = letter.documentDate ? new Date(letter.documentDate) : new Date();
       doc.render({
         raqam: letter.documentNumber ?? "",
-        sana: letter.documentDate ? new Date(letter.documentDate).toLocaleDateString("uz-UZ") : "",
+        // Ba'zi blanklarda raqam tegi "xat raqami" deb yozilgan
+        "xat raqami": letter.documentNumber ?? "",
+        sana: docDate.toLocaleDateString("uz-UZ"),
+        // Sana bo'laklari alohida teglar sifatida ham beriladi
+        kun: String(docDate.getDate()),
+        oy: UZ_MONTHS[docDate.getMonth()],
+        yil: String(docDate.getFullYear()),
         kimga: letter.counterpartyName ?? "",
         manzil: letter.counterpartyAddress ?? "",
         telefon: letter.phoneNumber ?? "",
+        telefon_raqam: letter.phoneNumber ?? "",
         sarlavha: title,
         matn: letter.bodyText ?? "",
         shartnoma_raqami: letter.contractNumber ?? "",

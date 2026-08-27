@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Response } from "express";
@@ -89,6 +89,8 @@ export class LettersController {
 
   @Get(":id") findOne(@Param("id") id: string) { return this.lettersService.findOne(id); }
   @Post(":id/submit") submit(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id); }
+  @Patch(":id") updateBody(@Param("id") id: string, @Body() body: { bodyText?: string; summary?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.updateBody(id, body, user.id); }
+
   @Post(":id/approve") @Roles(Role.ADMIN, Role.MANAGER) approve(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.approve(id, user); }
   @Post(":id/reject") @Roles(Role.ADMIN, Role.MANAGER) reject(@Param("id") id: string, @Body() body: { reason: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.reject(id, user, body?.reason ?? ""); }
   @Post(":id/delete") delete(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.softDelete(id, user.id); }

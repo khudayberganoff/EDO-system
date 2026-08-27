@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { AlertTriangle, Check, Eye, FileText, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
+import { AlertTriangle, Check, Eye, FileText, PenLine, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
 import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, submitLetter, uploadLetterhead, downloadLetterPdf } from "../api/letters";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
-import { ViewLetterModal, RejectLetterModal, LetterStatusPill } from "../components/LetterModals";
+import { ViewLetterModal, RejectLetterModal, LetterStatusPill, EditLetterModal } from "../components/LetterModals";
 import { formatUzPhone, normalizeUzPhone, isValidUzPhone, formatMoney, parseMoney } from "../utils/format";
 
 const STATUS_KEYS: Record<string, string> = { DRAFT: "letters.drafts", PENDING_APPROVAL: "letters.pendingApproval", APPROVED: "archive.approved", REJECTED: "letters.rejected", ARCHIVED: "letters.archived", DELETED: "archive.deleted" };
@@ -26,6 +26,7 @@ export function LettersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [viewLetter, setViewLetter] = useState<any | null>(null);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data, isLoading } = useQuery({
@@ -94,6 +95,7 @@ export function LettersPage() {
           <td className="px-4 py-4 text-slate-600"><div className="max-w-[360px]">{letter.summary}</div></td>
           <td className="px-4 py-4"><div className="flex flex-wrap gap-1.5">
             <button title={t("letters.view")} onClick={() => setViewLetter(letter)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Eye size={16}/></button>
+            {letter.status === LetterStatus.DRAFT && <button title={t("letters.edit")} onClick={() => setEditTarget(letter)} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><PenLine size={16}/></button>}
             {(letter.draftFileUrl || letter.finalFileUrl) && <button title={t("letters.download")} onClick={() => download(letter.id, letter.status === LetterStatus.ARCHIVED ? "final" : "draft", letter.documentNumber)} className="rounded-lg p-2 text-sky-600 hover:bg-sky-50"><FileText size={16}/></button>}
             {letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => submitLetter(letter.id).then(() => queryClient.invalidateQueries({ queryKey: ["letters"] }))} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
@@ -107,6 +109,7 @@ export function LettersPage() {
     {showCreate && <CreateLetterModal type={selectedType} direction={direction} allowTypeChoice={isWarningSection} onClose={() => { setShowCreate(false); queryClient.invalidateQueries({ queryKey: ["letters"] }); }}/>}
     {viewLetter && <ViewLetterModal letter={viewLetter} onClose={() => setViewLetter(null)} />}
     {rejectTarget && <RejectLetterModal letter={rejectTarget} onClose={() => setRejectTarget(null)} />}
+    {editTarget && <EditLetterModal letter={editTarget} onClose={() => setEditTarget(null)} />}
   </div>;
 }
 
