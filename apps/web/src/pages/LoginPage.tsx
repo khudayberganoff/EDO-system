@@ -51,47 +51,47 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       {/* ============ Chap panel: to'q zumrad, girih gazlamasi ============ */}
-      <aside className="girih-dark relative flex w-full flex-col justify-between overflow-hidden px-8 py-10 text-white lg:w-[46%] lg:px-14 lg:py-14">
-        {/* Panelni chuqurlashtiruvchi yumshoq soya */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-950/80 via-brand-900/60 to-brand-950/90" />
+      <aside className="girih-light relative flex w-full flex-col justify-between overflow-hidden border-r border-slate-200/70 px-8 py-10 lg:w-[46%] lg:px-14 lg:py-14">
+        {/* Yumshoq oq qatlam - naqsh matnni to'smasligi uchun */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/55 via-white/35 to-white/65" />
 
         <div className="relative">
           <div className="flex items-center gap-3">
-            <StarMark className="h-5 w-5 text-gold-400" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold-300">
+            <StarMark className="h-5 w-5 text-gold-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">
               {t("login.eyebrow")}
             </span>
           </div>
         </div>
 
         <div className="relative my-12 max-w-md lg:my-0">
-          <h1 className="font-display text-[34px] font-semibold leading-[1.15] text-white lg:text-[42px]">
+          <h1 className="font-display text-[34px] font-semibold leading-[1.15] text-brand-950 lg:text-[42px]">
             {t("login.overviewTitle")}
           </h1>
           {/* Oltin hoshiya - sarlavha bilan matn orasidagi ajratgich */}
-          <div className="mt-5 h-px w-16 bg-gradient-to-r from-gold-400 to-transparent" />
-          <p className="mt-5 text-[15px] leading-relaxed text-white/70">{t("login.overviewText")}</p>
+          <div className="mt-5 h-px w-16 bg-gradient-to-r from-gold-500 to-transparent" />
+          <p className="mt-5 text-[15px] leading-relaxed text-slate-500">{t("login.overviewText")}</p>
 
           <div className="mt-9 space-y-5">
             {modules.map((m) => (
               <div key={m.titleKey} className="flex gap-4">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-gold-300">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-brand-700 shadow-[0_2px_8px_-5px_rgba(11,51,39,0.5)]">
                   <m.icon size={16} />
                 </span>
                 <div>
-                  <p className="text-[15px] font-semibold text-white">{t(m.titleKey)}</p>
-                  <p className="mt-0.5 text-[13px] leading-snug text-white/55">{t(m.textKey)}</p>
+                  <p className="text-[15px] font-semibold text-slate-800">{t(m.titleKey)}</p>
+                  <p className="mt-0.5 text-[13px] leading-snug text-slate-500">{t(m.textKey)}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="relative text-[11px] tracking-wide text-white/40">{t("login.footer")}</p>
+        <p className="relative text-[11px] tracking-wide text-slate-400">{t("login.footer")}</p>
       </aside>
 
       {/* ============ O'ng panel: kirish ============ */}
-      <main className="relative flex flex-1 items-center justify-center bg-[#FAFBFA] px-6 py-12">
+      <main className="relative flex flex-1 items-center justify-center bg-white px-6 py-12">
         {/* Tilni tanlash */}
         <div className="absolute right-6 top-6 flex gap-1 rounded-full border border-slate-200 bg-white p-1">
           {LANGUAGES.map((item) => (
