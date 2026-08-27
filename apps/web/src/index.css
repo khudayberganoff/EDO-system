@@ -16,40 +16,52 @@ body {
  * Nozik chiziqlar, past kontrast: fon sifatida sezilib turadi, lekin
  * diqqatni tortmaydi va mazmunni to'sib qo'ymaydi.
  */
-/*
- * Girih - islom geometriyasidagi tayanch to'r: ustma-ust kvadratlar va
- * sakkiz burchakli yulduz. Naqsh bezak emas, tuzilma sifatida ishlatiladi:
- * ochiq fonda deyarli sezilmaydi, to'q panelda esa yaxlit gazlama taassuroti beradi.
- */
-.girih-light {
-  background-color: #F7F9F8;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke-width='1'%3E%3Cpath d='M30 30 H130 V130 H30 Z' stroke='%23C9A227' stroke-opacity='0.26'/%3E%3Cpath d='M80 22 L138 80 L80 138 L22 80 Z' stroke='%23C9A227' stroke-opacity='0.26'/%3E%3Cpath d='M80.0 132.0 L70.1 104.0 L43.2 116.8 L56.0 89.9 L28.0 80.0 L56.0 70.1 L43.2 43.2 L70.1 56.0 L80.0 28.0 L89.9 56.0 L116.8 43.2 L104.0 70.1 L132.0 80.0 L104.0 89.9 L116.8 116.8 L89.9 104.0 Z' stroke='%230F4A38' stroke-opacity='0.20'/%3E%3Cpath d='M104.0 89.9 L89.9 104.0 L70.1 104.0 L56.0 89.9 L56.0 70.1 L70.1 56.0 L89.9 56.0 L104.0 70.1 Z' stroke='%230F4A38' stroke-opacity='0.20'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 200px 200px;
-}
-
-.girih-dark {
-  background-color: #0B3327;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke-width='1'%3E%3Cpath d='M30 30 H130 V130 H30 Z' stroke='%23FFFFFF' stroke-opacity='0.10'/%3E%3Cpath d='M80 22 L138 80 L80 138 L22 80 Z' stroke='%23FFFFFF' stroke-opacity='0.10'/%3E%3Cpath d='M80.0 132.0 L70.1 104.0 L43.2 116.8 L56.0 89.9 L28.0 80.0 L56.0 70.1 L43.2 43.2 L70.1 56.0 L80.0 28.0 L89.9 56.0 L116.8 43.2 L104.0 70.1 L132.0 80.0 L104.0 89.9 L116.8 116.8 L89.9 104.0 Z' stroke='%23E4C77E' stroke-opacity='0.22'/%3E%3Cpath d='M104.0 89.9 L89.9 104.0 L70.1 104.0 L56.0 89.9 L56.0 70.1 L70.1 56.0 L89.9 56.0 L104.0 70.1 Z' stroke='%23E4C77E' stroke-opacity='0.22'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 190px 190px;
-}
-
-/* Eski nom - moslik uchun */
 .login-pattern {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-color: #F7F9F8;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke-width='1'%3E%3Cpath d='M30 30 H130 V130 H30 Z' stroke='%23C9A227' stroke-opacity='0.16'/%3E%3Cpath d='M80 22 L138 80 L80 138 L22 80 Z' stroke='%23C9A227' stroke-opacity='0.16'/%3E%3Cpath d='M80.0 132.0 L70.1 104.0 L43.2 116.8 L56.0 89.9 L28.0 80.0 L56.0 70.1 L43.2 43.2 L70.1 56.0 L80.0 28.0 L89.9 56.0 L116.8 43.2 L104.0 70.1 L132.0 80.0 L104.0 89.9 L116.8 116.8 L89.9 104.0 Z' stroke='%230F4A38' stroke-opacity='0.10'/%3E%3Cpath d='M104.0 89.9 L89.9 104.0 L70.1 104.0 L56.0 89.9 L56.0 70.1 L70.1 56.0 L89.9 56.0 L104.0 70.1 Z' stroke='%230F4A38' stroke-opacity='0.10'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke-width='1.1'%3E%3Cpath d='M80.0 126.0 L71.6 100.3 L47.5 112.5 L59.7 88.4 L34.0 80.0 L59.7 71.6 L47.5 47.5 L71.6 59.7 L80.0 34.0 L88.4 59.7 L112.5 47.5 L100.3 71.6 L126.0 80.0 L100.3 88.4 L112.5 112.5 L88.4 100.3 Z' stroke='%23C9A227' stroke-opacity='0.28'/%3E%3Cpath d='M111.4 93.0 L93.0 111.4 L67.0 111.4 L48.6 93.0 L48.6 67.0 L67.0 48.6 L93.0 48.6 L111.4 67.0 Z' stroke='%230F4A38' stroke-opacity='0.20'/%3E%3Cpath d='M80.0 110.0 L74.3 93.9 L58.8 101.2 L66.1 85.7 L50.0 80.0 L66.1 74.3 L58.8 58.8 L74.3 66.1 L80.0 50.0 L85.7 66.1 L101.2 58.8 L93.9 74.3 L110.0 80.0 L93.9 85.7 L101.2 101.2 L85.7 93.9 Z' stroke='%230F4A38' stroke-opacity='0.16'/%3E%3Ccircle cx='80' cy='80' r='8' stroke='%23C9A227' stroke-opacity='0.30'/%3E%3Cg transform='translate(0,0)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3Cg transform='translate(160,0)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3Cg transform='translate(0,160)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3Cg transform='translate(160,160)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.30' fill='none'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   background-size: 200px 200px;
 }
 
+/*
+ * Interaktiv qatlam: aynan shu naqshning yorqinroq nusxasi, lekin faqat
+ * kursor atrofidagi doirada ko'rinadi. Sichqoncha yaqinlashgan yulduzlar
+ * "yonib" turgandek taassurot beradi.
+ */
+.login-pattern-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke-width='1.1'%3E%3Cpath d='M80.0 126.0 L71.6 100.3 L47.5 112.5 L59.7 88.4 L34.0 80.0 L59.7 71.6 L47.5 47.5 L71.6 59.7 L80.0 34.0 L88.4 59.7 L112.5 47.5 L100.3 71.6 L126.0 80.0 L100.3 88.4 L112.5 112.5 L88.4 100.3 Z' stroke='%23C9A227' stroke-opacity='0.75'/%3E%3Cpath d='M111.4 93.0 L93.0 111.4 L67.0 111.4 L48.6 93.0 L48.6 67.0 L67.0 48.6 L93.0 48.6 L111.4 67.0 Z' stroke='%230F4A38' stroke-opacity='0.55'/%3E%3Cpath d='M80.0 110.0 L74.3 93.9 L58.8 101.2 L66.1 85.7 L50.0 80.0 L66.1 74.3 L58.8 58.8 L74.3 66.1 L80.0 50.0 L85.7 66.1 L101.2 58.8 L93.9 74.3 L110.0 80.0 L93.9 85.7 L101.2 101.2 L85.7 93.9 Z' stroke='%230F4A38' stroke-opacity='0.50'/%3E%3Ccircle cx='80' cy='80' r='8' stroke='%23C9A227' stroke-opacity='0.80'/%3E%3Cg transform='translate(0,0)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.80' fill='none'/%3E%3C/g%3E%3Cg transform='translate(160,0)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.80' fill='none'/%3E%3C/g%3E%3Cg transform='translate(0,160)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.80' fill='none'/%3E%3C/g%3E%3Cg transform='translate(160,160)'%3E%3Cpath d='M0 -9 A9 9 0 1 0 0 9 A7 7 0 1 1 0 -9 Z' stroke='%23C9A227' stroke-opacity='0.80' fill='none'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0;
+  transition: opacity 400ms ease;
+  -webkit-mask-image: radial-gradient(circle 190px at var(--mx, 50%) var(--my, 50%), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 72%);
+  mask-image: radial-gradient(circle 190px at var(--mx, 50%) var(--my, 50%), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 72%);
+}
+
+.login-pattern-glow[data-active="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-pattern-glow {
+    display: none;
+  }
+}
+
+
+/* Yumshoq oq nur - markazda mazmun tiniq ko'rinishi uchun */
 .login-pattern::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.45) 55%, rgba(255,255,255,0.05) 100%);
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.80) 0%, rgba(255, 255, 255, 0.40) 50%, rgba(255, 255, 255, 0.05) 100%);
 }
 
+/* Kartaning tepasidagi ingichka oltin chiziq - vazmin urg'u */
 .gold-rule {
   height: 2px;
   background: linear-gradient(90deg, transparent, #C9A227 20%, #E4C77E 50%, #C9A227 80%, transparent);
