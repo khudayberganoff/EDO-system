@@ -111,7 +111,7 @@ export function IncomingMailPage() {
     <div className="p-8">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Kiruvchi xatlar</h1>
+          <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">Kiruvchi xatlar</h1>
           <p className="mt-1 text-sm text-slate-500">Tashqi pochta orqali kelib tushgan xatlar</p>
         </div>
         <div className="flex gap-2">

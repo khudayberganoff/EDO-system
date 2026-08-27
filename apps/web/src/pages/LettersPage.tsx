@@ -68,7 +68,7 @@ export function LettersPage() {
 
   return <div className="p-8">
     <div className="mb-6 flex items-start justify-between">
-      <div><h1 className="text-3xl font-semibold text-slate-900">{isWarningSection ? t("nav.warnings") : direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{isWarningSection ? t("letters.descWarnings") : direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
+      <div><h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{isWarningSection ? t("nav.warnings") : direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{isWarningSection ? t("letters.descWarnings") : direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
       <div className="flex gap-2">
         <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {(isWarningSection ? t("nav.warnings") : t(`letters.type.${selectedType}` as any)).toLowerCase()}</button>
       </div>

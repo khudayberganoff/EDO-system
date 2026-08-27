@@ -137,7 +137,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside
-        className={`relative flex flex-col bg-gradient-to-b from-brand-950 via-brand-900 to-brand-800 text-white transition-all duration-300 ${
+        className={`girih-dark relative flex flex-col text-white transition-all duration-300 ${
           sidebarOpen ? "w-64" : "w-0 overflow-hidden"
         }`}
       >
@@ -158,9 +158,9 @@ export function AppLayout() {
           </button>
         </div>
         {/* Islom hoshiyasiga ishora - ingichka oltin chiziq */}
-        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-gold-500/40 to-transparent" aria-hidden="true" />
+        <div className="relative mx-4 h-px bg-gradient-to-r from-transparent via-gold-500/45 to-transparent" aria-hidden="true" />
 
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="relative flex-1 space-y-1 px-3">
           {TOP_NAV_ITEMS.filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : "approvals"))
             .map((x) => <Item key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />)}
 
@@ -238,7 +238,7 @@ export function AppLayout() {
           {can("settings") && <Item to="/settings" label={t("nav.settings")} icon={Settings} />}
         </nav>
 
-        <div className="border-t border-white/10 px-3 py-4">
+        <div className="relative border-t border-white/10 px-3 py-4">
           {/* Tilni almashtirish - sessiya davomida ham o'zgartirish mumkin */}
           <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-white/5 p-1">
             {LANGUAGES.map((item) => (

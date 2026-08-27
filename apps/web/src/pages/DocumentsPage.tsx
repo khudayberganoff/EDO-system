@@ -72,7 +72,7 @@ export function DocumentsPage() {
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-slate-900">{t("documents.title")}</h1>
+        <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{t("documents.title")}</h1>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"

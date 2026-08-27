@@ -40,10 +40,13 @@ export function DashboardPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-900 to-brand-700 p-6 text-white">
+      <div className="girih-dark relative mb-6 overflow-hidden rounded-2xl p-6 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/70 to-brand-800/60" aria-hidden="true" />
+        <div className="relative">
         <p className="text-xs uppercase tracking-wide text-white/60">{t("dashboard.greeting")}</p>
-        <h1 className="mt-1 text-2xl font-semibold">{t("dashboard.hello")}, {user?.fullName}!</h1>
+        <h1 className="mt-1 font-display text-[26px] font-semibold">{t("dashboard.hello")}, {user?.fullName}!</h1>
         <p className="mt-1 text-sm text-white/70">{today}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
