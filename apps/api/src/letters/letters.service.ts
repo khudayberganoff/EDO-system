@@ -21,6 +21,8 @@ import { moneyToWordsUz, daysToWordsUz } from "./number-to-words.uz";
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
 const FIRST_WARNING_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "1-OGOHLANTIRISH-NAMUNA.docx");
+/// Xat va ma'lumotnomalar uchun standart blank (kompaniya o'z blankasini yuklamagan holat)
+const LETTER_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "XAT-BLANK-NAMUNA.docx");
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const formatThousandsUz = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 // Oq (bo'sh) 180x180 PNG - hali tasdiqlanmagan xatlarda QR o'rniga vaqtinchalik bo'sh joy.
@@ -358,12 +360,18 @@ export class LettersService {
       // shablon ishlatiladi (umumiy firma blankasidan mustaqil).
       return this.buildFirstWarningDocx(letter, approved, token);
     }
+    // 1) Kompaniya o'z blankasini yuklagan bo'lsa - o'sha ustun turadi
     const letterheadFile = this.findLetterheadFile();
     if (letterheadFile) {
-      // Kompaniya o'z Word blankasini yuklagan - AI/inson yozgan xat matni
-      // shu blank ichidagi teglar ({raqam}, {sana}, {kimga}, {matn} va h.k.) o'rniga joylashadi.
       return await this.buildDocxFromTemplate(letterheadFile, letter, approved, token);
     }
+
+    // 2) Aks holda tizimdagi standart xat blanki ishlatiladi
+    if (fs.existsSync(LETTER_TEMPLATE_PATH)) {
+      return await this.buildDocxFromTemplate(LETTER_TEMPLATE_PATH, letter, approved, token);
+    }
+
+    // 3) Shablon topilmasa - dastur ichida shakllantiriladi
     return this.buildDocxDefault(letter, approved, token);
   }
 
