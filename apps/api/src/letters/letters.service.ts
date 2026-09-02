@@ -20,7 +20,6 @@ import { moneyToWordsUz, daysToWordsUz } from "./number-to-words.uz";
 
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
-const TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "WAFA_LEASING_XAT_NAMUNA.docx");
 const FIRST_WARNING_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "1-OGOHLANTIRISH-NAMUNA.docx");
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const formatThousandsUz = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -43,7 +42,6 @@ export class LettersService {
   ) {
     fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
     fs.mkdirSync(LETTERHEAD_DIR, { recursive: true });
-    if (!fs.existsSync(TEMPLATE_PATH)) throw new Error("WAFA xat shabloni topilmadi: " + TEMPLATE_PATH);
     if (!fs.existsSync(FIRST_WARNING_TEMPLATE_PATH)) throw new Error("1-ogohlantirish shabloni topilmadi: " + FIRST_WARNING_TEMPLATE_PATH);
   }
 
