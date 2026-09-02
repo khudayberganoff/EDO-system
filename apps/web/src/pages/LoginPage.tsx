@@ -5,6 +5,18 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 
+/** Sakkiz burchakli yulduz - islom geometriyasidagi asosiy motiv. */
+function StarMark({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path
+        fill="none" stroke="currentColor" strokeWidth="1.3"
+        d="M12 2.5 L14 7.4 L19 5.4 L17 10.3 L21.5 12 L17 13.7 L19 18.6 L14 16.6 L12 21.5 L10 16.6 L5 18.6 L7 13.7 L2.5 12 L7 10.3 L5 5.4 L10 7.4 Z"
+      />
+    </svg>
+  );
+}
+
 export function LoginPage() {
   const { login } = useAuth();
   const { language, setLanguage, t } = useLanguage();
@@ -54,9 +66,9 @@ export function LoginPage() {
 
   // Uchta asosiy yo'nalish - ortiqcha tafsilotsiz
   const modules = [
-    { icon: Mail, titleKey: "login.modLetters", textKey: "login.modLettersText" },
-    { icon: Users, titleKey: "login.modHr", textKey: "login.modHrText" },
-    { icon: QrCode, titleKey: "login.modQr", textKey: "login.modQrText" },
+    { icon: Mail, titleKey: "login.modLetters" },
+    { icon: Users, titleKey: "login.modHr" },
+    { icon: QrCode, titleKey: "login.modQr" },
   ] as const;
 
   return (
@@ -87,39 +99,24 @@ export function LoginPage() {
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col items-center gap-12 px-6 py-16 lg:flex-row lg:justify-between lg:gap-16">
-        {/* Chap tomon - tizimda nimalar bor */}
+        {/* Chap tomon - tizim haqida qisqacha */}
         <div className="w-full max-w-xl">
-          <div className="mb-5 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3">
             <span className="h-px w-8 bg-gold-500" />
-            <svg viewBox="0 0 24 24" className="h-4 w-4 text-gold-600" aria-hidden="true">
-              <path
-                fill="none" stroke="currentColor" strokeWidth="1.3"
-                d="M12 2.5 L14 7.4 L19 5.4 L17 10.3 L21.5 12 L17 13.7 L19 18.6 L14 16.6 L12 21.5 L10 16.6 L5 18.6 L7 13.7 L2.5 12 L7 10.3 L5 5.4 L10 7.4 Z"
-              />
-            </svg>
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">
-              {t("login.eyebrow")}
-            </span>
+            <StarMark className="h-4 w-4 text-gold-600" />
           </div>
 
-          <h1 className="text-3xl font-bold leading-tight tracking-tight text-brand-950 sm:text-4xl">
+          <h1 className="font-display text-[32px] font-semibold leading-tight tracking-tight text-brand-950 sm:text-[38px]">
             {t("login.overviewTitle")}
           </h1>
-          <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-slate-500">
-            {t("login.overviewText")}
-          </p>
 
-          {/* Bo'limlar ro'yxati */}
           <div className="mt-8 space-y-4">
             {modules.map((m) => (
-              <div key={m.titleKey} className="flex gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-700 shadow-[0_2px_10px_-6px_rgba(11,51,39,0.5)]">
+              <div key={m.titleKey} className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-700 shadow-[0_2px_10px_-6px_rgba(11,51,39,0.5)]">
                   <m.icon size={16} />
                 </span>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{t(m.titleKey)}</p>
-                  <p className="mt-0.5 text-[13px] leading-snug text-slate-500">{t(m.textKey)}</p>
-                </div>
+                <p className="text-[15px] font-medium text-slate-700">{t(m.titleKey)}</p>
               </div>
             ))}
           </div>
