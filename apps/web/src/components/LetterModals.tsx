@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, FileText } from "lucide-react";
 import clsx from "clsx";
-import { fetchLetterRenderedText, rejectLetter, updateLetterBody } from "../api/letters";
+import { fetchLetterRenderedText, rejectLetter, updateLetterBody, downloadLetterPdf } from "../api/letters";
 import { useT } from "../i18n/LanguageContext";
 
 const STATUS_KEYS: Record<string, string> = {
@@ -29,46 +29,112 @@ export function LetterStatusPill({ status }: { status: string }) {
 }
 
 /** Xatni to'liq o'qish oynasi - Word shablonidan olingan haqiqiy matn bilan. */
+/**
+ * Xatni ASL BLANK ko'rinishida ko'rsatadi: server hujjatni shakllantirib
+ * PDF ga aylantiradi, oyna ichida esa o'sha PDF ochiladi.
+ * Shu sababli ekranda ko'rinayotgan narsa chop etiladigan hujjatning aynan o'zi.
+ */
 export function ViewLetterModal({ letter, onClose }: { letter: any; onClose: () => void }) {
   const t = useT();
-  const { data: rendered, isLoading: textLoading } = useQuery({
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  // Zaxira variant: blank ochilmasa - hujjat matnini ko'rsatamiz
+  const { data: rendered } = useQuery({
     queryKey: ["letters", letter.id, "rendered-text"],
     queryFn: () => fetchLetterRenderedText(letter.id),
+    enabled: failed,
     retry: false,
   });
 
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    downloadLetterPdf(letter.id)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfUrl(objectUrl);
+      })
+      .catch(() => !cancelled && setFailed(true));
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [letter.id]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-start justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sarlavha */}
+        <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">№ {letter.documentNumber} — {letter.counterpartyName}</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {new Date(letter.documentDate).toLocaleDateString("uz-UZ")} &middot; <LetterStatusPill status={letter.status} />
+            <h2 className="font-display text-lg font-semibold text-brand-950">
+              № {letter.documentNumber} — {letter.counterpartyName}
+            </h2>
+            <p className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+              {new Date(letter.documentDate).toLocaleDateString("uz-UZ")}
+              <LetterStatusPill status={letter.status} />
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-slate-400 transition hover:text-slate-600"><X size={20} /></button>
         </div>
 
-        {letter.counterpartyAddress && (
-          <p className="mb-3 text-sm text-slate-500">{t("letterForm.address")}: {letter.counterpartyAddress}</p>
-        )}
-
         {letter.rejectionReason && (
-          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          <div className="border-b border-rose-100 bg-rose-50 px-6 py-3 text-sm text-rose-800">
             <span className="font-medium">{t("letters.rejectReason")}: </span>{letter.rejectionReason}
           </div>
         )}
 
-        <div className="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-          <span className="font-medium text-slate-700">{t("letters.colSummary")}: </span>{letter.summary}
+        {/* Hujjat ko'rinishi */}
+        <div className="flex-1 overflow-hidden bg-slate-100 p-4">
+          {!pdfUrl && !failed && (
+            <div className="flex h-[560px] items-center justify-center text-sm text-slate-400">
+              {t("letters.previewLoading")}
+            </div>
+          )}
+
+          {pdfUrl && (
+            <iframe
+              title={t("letters.preview")}
+              src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`}
+              className="h-[560px] w-full rounded-lg border border-slate-200 bg-white"
+            />
+          )}
+
+          {failed && (
+            <div className="h-[560px] overflow-y-auto rounded-lg border border-slate-200 bg-white p-8">
+              <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {t("letters.previewFallback")}
+              </p>
+              <div className="space-y-3 text-sm leading-relaxed text-slate-800">
+                {rendered?.length
+                  ? rendered.map((line: string, i: number) => <p key={i}>{line}</p>)
+                  : <p className="whitespace-pre-wrap">{letter.bodyText || "—"}</p>}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-2 rounded-lg border border-slate-100 p-4 text-sm leading-relaxed text-slate-800">
-          {textLoading && <p className="text-slate-400">{t("documents.loading")}</p>}
-          {!textLoading && (rendered?.length
-            ? rendered.map((line: string, i: number) => <p key={i}>{line}</p>)
-            : <p className="whitespace-pre-wrap">{letter.bodyText || "Matn hali yaratilmagan."}</p>)}
+        {/* Pastki qator */}
+        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-3">
+          <p className="max-w-[60%] truncate text-xs text-slate-500">
+            <span className="font-medium text-slate-600">{t("letters.colSummary")}: </span>{letter.summary}
+          </p>
+          {pdfUrl && (
+            <a
+              href={pdfUrl}
+              download={`xat-${letter.documentNumber}.pdf`}
+              className="rounded-lg bg-brand-800 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-700"
+            >
+              {t("letters.download")} PDF
+            </a>
+          )}
         </div>
       </div>
     </div>
