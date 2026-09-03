@@ -207,8 +207,7 @@ export function LoginPage() {
       </div>
 
       <footer className="relative z-10 pb-8 text-center text-xs text-slate-400">
-        <span className="font-semibold text-brand-800">WAFA</span>{" "}
-        <span className="font-semibold text-gold-600">GROUP</span>
+        <span className="font-semibold text-brand-800">WAFA</span>
         <span className="mx-2">·</span>
         {t("login.footer")}
       </footer>

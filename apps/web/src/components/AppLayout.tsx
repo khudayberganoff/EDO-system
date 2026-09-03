@@ -146,7 +146,7 @@ export function AppLayout() {
             <FileText size={20} />
           </div>
           <div className="flex-1">
-            <div className="text-sm font-semibold">WAFA GROUP</div>
+            <div className="text-sm font-semibold">WAFA</div>
             <div className="text-xs text-white/50">EDO tizimi</div>
           </div>
           <button
