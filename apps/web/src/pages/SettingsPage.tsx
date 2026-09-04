@@ -131,7 +131,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["settings"] }); onClose(); },
     onError: (e: any) => {
       const msg = e?.response?.data?.message;
-      setError(Array.isArray(msg) ? msg.join(". ") : msg ?? "Yaratib bo'lmadi.");
+      setError(Array.isArray(msg) ? msg.join(". ") : typeof msg === "string" ? msg : "Qo'shib bo'lmadi. Ma'lumotlarni tekshiring.");
     },
   });
 
@@ -173,7 +173,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
             onClick={() => mutation.mutate()}
             className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
           >
-            Yaratish
+            Qo'shish
           </button>
         </div>
       </div>

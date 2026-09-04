@@ -88,7 +88,9 @@ export class LettersController {
   }
 
   @Get(":id") findOne(@Param("id") id: string) { return this.lettersService.findOne(id); }
-  @Post(":id/submit") submit(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id); }
+  @Get("approvers") @ApiOperation({ summary: "Tasdiqlashi mumkin bo'lgan rahbarlar" }) approvers() { return this.lettersService.listApprovers(); }
+
+  @Post(":id/submit") submit(@Param("id") id: string, @Body() body: { approverId?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id, body?.approverId); }
   @Patch(":id") updateBody(@Param("id") id: string, @Body() body: { bodyText?: string; summary?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.updateBody(id, body, user.id); }
 
   @Post(":id/approve") @Roles(Role.ADMIN, Role.MANAGER) approve(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.approve(id, user); }

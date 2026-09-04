@@ -8,7 +8,8 @@ export async function fetchLetterCounts() { const { data } = await apiClient.get
 export async function fetchAiAgentStats() { const { data } = await apiClient.get("/letters/ai-agent/stats"); return data; }
 export async function createLetter(input: any) { const { data } = await apiClient.post("/letters", input); return data; }
 export async function aiGenerateLetter(input: any) { const { data } = await apiClient.post("/letters/ai-generate", input); return data; }
-export async function submitLetter(id: string) { const { data } = await apiClient.post(`/letters/${id}/submit`); return data; }
+export async function submitLetter(id: string, approverId?: string) { const { data } = await apiClient.post(`/letters/${id}/submit`, { approverId }); return data; }
+export async function fetchApprovers() { const { data } = await apiClient.get<{ id: string; fullName: string; email: string; role: string }[]>("/letters/approvers"); return data; }
 export async function updateLetterBody(id: string, payload: { bodyText?: string; summary?: string }) {
   const { data } = await apiClient.patch(`/letters/${id}`, payload);
   return data;

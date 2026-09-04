@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, FileText } from "lucide-react";
 import clsx from "clsx";
-import { fetchLetterRenderedText, rejectLetter, updateLetterBody, downloadLetterPdf } from "../api/letters";
+import { fetchLetterRenderedText, rejectLetter, updateLetterBody, downloadLetterPdf, submitLetter, fetchApprovers } from "../api/letters";
 import { useT } from "../i18n/LanguageContext";
 
 const STATUS_KEYS: Record<string, string> = {
@@ -286,6 +286,77 @@ export function EditLetterModal({ letter, onClose }: { letter: any; onClose: () 
             className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
           >
             {t("letterForm.save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * Tasdiqlashga yuborish oynasi: xat qaysi rahbarga borishini tanlash.
+ * Rahbar tanlanmasa - har qanday rahbariyat a'zosi tasdiqlay oladi.
+ */
+export function SubmitLetterModal({ letter, onClose }: { letter: any; onClose: () => void }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const [approverId, setApproverId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: approvers, isLoading } = useQuery({ queryKey: ["letters", "approvers"], queryFn: fetchApprovers });
+
+  const mutation = useMutation({
+    mutationFn: () => submitLetter(letter.id, approverId || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["letters"] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      onClose();
+    },
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join(". ") : typeof msg === "string" ? msg : "Yuborib bo'lmadi.");
+    },
+  });
+
+  const ROLE_LABELS: Record<string, string> = { ADMIN: "Administrator", MANAGER: "Rahbariyat" };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-brand-950">{t("letters.submitTitle")}</h2>
+            <p className="mt-1 text-xs text-slate-500">№ {letter.documentNumber} — {letter.counterpartyName}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+        </div>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("letters.chooseApprover")}</span>
+          {isLoading ? (
+            <p className="text-sm text-slate-400">{t("documents.loading")}</p>
+          ) : (
+            <select value={approverId} onChange={(e) => setApproverId(e.target.value)} className="input">
+              <option value="">{t("letters.anyApprover")}</option>
+              {approvers?.map((a) => (
+                <option key={a.id} value={a.id}>{a.fullName} — {ROLE_LABELS[a.role] ?? a.role}</option>
+              ))}
+            </select>
+          )}
+        </label>
+        <p className="mt-1.5 text-xs text-slate-400">{t("letters.approverHint")}</p>
+
+        {error && <p className="mt-3 text-xs text-rose-600">{error}</p>}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("letterForm.cancel")}</button>
+          <button
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate()}
+            className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+          >
+            {t("letters.submitAction")}
           </button>
         </div>
       </div>

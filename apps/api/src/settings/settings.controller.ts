@@ -4,6 +4,7 @@ import { SettingsService } from "./settings.service";
 import { Roles } from "../common/decorators/roles.decorator";
 import { Role } from "../common/enums";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
+import { CreateUserDto, UpdateUserDto, SetPermissionDto } from "./dto/settings.dto";
 
 @ApiTags("Sozlamalar")
 @ApiBearerAuth()
@@ -26,10 +27,7 @@ export class SettingsController {
   @Post("permissions")
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: "Rolga bo'lim ruxsatini belgilash" })
-  setPermission(
-    @Body() body: { role: string; module: string; canView: boolean; canEdit: boolean },
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  setPermission(@Body() body: SetPermissionDto, @CurrentUser() user: AuthenticatedUser) {
     return this.settingsService.setPermission(body, user.id);
   }
 
@@ -41,20 +39,13 @@ export class SettingsController {
 
   @Post("users")
   @Roles(Role.ADMIN)
-  createUser(
-    @Body() body: { fullName: string; email: string; password: string; role: string },
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  createUser(@Body() body: CreateUserDto, @CurrentUser() user: AuthenticatedUser) {
     return this.settingsService.createUser(body, user.id);
   }
 
   @Patch("users/:id")
   @Roles(Role.ADMIN)
-  updateUser(
-    @Param("id") id: string,
-    @Body() body: { fullName?: string; role?: string; isActive?: boolean; password?: string },
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  updateUser(@Param("id") id: string, @Body() body: UpdateUserDto, @CurrentUser() user: AuthenticatedUser) {
     return this.settingsService.updateUser(id, body, user.id);
   }
 }

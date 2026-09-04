@@ -41,6 +41,7 @@ model User {
   employeeCard     Employee?         @relation("EmployeeUser")
   givenGratitudes  Gratitude[]       @relation("GratitudeFrom")
   apiKeys          ApiKey[]          @relation("ApiKeyAuthor")
+  assignedLetters  Letter[]          @relation("LetterApprover")
 
   @@index([email])
 }
@@ -195,6 +196,10 @@ model Letter {
   /// Rahbariyat xatni rad etganda - sabab va vaqti
   rejectedAt          DateTime?
   rejectionReason     String?
+
+  /// Xat tasdiqlashga yuborilgan rahbar (tanlanmasa - har qanday rahbar tasdiqlay oladi)
+  assignedApprover   User?   @relation("LetterApprover", fields: [assignedApproverId], references: [id])
+  assignedApproverId String?
 
   createdById String
   createdBy   User   @relation("LetterAuthor", fields: [createdById], references: [id])

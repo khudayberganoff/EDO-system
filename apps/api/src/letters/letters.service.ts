@@ -163,16 +163,53 @@ export class LettersService {
     return letter;
   }
 
-  async submitForApproval(id: string, userId: string) {
+  /** Tasdiqlashga yuborish. approverId berilsa - xat aynan shu rahbarga biriktiriladi. */
+  async submitForApproval(id: string, userId: string, approverId?: string) {
     const letter = await this.findOne(id);
-    if (![LetterStatus.DRAFT].includes(letter.status as LetterStatus)) throw new BadRequestException("Faqat qoralama xatni rahbariyatga yuborish mumkin.");
+    if (![LetterStatus.DRAFT].includes(letter.status as LetterStatus)) {
+      throw new BadRequestException("Faqat qoralama xatni rahbariyatga yuborish mumkin.");
+    }
+
+    // Tanlangan shaxs haqiqatan rahbar ekanini tekshiramiz
+    if (approverId) {
+      const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
+      if (!approver || !approver.isActive) throw new BadRequestException("Tanlangan rahbar topilmadi.");
+      if (![Role.ADMIN, Role.MANAGER].includes(approver.role as Role)) {
+        throw new BadRequestException("Xatni faqat rahbariyat a'zosiga yuborish mumkin.");
+      }
+    }
+
     await this.generateDraftFile(id);
-    const updated = await this.prisma.letter.update({ where: { id }, data: { status: LetterStatus.PENDING_APPROVAL, submittedAt: new Date() } });
-    await this.auditLog.record({ userId, action: AuditAction.STATUS_CHANGE, metadata: { letterId: id, to: LetterStatus.PENDING_APPROVAL } });
+    const updated = await this.prisma.letter.update({
+      where: { id },
+      data: {
+        status: LetterStatus.PENDING_APPROVAL,
+        submittedAt: new Date(),
+        assignedApproverId: approverId ?? null,
+      },
+    });
+    await this.auditLog.record({
+      userId, action: AuditAction.STATUS_CHANGE,
+      metadata: { letterId: id, to: LetterStatus.PENDING_APPROVAL, approverId: approverId ?? null },
+    });
     return updated;
   }
 
+  /** Tasdiqlashi mumkin bo'lgan rahbarlar ro'yxati. */
+  async listApprovers() {
+    return this.prisma.user.findMany({
+      where: { isActive: true, role: { in: [Role.ADMIN, Role.MANAGER] } },
+      orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true, email: true, role: true },
+    });
+  }
+
   async approve(id: string, user: { id: string; role: string }) {
+    // Xat aniq bir rahbarga biriktirilgan bo'lsa - faqat o'sha (yoki ADMIN) tasdiqlaydi
+    const target = await this.prisma.letter.findUnique({ where: { id }, select: { assignedApproverId: true } });
+    if (target?.assignedApproverId && target.assignedApproverId !== user.id && user.role !== Role.ADMIN) {
+      throw new ForbiddenException("Bu xat boshqa rahbarga tasdiqlash uchun yuborilgan.");
+    }
     if (![Role.ADMIN, Role.MANAGER].includes(user.role as Role)) throw new ForbiddenException("Faqat rahbariyat xatni tasdiqlashi mumkin.");
     const letter = await this.findOne(id);
     if (letter.status !== LetterStatus.PENDING_APPROVAL) throw new BadRequestException("Xat rahbariyat tasdig'iga yuborilmagan.");
