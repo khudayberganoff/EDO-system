@@ -83,11 +83,32 @@ export class LettersService {
     return this.getLetterheadStatus();
   }
 
+  /** Xat turiga mos raqam boshlanishi: X-, MA-, OG1-, OG2- */
+  private numberPrefix(type: LetterType): string {
+    return type === LetterType.FIRST_WARNING ? "OG1"
+      : type === LetterType.FINAL_WARNING ? "OG2"
+      : type === LetterType.REFERENCE ? "MA" : "X";
+  }
+
+  /**
+   * Keyingi hujjat raqami. Oxirgi YARATILGAN emas, eng KATTA raqam asos qilinadi -
+   * shunda ketma-ketlik buzilmaydi va bo'shliq qolmaydi.
+   */
   async getNextDocumentNumber(type: LetterType) {
-    const prefix = type === LetterType.FIRST_WARNING ? "OG1" : type === LetterType.FINAL_WARNING ? "OG2" : type === LetterType.REFERENCE ? "MA" : "X";
-    const last = await this.prisma.letter.findFirst({ where: { type }, orderBy: { createdAt: "desc" } });
-    const n = last ? parseInt(String(last.documentNumber).replace(/\D/g, ""), 10) + 1 : 1;
-    return { documentNumber: `${prefix}-${String(n).padStart(4, "0")}` };
+    const prefix = this.numberPrefix(type);
+    const letters = await this.prisma.letter.findMany({
+      where: { type },
+      select: { documentNumber: true },
+    });
+
+    let max = 0;
+    for (const l of letters) {
+      // Faqat shu turdagi prefiksli raqamlarni hisobga olamiz
+      const m = new RegExp(`^${prefix}-(\\d+)$`).exec(String(l.documentNumber).trim());
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+
+    return { documentNumber: `${prefix}-${String(max + 1).padStart(4, "0")}` };
   }
 
   async create(dto: CreateLetterDto, userId: string) {

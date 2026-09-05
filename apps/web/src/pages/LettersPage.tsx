@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { AlertTriangle, Check, Eye, FileText, PenLine, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
+import { AlertTriangle, Check, Eye, FileText, FileSpreadsheet, PenLine, XCircle, Plus, SendHorizontal, Trash2, X, Sparkles, Image as ImageIcon, Upload } from "lucide-react";
 import { LetterStatus, LetterType } from "@edo/shared-types";
 import clsx from "clsx";
-import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, uploadLetterhead, downloadLetterPdf } from "../api/letters";
+import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLetter, fetchAiAgentStats, fetchLetterheadStatus, fetchLetters, fetchNextLetterNumber, removeLetterhead, uploadLetterhead, downloadLetterPdf, exportLetters } from "../api/letters";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
 import { ViewLetterModal, RejectLetterModal, LetterStatusPill, EditLetterModal, SubmitLetterModal } from "../components/LetterModals";
@@ -28,6 +28,23 @@ export function LettersPage() {
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [submitTarget, setSubmitTarget] = useState<any | null>(null);
+
+  // Ro'yxatni Excel sifatida yuklash - joriy filtrlar hisobga olinadi
+  const exportToExcel = async () => {
+    try {
+      const blob = await exportLetters({
+        type: isWarningSection ? undefined : selectedType,
+        status: status || undefined,
+        direction: direction || undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `xatlar-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { alert("Excel faylni yuklab bo'lmadi."); }
+  };
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data, isLoading } = useQuery({
@@ -72,6 +89,12 @@ export function LettersPage() {
     <div className="mb-6 flex items-start justify-between">
       <div><h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{isWarningSection ? t("nav.warnings") : direction ? t(direction === "INCOMING" ? "nav.incoming" : "nav.outgoing") : t(`letters.type.${selectedType}` as any)}</h1><p className="mt-1 text-sm text-slate-500">{isWarningSection ? t("letters.descWarnings") : direction ? t(direction === "INCOMING" ? "letters.descIncoming" : "letters.descOutgoing") : t(`letters.desc.${selectedType}` as any)}</p></div>
       <div className="flex gap-2">
+        <button
+          onClick={exportToExcel}
+          className="flex items-center gap-2 rounded-lg border border-emerald-600 px-5 py-3 text-base font-medium text-emerald-700 transition hover:bg-emerald-50"
+        >
+          <FileSpreadsheet size={18} /> Excel
+        </button>
         <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {(isWarningSection ? t("nav.warnings") : t(`letters.type.${selectedType}` as any)).toLowerCase()}</button>
       </div>
     </div>
@@ -123,6 +146,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
   const [counterpartyName, setCounterpartyName] = useState(""); const [counterpartyAddress, setCounterpartyAddress] = useState(""); const [phoneNumber, setPhoneNumber] = useState(""); const [summary, setSummary] = useState(""); const [bodyText, setBodyText] = useState(""); const [provider, setProvider] = useState(""); const [nextNumber, setNextNumber] = useState("");
   // Faqat "Ogohlantirish" (FIRST_WARNING/FINAL_WARNING) xatlari uchun qo'shimcha maydonlar
   const [contractNumber, setContractNumber] = useState(""); const [contractDate, setContractDate] = useState(""); const [monthlyPaymentAmount, setMonthlyPaymentAmount] = useState(""); const [overdueDays, setOverdueDays] = useState(""); const [charityAmount, setCharityAmount] = useState(""); const [paymentDueDay, setPaymentDueDay] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false); const [learnedFrom, setLearnedFrom] = useState<number | null>(null); const queryClient = useQueryClient();
   const isFirstWarning = type === LetterType.FIRST_WARNING;
   const isWarning = type === LetterType.FIRST_WARNING || type === LetterType.FINAL_WARNING;
@@ -152,7 +176,12 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     if (overdueDays) parts.push(`${overdueDays} kun kechikish`);
     return parts.join(" · ") || "1-ogohlantirish";
   })();
-  const mutation = useMutation({ mutationFn: () => createLetter({ type, direction, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: normalizeUzPhone(phoneNumber) || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); } });
+  const mutation = useMutation({ mutationFn: () => createLetter({ type, direction, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: normalizeUzPhone(phoneNumber) || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); },
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message;
+      setSaveError(Array.isArray(msg) ? msg.join(". ") : typeof msg === "string" ? msg : "Xatni saqlab bo'lmadi. Maydonlarni tekshiring.");
+    },
+  });
   const agentLearnedCount = agentStats?.[type] ?? 0;
   const canSubmit = isFirstWarning
     ? !mutation.isPending && !!counterpartyName && !!contractNumber && !!overdueDays
@@ -193,6 +222,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     ) : (
       <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/50 p-4"><div className="mb-2 flex items-center justify-between"><div><div className="flex items-center gap-2 font-semibold text-brand-900"><Sparkles size={17}/> {t("letterForm.aiTitle")}</div><p className="text-xs text-slate-500">{t("letterForm.aiDescription")}{agentLearnedCount > 0 && <> Hozircha <strong>{agentLearnedCount} ta</strong> tasdiqlangan "{t(`letters.type.${type}` as any).toLowerCase()}" namunasidan o'rgangan.</>}</p></div><button type="button" disabled={aiLoading || !summary || !counterpartyName} onClick={generate} className="rounded-lg bg-brand-800 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 whitespace-nowrap">{aiLoading ? t("letterForm.aiWriting") : t("letterForm.aiGenerate")}</button></div>{provider && <div className="mb-2 text-[11px] text-slate-500">Provayder: {provider === "openai" ? "AI" : "mahalliy yordamchi"}{learnedFrom != null && learnedFrom > 0 && <> &middot; {learnedFrom} ta namunadan foydalanildi</>}</div>}<textarea value={bodyText} onChange={e=>setBodyText(e.target.value)} rows={10} placeholder={t("letterForm.aiPlaceholder")} className="input bg-white"/></div>
     )}
+    {saveError && <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{saveError}</p>}
     <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("letterForm.cancel")}</button><button disabled={!canSubmit} onClick={()=>mutation.mutate()} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50">{t("letterForm.save")}</button></div>
   </div></div>;
 }

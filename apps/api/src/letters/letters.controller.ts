@@ -25,13 +25,31 @@ export class LettersController {
 
   @Get() findAll(@Query() query: QueryLettersDto) { return this.lettersService.findAll(query); }
   @Get("counts") counts() { return this.lettersService.countsByDirection(); }
+  @Get("approvers") @ApiOperation({ summary: "Tasdiqlashi mumkin bo'lgan rahbarlar" }) approvers() { return this.lettersService.listApprovers(); }
   @Get("archive") archive() { return this.lettersService.archiveList(); }
   @Get("next-number") nextNumber(@Query("type") type: LetterType) { return this.lettersService.getNextDocumentNumber(type); }
 
   @Get("export") async export(@Query() query: QueryLettersDto, @Res() res: Response) {
     const letters = await this.lettersService.exportRows(query);
-    const rows = letters.map((letter, index) => ({ "Tartib raqami": index + 1, "Kimga": letter.counterpartyName, "Sana": new Date(letter.documentDate).toLocaleDateString("uz-UZ"), "Hujjat raqami": `№ ${letter.documentNumber}`, "Xat turi": TYPE_LABELS[letter.type as LetterType] ?? letter.type, "Holati": STATUS_LABELS[letter.status] ?? letter.status, "Hujjat yaratgan mas’ul shaxs": letter.createdBy?.fullName ?? "—" }));
-    const worksheet = XLSX.utils.json_to_sheet(rows); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "Xatlar");
+    const rows = letters.map((letter, index) => ({
+      "T/r": index + 1,
+      "Hujjat raqami": letter.documentNumber,
+      "Sana": new Date(letter.documentDate).toLocaleDateString("uz-UZ"),
+      "Yo'nalishi": letter.direction === "INCOMING" ? "Kiruvchi" : "Chiquvchi",
+      "Xat turi": TYPE_LABELS[letter.type as LetterType] ?? letter.type,
+      "Kimga": letter.counterpartyName,
+      "Manzil": letter.counterpartyAddress ?? "",
+      "Qisqacha mazmuni": letter.summary ?? "",
+      "Holati": STATUS_LABELS[letter.status] ?? letter.status,
+      "Mas'ul shaxs": letter.createdBy?.fullName ?? "—",
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    // Ustun kengliklari - fayl ochilganda o'qishga qulay bo'lishi uchun
+    worksheet["!cols"] = [
+      { wch: 5 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 20 },
+      { wch: 30 }, { wch: 24 }, { wch: 45 }, { wch: 18 }, { wch: 24 },
+    ];
+    const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "Xatlar");
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.setHeader("Content-Disposition", `attachment; filename="EDO-xatlar-${new Date().toISOString().slice(0,10)}.xlsx"`); res.send(buffer);
   }
@@ -88,7 +106,6 @@ export class LettersController {
   }
 
   @Get(":id") findOne(@Param("id") id: string) { return this.lettersService.findOne(id); }
-  @Get("approvers") @ApiOperation({ summary: "Tasdiqlashi mumkin bo'lgan rahbarlar" }) approvers() { return this.lettersService.listApprovers(); }
 
   @Post(":id/submit") submit(@Param("id") id: string, @Body() body: { approverId?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id, body?.approverId); }
   @Patch(":id") updateBody(@Param("id") id: string, @Body() body: { bodyText?: string; summary?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.updateBody(id, body, user.id); }
