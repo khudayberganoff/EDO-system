@@ -48,3 +48,9 @@ export async function resetUserPassword(id: string, password?: string) {
   );
   return data;
 }
+
+/** Foydalanuvchi kartasi: tizim hisobi, kadrlar ma'lumoti va faoliyati. */
+export async function fetchUserDetails(id: string) {
+  const { data } = await apiClient.get(`/settings/users/${id}`);
+  return data as any;
+}

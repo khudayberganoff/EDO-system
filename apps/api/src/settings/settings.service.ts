@@ -102,6 +102,44 @@ export class SettingsService {
     });
   }
 
+  /**
+   * Foydalanuvchi haqida to'liq ma'lumot: tizim hisobi + kadrlar kartotekasidagi
+   * yozuvi (agar bog'langan bo'lsa) + faoliyat statistikasi.
+   */
+  async getUserDetails(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true, fullName: true, email: true, role: true, isActive: true, createdAt: true,
+        employeeCard: {
+          include: {
+            departmentRef: { select: { name: true } },
+            contracts: { orderBy: { startDate: "desc" }, take: 1 },
+            leaves: { where: { status: "APPROVED" }, orderBy: { startDate: "desc" }, take: 3 },
+          },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException("Foydalanuvchi topilmadi.");
+
+    // Tizimdagi faoliyati - qancha hujjat yaratgan va tasdiqlagan
+    const [lettersCreated, lettersApproved, documentsOwned, lastAction] = await this.prisma.$transaction([
+      this.prisma.letter.count({ where: { createdById: id } }),
+      this.prisma.letter.count({ where: { approvedById: id } }),
+      this.prisma.document.count({ where: { ownerId: id } }),
+      this.prisma.auditLog.findFirst({
+        where: { userId: id },
+        orderBy: { createdAt: "desc" },
+        select: { action: true, createdAt: true },
+      }),
+    ]);
+
+    return {
+      ...user,
+      activity: { lettersCreated, lettersApproved, documentsOwned, lastAction },
+    };
+  }
+
   async createUser(data: { fullName: string; email: string; password: string; role: string }, actorId: string) {
     const email = data.email.trim().toLowerCase();
     const exists = await this.prisma.user.findUnique({ where: { email } });

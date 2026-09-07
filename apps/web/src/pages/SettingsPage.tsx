@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info } from "lucide-react";
-import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, resetUserPassword, type SystemUser, type PermissionRow } from "../api/settings";
+import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info, Mail, Phone, Briefcase, Building2, CalendarDays, FileText, IdCard } from "lucide-react";
+import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, resetUserPassword, fetchUserDetails, type SystemUser, type PermissionRow } from "../api/settings";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrator",
@@ -46,6 +46,7 @@ export function SettingsPage() {
 function UsersTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<SystemUser | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["settings", "users"], queryFn: fetchUsers });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -85,7 +86,14 @@ function UsersTab() {
             {isLoading && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Yuklanmoqda...</td></tr>}
             {data?.map((u: SystemUser) => (
               <tr key={u.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium text-slate-900">{u.fullName}</td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => setDetailsId(u.id)}
+                    className="font-medium text-brand-800 transition hover:underline"
+                  >
+                    {u.fullName}
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-slate-500">{u.email}</td>
                 <td className="px-4 py-3">
                   <select
@@ -127,6 +135,7 @@ function UsersTab() {
 
       {showCreate && <CreateUserModal onClose={() => setShowCreate(false)} />}
       {resetTarget && <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />}
+      {detailsId && <UserDetailsModal id={detailsId} onClose={() => setDetailsId(null)} />}
     </>
   );
 }
@@ -188,6 +197,140 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Foydalanuvchi kartasi: tizim hisobi, kadrlar ma'lumoti va faoliyati. */
+function UserDetailsModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const { data, isLoading } = useQuery({ queryKey: ["settings", "user", id], queryFn: () => fetchUserDetails(id) });
+  const emp = data?.employeeCard;
+
+  const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString("uz-UZ") : "—");
+  const money = (n?: number | null) =>
+    n != null ? `${new Intl.NumberFormat("uz-UZ").format(n)} so'm` : "—";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {isLoading || !data ? (
+          <p className="py-12 text-center text-slate-400">Yuklanmoqda...</p>
+        ) : (
+          <>
+            {/* Sarlavha */}
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xl font-semibold text-brand-800">
+                  {data.fullName.charAt(0)}
+                </div>
+                <div>
+                  <h2 className="font-display text-xl font-semibold text-brand-950">{data.fullName}</h2>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    {emp ? [emp.position, emp.departmentRef?.name ?? emp.department].filter(Boolean).join(" · ") : ROLE_LABELS[data.role] ?? data.role}
+                  </p>
+                </div>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+
+            {/* Tizim hisobi */}
+            <Section title="Tizim hisobi">
+              <Row icon={Mail} label="Email" value={data.email} />
+              <Row icon={ShieldCheck} label="Roli" value={ROLE_LABELS[data.role] ?? data.role} />
+              <Row icon={Check} label="Holati" value={data.isActive ? "Faol" : "Bloklangan"} />
+              <Row icon={CalendarDays} label="Ro'yxatdan o'tgan" value={fmt(data.createdAt)} />
+            </Section>
+
+            {/* Kadrlar ma'lumoti */}
+            {emp ? (
+              <Section title="Kadrlar ma'lumoti">
+                <Row icon={Briefcase} label="Lavozimi" value={emp.position} />
+                <Row icon={Building2} label="Bo'limi" value={emp.departmentRef?.name ?? emp.department ?? "—"} />
+                <Row icon={Phone} label="Telefon" value={emp.phone ?? "—"} />
+                <Row icon={CalendarDays} label="Ishga kirgan" value={fmt(emp.hireDate)} />
+                {emp.birthDate && <Row icon={CalendarDays} label="Tug'ilgan sana" value={fmt(emp.birthDate)} />}
+                {emp.passportSerial && (
+                  <Row icon={IdCard} label="Pasport" value={`${emp.passportSerial}${emp.passportExpiry ? ` (${fmt(emp.passportExpiry)} gacha)` : ""}`} />
+                )}
+                {emp.pinfl && <Row icon={IdCard} label="JSHSHIR" value={emp.pinfl} />}
+                {emp.address && <Row icon={Building2} label="Manzil" value={emp.address} />}
+                {emp.contracts?.[0] && (
+                  <Row
+                    icon={FileText}
+                    label="Mehnat shartnomasi"
+                    value={`№ ${emp.contracts[0].number} · ${money(emp.contracts[0].salary)}`}
+                  />
+                )}
+              </Section>
+            ) : (
+              <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                Bu hisob kadrlar kartotekasiga bog'lanmagan. Kadrlar → Xodimlar bo'limida
+                "Bog'lash" tugmasi orqali bog'lang — shunda bu yerda to'liq ma'lumot ko'rinadi.
+              </div>
+            )}
+
+            {/* Faoliyati */}
+            <Section title="Tizimdagi faoliyati">
+              <div className="grid grid-cols-3 gap-3">
+                <Stat label="Yaratgan xatlar" value={data.activity.lettersCreated} />
+                <Stat label="Tasdiqlagan" value={data.activity.lettersApproved} />
+                <Stat label="Hujjatlari" value={data.activity.documentsOwned} />
+              </div>
+              {data.activity.lastAction && (
+                <p className="mt-3 text-xs text-slate-400">
+                  Oxirgi faollik: {new Date(data.activity.lastAction.createdAt).toLocaleString("uz-UZ")}
+                </p>
+              )}
+            </Section>
+
+            {/* Ta'tillar */}
+            {emp?.leaves?.length > 0 && (
+              <Section title="Oxirgi ta'tillar">
+                <ul className="space-y-1.5 text-sm text-slate-600">
+                  {emp.leaves.map((l: any) => (
+                    <li key={l.id} className="flex justify-between">
+                      <span>{fmt(l.startDate)} — {fmt(l.endDate)}</span>
+                      <span className="text-slate-400">{l.days} kun</span>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button onClick={onClose} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white">Yopish</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h3>
+      <div className="space-y-2 rounded-xl border border-slate-200 p-4">{children}</div>
+    </div>
+  );
+}
+
+function Row({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <Icon size={15} className="shrink-0 text-slate-400" />
+      <span className="w-40 shrink-0 text-slate-500">{label}</span>
+      <span className="font-medium text-slate-800">{value}</span>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg bg-slate-50 p-3 text-center">
+      <p className="text-xl font-semibold text-brand-900">{value}</p>
+      <p className="mt-0.5 text-[11px] text-slate-500">{label}</p>
     </div>
   );
 }

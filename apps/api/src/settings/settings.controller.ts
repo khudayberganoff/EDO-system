@@ -37,6 +37,13 @@ export class SettingsController {
     return this.settingsService.listUsers();
   }
 
+  @Get("users/:id")
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: "Foydalanuvchi haqida to'liq ma'lumot" })
+  userDetails(@Param("id") id: string) {
+    return this.settingsService.getUserDetails(id);
+  }
+
   @Post("users")
   @Roles(Role.ADMIN)
   createUser(@Body() body: CreateUserDto, @CurrentUser() user: AuthenticatedUser) {
