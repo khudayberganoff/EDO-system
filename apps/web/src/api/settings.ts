@@ -39,3 +39,12 @@ export async function updateUser(id: string, payload: { fullName?: string; role?
   const { data } = await apiClient.patch(`/settings/users/${id}`, payload);
   return data;
 }
+
+/** Parolni tiklash - javobda yangi parol BIR MARTA qaytariladi. */
+export async function resetUserPassword(id: string, password?: string) {
+  const { data } = await apiClient.post<{ email: string; fullName: string; password: string }>(
+    `/settings/users/${id}/reset-password`,
+    { password },
+  );
+  return data;
+}

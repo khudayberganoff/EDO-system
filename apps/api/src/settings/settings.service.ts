@@ -123,6 +123,43 @@ export class SettingsService {
     return user;
   }
 
+  /**
+   * Parolni tiklash: administrator yangi parol o'rnatadi va u BIR MARTA qaytariladi.
+   *
+   * Nima uchun mavjud parolni ko'rsatib bo'lmaydi: parollar bcrypt bilan bir tomonlama
+   * shifrlanadi. Bu atayin shunday - baza qo'lga tushsa ham hech kim parollarni
+   * o'qiy olmaydi. Shuning uchun "ko'rsatish" o'rniga "yangisini berish" ishlatiladi.
+   */
+  async resetPassword(id: string, actorId: string, customPassword?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException("Foydalanuvchi topilmadi.");
+
+    const password = customPassword?.trim() || this.generatePassword();
+    if (password.length < 8) throw new BadRequestException("Parol kamida 8 ta belgidan iborat bo'lishi kerak.");
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { passwordHash: await bcrypt.hash(password, 10) },
+    });
+    await this.auditLog.record({
+      userId: actorId, action: AuditAction.UPDATE,
+      metadata: { kind: "passwordReset", targetUserId: id },
+    });
+
+    return { email: user.email, fullName: user.fullName, password };
+  }
+
+  /** O'qishga qulay, lekin taxmin qilish qiyin parol yaratadi. */
+  private generatePassword(): string {
+    // Adashtiruvchi belgilar (0/O, 1/l/I) ishlatilmaydi
+    const letters = "abcdefghijkmnpqrstuvwxyz";
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const digits = "23456789";
+    const pick = (set: string, n: number) =>
+      Array.from({ length: n }, () => set[Math.floor(Math.random() * set.length)]).join("");
+    return `${pick(upper, 1)}${pick(letters, 5)}${pick(digits, 3)}!`;
+  }
+
   async updateUser(id: string, data: { fullName?: string; role?: string; isActive?: boolean; password?: string }, actorId: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException("Foydalanuvchi topilmadi.");

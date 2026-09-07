@@ -43,6 +43,13 @@ export class SettingsController {
     return this.settingsService.createUser(body, user.id);
   }
 
+  @Post("users/:id/reset-password")
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: "Parolni tiklash - yangi parol bir marta qaytariladi" })
+  resetPassword(@Param("id") id: string, @Body() body: { password?: string }, @CurrentUser() user: AuthenticatedUser) {
+    return this.settingsService.resetPassword(id, user.id, body?.password);
+  }
+
   @Patch("users/:id")
   @Roles(Role.ADMIN)
   updateUser(@Param("id") id: string, @Body() body: UpdateUserDto, @CurrentUser() user: AuthenticatedUser) {

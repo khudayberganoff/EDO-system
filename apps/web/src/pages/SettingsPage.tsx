@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, ShieldCheck, Plus, X, Check, Ban } from "lucide-react";
-import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, type SystemUser, type PermissionRow } from "../api/settings";
+import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info } from "lucide-react";
+import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, resetUserPassword, type SystemUser, type PermissionRow } from "../api/settings";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrator",
@@ -45,6 +45,7 @@ export function SettingsPage() {
 
 function UsersTab() {
   const [showCreate, setShowCreate] = useState(false);
+  const [resetTarget, setResetTarget] = useState<SystemUser | null>(null);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["settings", "users"], queryFn: fetchUsers });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -101,6 +102,14 @@ function UsersTab() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
+                  <div className="flex gap-1">
+                  <button
+                    title="Parolni tiklash"
+                    onClick={() => setResetTarget(u)}
+                    className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"
+                  >
+                    <KeyRound size={16} />
+                  </button>
                   <button
                     title={u.isActive ? "Bloklash" : "Faollashtirish"}
                     onClick={() => update.mutate({ id: u.id, payload: { isActive: !u.isActive } })}
@@ -108,6 +117,7 @@ function UsersTab() {
                   >
                     {u.isActive ? <Ban size={16} /> : <Check size={16} />}
                   </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -116,6 +126,7 @@ function UsersTab() {
       </div>
 
       {showCreate && <CreateUserModal onClose={() => setShowCreate(false)} />}
+      {resetTarget && <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />}
     </>
   );
 }
@@ -176,6 +187,102 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
             Qo'shish
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Parolni tiklash oynasi.
+ * Mavjud parolni ko'rsatib bo'lmaydi (u shifrlangan), shuning uchun bu yerda
+ * yangi parol beriladi va u faqat shu safar ko'rinadi.
+ */
+function ResetPasswordModal({ user, onClose }: { user: SystemUser; onClose: () => void }) {
+  const [custom, setCustom] = useState("");
+  const [result, setResult] = useState<{ password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => resetUserPassword(user.id, custom || undefined),
+    onSuccess: (r) => setResult({ password: r.password }),
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join(". ") : typeof msg === "string" ? msg : "Tiklab bo'lmadi.");
+    },
+  });
+
+  const copy = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(`Login: ${user.email}\nParol: ${result.password}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-brand-950">
+              <KeyRound size={18} className="text-brand-700" /> Parolni tiklash
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">{user.fullName} — {user.email}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+        </div>
+
+        {result ? (
+          <>
+            <div className="mb-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <Info size={16} className="mt-0.5 shrink-0" />
+              <span>Bu parol faqat hozir ko'rsatiladi. Nusxa olib, xodimga yetkazing.</span>
+            </div>
+            <div className="space-y-2 rounded-lg bg-slate-900 p-4 text-sm text-slate-100">
+              <div><span className="text-slate-400">Login: </span>{user.email}</div>
+              <div><span className="text-slate-400">Parol: </span><code className="text-base">{result.password}</code></div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={copy} className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">
+                {copied ? <Check size={15} /> : <Copy size={15} />} Nusxa olish
+              </button>
+              <button onClick={onClose} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white">Yopish</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-4 flex gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+              <Info size={15} className="mt-0.5 shrink-0" />
+              <span>
+                Mavjud parolni ko'rsatib bo'lmaydi — u shifrlangan holda saqlanadi va uni hech kim
+                (jumladan administrator ham) o'qiy olmaydi. Buning o'rniga yangi parol beriladi.
+              </span>
+            </div>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-700">Yangi parol</span>
+              <input
+                value={custom}
+                onChange={(e) => setCustom(e.target.value)}
+                placeholder="Bo'sh qoldirilsa - tizim o'zi yaratadi"
+                className="input"
+              />
+            </label>
+
+            {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button>
+              <button
+                disabled={mutation.isPending || (custom.length > 0 && custom.length < 8)}
+                onClick={() => { setError(null); mutation.mutate(); }}
+                className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+              >
+                Tiklash
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
