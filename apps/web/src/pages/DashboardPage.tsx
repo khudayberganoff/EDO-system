@@ -40,13 +40,10 @@ export function DashboardPage() {
 
   return (
     <div className="p-8">
-      <div className="girih-dark relative mb-6 overflow-hidden rounded-2xl p-6 text-white">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/70 to-brand-800/60" aria-hidden="true" />
-        <div className="relative">
-        <p className="text-xs uppercase tracking-wide text-white/60">{t("dashboard.greeting")}</p>
-        <h1 className="mt-1 font-display text-[26px] font-semibold">{t("dashboard.hello")}, {user?.fullName}!</h1>
-        <p className="mt-1 text-sm text-white/70">{today}</p>
-        </div>
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-sky-600">{t("dashboard.greeting")}</p>
+        <h1 className="mt-1 text-[26px] font-semibold text-slate-900">{t("dashboard.hello")}, {user?.fullName}!</h1>
+        <p className="mt-1 text-sm text-slate-500">{today}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -63,7 +60,7 @@ function StatCard({
   icon: Icon,
   label,
   value,
-  accent = "text-brand-700 bg-brand-50",
+  accent = "text-sky-700 bg-sky-50",
   onClick,
 }: {
   icon: typeof FileText;
@@ -75,7 +72,7 @@ function StatCard({
   return (
     <button
       onClick={onClick}
-      className="rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-300"
+      className="rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-300"
     >
       <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-lg ${accent}`}>
         <Icon size={18} />

@@ -4,16 +4,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // WAFA GROUP dashboardidagi chuqur yashil-teal palitraga moslashtirilgan
+        // Yangi (oq fon + ko'k urg'u) dizayn tizimiga moslashtirilgan ko'k palitra.
+        // Eski "brand" nomi butun ilova bo'ylab (tugmalar, matn, ramkalar) qayta
+        // ishlatilgani uchun shu yerda faqat qiymatlarni almashtirish kifoya -
+        // JSX'dagi minglab bg-brand-800 kabi klasslarni birma-bir o'zgartirish shart emas.
         brand: {
-          950: "#07231A",
-          900: "#0B3327",
-          800: "#0F4A38",
-          700: "#166049",
-          600: "#1C7A5C",
-          500: "#239873",
-          100: "#DDEFE7",
-          accent: "#2DD4A7",
+          950: "#0B2A54",
+          900: "#123B72",
+          800: "#1D4FA6",
+          700: "#1E6FE0",
+          600: "#2B7DE9",
+          500: "#4B92ED",
+          300: "#93C5F5",
+          100: "#DCEAFC",
+          50: "#EFF6FF",
+          accent: "#1E6FE0",
         },
         // Reference dizayndagi kabi oltin - juda tejamkor ishlatiladi (faqat urg'u nuqtalarida)
         gold: {
