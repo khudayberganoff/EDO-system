@@ -91,30 +91,85 @@ export class LettersService {
   }
 
   /**
-   * Keyingi hujjat raqami. Oxirgi YARATILGAN emas, eng KATTA raqam asos qilinadi -
-   * shunda ketma-ketlik buzilmaydi va bo'shliq qolmaydi.
+   * Foydalanuvchining bo'limi (Kadrlar kartotekasidagi departmentRef orqali).
+   * Bo'limga biriktirilmagan foydalanuvchilar uchun umumiy "GENERAL" hisoblagich ishlatiladi.
    */
-  async getNextDocumentNumber(type: LetterType) {
-    const prefix = this.numberPrefix(type);
-    const letters = await this.prisma.letter.findMany({
-      where: { type },
-      select: { documentNumber: true },
+  private async resolveDepartmentScope(userId: string): Promise<string> {
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId },
+      select: { departmentRefId: true },
     });
+    return employee?.departmentRefId ?? "GENERAL";
+  }
 
+  private incomingLetterNumber(letters: { documentNumber: string }[], prefix: string) {
     let max = 0;
     for (const l of letters) {
-      // Faqat shu turdagi prefiksli raqamlarni hisobga olamiz
       const m = new RegExp(`^${prefix}-(\\d+)$`).exec(String(l.documentNumber).trim());
       if (m) max = Math.max(max, Number(m[1]));
     }
+    return `${prefix}-${String(max + 1).padStart(4, "0")}`;
+  }
 
-    return { documentNumber: `${prefix}-${String(max + 1).padStart(4, "0")}` };
+  /**
+   * Hujjat raqamini KUTILAYOTGAN qiymat sifatida ko'rsatadi - hisoblagichni OSHIRMAYDI.
+   * Xat yaratish formasida foydalanuvchiga oldindan raqam ko'rsatish uchun ishlatiladi
+   * (real raqam faqat "Yaratish" bosilganda, `create()` ichida beriladi).
+   */
+  async peekNextDocumentNumber(type: LetterType, direction: "INCOMING" | "OUTGOING" = "OUTGOING", userId?: string) {
+    const prefix = this.numberPrefix(type);
+
+    if (direction === "OUTGOING") {
+      const year = new Date().getFullYear();
+      const departmentId = userId ? await this.resolveDepartmentScope(userId) : "GENERAL";
+      const counter = await this.prisma.documentCounter.findUnique({ where: { departmentId_year: { departmentId, year } } });
+      return { documentNumber: `${prefix}-${(counter?.lastNumber ?? 0) + 1}/${year}` };
+    }
+
+    const letters = await this.prisma.letter.findMany({ where: { type, direction }, select: { documentNumber: true } });
+    return { documentNumber: this.incomingLetterNumber(letters, prefix) };
+  }
+
+  /**
+   * Keyingi hujjat raqamini BERADI (hisoblagichni haqiqatan oshiradi). Faqat hujjat
+   * yaratilayotganda chaqiriladi - ikki marta chaqirilsa ikkita turli raqam qaytaradi.
+   *
+   * Chiquvchi hujjatlar uchun: har bir bo'lim va yil bo'yicha alohida, ketma-ket
+   * (1, 2, 3, ...) hisoblagich ishlatiladi - shunda raqamlar hech qachon takrorlanmaydi
+   * va har yil (1-yanvardan) yana 1 dan boshlanadi. Hisoblagich bitta atomik
+   * UPDATE/UPSERT amali orqali oshiriladi, shu sababli bir vaqtda bir nechta
+   * hujjat yaratilganda ham (race condition) raqam takrorlanib qolmaydi.
+   *
+   * Kiruvchi hujjatlar uchun eski (turi bo'yicha, eng katta raqamga asoslangan) usul saqlanadi.
+   */
+  async getNextDocumentNumber(type: LetterType, direction: "INCOMING" | "OUTGOING", userId?: string) {
+    const prefix = this.numberPrefix(type);
+
+    if (direction === "OUTGOING") {
+      const year = new Date().getFullYear();
+      const departmentId = userId ? await this.resolveDepartmentScope(userId) : "GENERAL";
+
+      // Postgres'da Prisma upsert bitta "INSERT ... ON CONFLICT DO UPDATE" so'roviga
+      // aylanadi - shuning uchun bu amal atomik va parallel so'rovlarda ham xavfsiz.
+      const counter = await this.prisma.documentCounter.upsert({
+        where: { departmentId_year: { departmentId, year } },
+        create: { departmentId, year, lastNumber: 1 },
+        update: { lastNumber: { increment: 1 } },
+      });
+
+      return { documentNumber: `${prefix}-${counter.lastNumber}/${year}` };
+    }
+
+    // Kiruvchi xatlar: oldingi mantiq - eng katta mavjud raqam asos qilib olinadi.
+    const letters = await this.prisma.letter.findMany({ where: { type, direction }, select: { documentNumber: true } });
+    return { documentNumber: this.incomingLetterNumber(letters, prefix) };
   }
 
   async create(dto: CreateLetterDto, userId: string) {
     // 1-ogohlantirish shabloni faqat jismoniy shaxslar (fuqarolar) uchun mo'ljallangan
     const counterpartyType = dto.type === LetterType.FIRST_WARNING ? "CITIZEN" : (dto.counterpartyType || "ORGANIZATION");
-    const number = await this.getNextDocumentNumber(dto.type);
+    const direction = dto.direction === "INCOMING" ? "INCOMING" : "OUTGOING";
+    const number = await this.getNextDocumentNumber(dto.type, direction, userId);
     const body = dto.bodyText?.trim() || (await this.aiAgent.generate(dto)).text;
     const letter = await this.prisma.letter.create({
       data: {

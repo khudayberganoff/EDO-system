@@ -211,6 +211,20 @@ model Letter {
   @@index([status])
 }
 
+/// Chiquvchi hujjatlar uchun yillik, bo'lim bo'yicha ketma-ket raqamlash.
+/// Har bir (departmentId, year) juftligi uchun alohida hisoblagich - shu orqali
+/// raqamlar takrorlanmaydi va har yil boshida 1 dan qayta boshlanadi.
+/// departmentId noma'lum (foydalanuvchi biror bo'limga biriktirilmagan) bo'lsa "GENERAL" ishlatiladi.
+model DocumentCounter {
+  id           String @id @default(cuid())
+  departmentId String
+  year         Int
+  lastNumber   Int    @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([departmentId, year])
+}
+
 // ==================== KADRLAR BO'LIMI ====================
 
 /// Xodimning shaxsiy kartotekasi - kadrlar bo'limining asosiy yozuvi.
