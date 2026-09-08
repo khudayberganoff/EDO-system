@@ -112,7 +112,7 @@ function Item({ to, label, icon: Icon, badge, badgeTone }: { to: string; label: 
   );
 }
 
-function SubItem({ to, label, icon: Icon }: { to: string; label: string; icon: typeof Mail }) {
+function SubItem({ to, label, icon: Icon, badge }: { to: string; label: string; icon: typeof Mail; badge?: number }) {
   return (
     <NavLink
       to={to}
@@ -124,12 +124,13 @@ function SubItem({ to, label, icon: Icon }: { to: string; label: string; icon: t
     >
       <Icon size={15} />
       {label}
+      {typeof badge === "number" && <CountBadge count={badge} />}
     </NavLink>
   );
 }
 
 /** Uchinchi daraja - "Ogohlantirish" guruhi ichidagi elementlar (chuqurroq chapdan bo'shliq) */
-function SubSubItem({ to, label, icon: Icon }: { to: string; label: string; icon: typeof Mail }) {
+function SubSubItem({ to, label, icon: Icon, badge }: { to: string; label: string; icon: typeof Mail; badge?: number }) {
   return (
     <NavLink
       to={to}
@@ -141,6 +142,7 @@ function SubSubItem({ to, label, icon: Icon }: { to: string; label: string; icon
     >
       <Icon size={14} />
       {label}
+      {typeof badge === "number" && <CountBadge count={badge} />}
     </NavLink>
   );
 }
@@ -175,6 +177,16 @@ export function AppLayout() {
   const needApprovalCount = (pendingSignatureDocs?.total ?? 0) + (pendingLetters?.items?.length ?? 0);
   const draftLettersCount = draftLetters?.items?.length ?? 0;
   const pendingLeavesCount = hrStats?.pendingLeaves ?? 0;
+
+  // "Xatlar" bo'rtmasi (5 kabi) qaysi bo'limlarga tegishli ekanini ko'rsatish uchun -
+  // qoralama xatlarni yo'nalish (kiruvchi/chiquvchi) va turi (Xat/Ma'lumotnoma/Ogohlantirish) bo'yicha ajratamiz.
+  const draftItems: { direction: string; type: string }[] = draftLetters?.items ?? [];
+  const countBy = (pred: (l: { direction: string; type: string }) => boolean) => draftItems.filter(pred).length;
+  const draftIncomingCount = countBy((l) => l.direction === "INCOMING");
+  const draftLetterCount = countBy((l) => l.direction === "OUTGOING" && l.type === "LETTER");
+  const draftReferenceCount = countBy((l) => l.direction === "OUTGOING" && l.type === "REFERENCE");
+  const draftWarningCount = countBy((l) => l.direction === "OUTGOING" && (l.type === "FIRST_WARNING" || l.type === "FINAL_WARNING"));
+  const draftOutgoingCount = draftLetterCount + draftReferenceCount + draftWarningCount;
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const isInLettersSection = location.pathname.startsWith("/letters") && location.pathname !== "/letters/archive";
@@ -272,19 +284,25 @@ export function AppLayout() {
                       isInOutgoingSection ? "text-slate-900 font-medium" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                   >
-                    <span className="flex items-center gap-2.5"><Mail size={15} />{t("nav.outgoing")}</span>
+                    <span className="flex items-center gap-2.5"><Mail size={15} />{t("nav.outgoing")}<CountBadge count={draftOutgoingCount} /></span>
                     <ChevronDown size={14} className={`transition-transform ${outgoingOpen ? "rotate-180" : ""}`} />
                   </button>
                   {outgoingOpen && (
                     <div className="mt-0.5 space-y-0.5">
                       {OUTGOING_SUB_ITEMS.map((x) => (
-                        <SubSubItem key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />
+                        <SubSubItem
+                          key={x.to}
+                          to={x.to}
+                          label={t(x.labelKey)}
+                          icon={x.icon}
+                          badge={x.labelKey === "nav.letter" ? draftLetterCount : x.labelKey === "nav.reference" ? draftReferenceCount : draftWarningCount}
+                        />
                       ))}
                     </div>
                   )}
                 </div>
 
-                <SubItem to="/letters/incoming" label={t("nav.incoming")} icon={Inbox} />
+                <SubItem to="/letters/incoming" label={t("nav.incoming")} icon={Inbox} badge={draftIncomingCount} />
               </div>
             )}
           </div>
