@@ -33,6 +33,7 @@ const CONTRACT_TYPES = [
   { value: "PERMANENT", label: "Muddatsiz" },
   { value: "FIXED_TERM", label: "Muddatli" },
   { value: "PART_TIME", label: "To'liqmas ish kuni" },
+  { value: "GPH", label: "GPX (fuqarolik-huquqiy shartnoma)" },
 ];
 
 const LEAVE_TYPES = [
@@ -117,6 +118,9 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [linkTarget, setLinkTarget] = useState<Employee | null>(null);
+  // Yangi xodim qo'shilgandan keyin - buyruq va/yoki shartnoma (mehnat yoki GPX) kerakligini so'rash uchun.
+  const [followUpEmployee, setFollowUpEmployee] = useState<{ id: string; fullName: string } | null>(null);
+  const [followUpAction, setFollowUpAction] = useState<null | { kind: "order"; type: string } | { kind: "contract"; type: string }>(null);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "employees", search], queryFn: () => fetchEmployees({ search: search || undefined }) });
   const remove = useMutation({
@@ -187,9 +191,75 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
         ))}
       </Table>
 
-      {showCreate && <EmployeeModal onClose={() => setShowCreate(false)} />}
+      {showCreate && (
+        <EmployeeModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(employee) => { setShowCreate(false); setFollowUpEmployee(employee); }}
+        />
+      )}
       {linkTarget && <LinkUserModal employee={linkTarget} onClose={() => setLinkTarget(null)} />}
+      {followUpEmployee && !followUpAction && (
+        <NewHireFollowUpModal
+          employeeName={followUpEmployee.fullName}
+          onClose={() => setFollowUpEmployee(null)}
+          onChoose={(action) => setFollowUpAction(action)}
+        />
+      )}
+      {followUpEmployee && followUpAction?.kind === "order" && (
+        <OrderModal
+          initialEmployeeId={followUpEmployee.id}
+          initialType={followUpAction.type}
+          onClose={() => { setFollowUpAction(null); setFollowUpEmployee(null); }}
+        />
+      )}
+      {followUpEmployee && followUpAction?.kind === "contract" && (
+        <ContractModal
+          initialEmployeeId={followUpEmployee.id}
+          initialType={followUpAction.type}
+          onClose={() => { setFollowUpAction(null); setFollowUpEmployee(null); }}
+        />
+      )}
     </>
+  );
+}
+
+/** Yangi xodim qo'shilgandan keyin - unga buyruq va/yoki shartnoma (mehnat yoki GPX) kerakligini so'raydi. */
+function NewHireFollowUpModal({
+  employeeName, onClose, onChoose,
+}: {
+  employeeName: string;
+  onClose: () => void;
+  onChoose: (action: { kind: "order"; type: string } | { kind: "contract"; type: string }) => void;
+}) {
+  return (
+    <Modal title="Xodim qo'shildi" onClose={onClose}>
+      <p className="text-sm text-slate-600">
+        <span className="font-medium text-slate-900">{employeeName}</span> uchun ishga qabul qilish buyrug'i va/yoki mehnat shartnomasi (yoki GPX shartnoma) tuzish kerakmi?
+      </p>
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <button
+          onClick={() => onChoose({ kind: "order", type: "HIRE" })}
+          className="rounded-lg border border-sky-600 px-4 py-3 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
+        >
+          Buyruq yaratish
+        </button>
+        <button
+          onClick={() => onChoose({ kind: "contract", type: "PERMANENT" })}
+          className="rounded-lg border border-sky-600 px-4 py-3 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
+        >
+          Mehnat shartnomasi
+        </button>
+        <button
+          onClick={() => onChoose({ kind: "contract", type: "GPH" })}
+          className="rounded-lg border border-sky-600 px-4 py-3 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
+        >
+          GPX shartnoma
+        </button>
+      </div>
+      <div className="mt-4 text-right">
+        <button onClick={onClose} className="text-sm text-slate-400 hover:text-slate-600">Kerak emas, keyinroq</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -254,7 +324,7 @@ function workExperience(hireDate: string, dismissDate?: string | null): string {
   return [years > 0 ? `${years} yil` : "", rest > 0 ? `${rest} oy` : ""].filter(Boolean).join(" ") || "1 oydan kam";
 }
 
-function EmployeeModal({ onClose }: { onClose: () => void }) {
+function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?: (employee: { id: string; fullName: string }) => void }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     fullName: "", position: "", department: "", hireDate: new Date().toISOString().slice(0, 10),
@@ -280,7 +350,11 @@ function EmployeeModal({ onClose }: { onClose: () => void }) {
       address: form.address || undefined,
       notes: form.notes || undefined,
     }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
+    onSuccess: (employee: any) => {
+      queryClient.invalidateQueries({ queryKey: ["hr"] });
+      if (onCreated) onCreated({ id: employee.id, fullName: employee.fullName ?? form.fullName });
+      else onClose();
+    },
     onError: (e: any) => setError(errorText(e)),
   });
 
@@ -378,11 +452,11 @@ function OrdersTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-function OrderModal({ onClose }: { onClose: () => void }) {
+function OrderModal({ onClose, initialEmployeeId, initialType }: { onClose: () => void; initialEmployeeId?: string; initialType?: string }) {
   const t = useT();
   const queryClient = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
-  const [form, setForm] = useState({ employeeId: "", type: "HIRE", number: "", orderDate: new Date().toISOString().slice(0, 10), subject: "", content: "", rate: "1" });
+  const [form, setForm] = useState({ employeeId: initialEmployeeId ?? "", type: initialType ?? "HIRE", number: "", orderDate: new Date().toISOString().slice(0, 10), subject: "", content: "", rate: "1" });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const [error, setError] = useState<string | null>(null);
 
@@ -491,11 +565,11 @@ function ContractsTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-function ContractModal({ onClose }: { onClose: () => void }) {
+function ContractModal({ onClose, initialEmployeeId, initialType }: { onClose: () => void; initialEmployeeId?: string; initialType?: string }) {
   const t = useT();
   const queryClient = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
-  const [form, setForm] = useState({ employeeId: "", number: "", type: "PERMANENT", startDate: new Date().toISOString().slice(0, 10), endDate: "", salary: "", notes: "" });
+  const [form, setForm] = useState({ employeeId: initialEmployeeId ?? "", number: "", type: initialType ?? "PERMANENT", startDate: new Date().toISOString().slice(0, 10), endDate: "", salary: "", notes: "" });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const mutation = useMutation({
     mutationFn: () => createContract({

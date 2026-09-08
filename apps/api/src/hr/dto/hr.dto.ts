@@ -101,7 +101,7 @@ export class CreateContractDto {
   @ApiProperty({ example: "MSH-2026-014" }) @IsString() @MaxLength(60)
   number!: string;
 
-  @ApiPropertyOptional({ enum: ["PERMANENT", "FIXED_TERM", "PART_TIME"] })
+  @ApiPropertyOptional({ enum: ["PERMANENT", "FIXED_TERM", "PART_TIME", "GPH"], description: "GPH - fuqarolik-huquqiy shartnoma (GPX)" })
   @IsOptional() @IsString()
   type?: string;
 
