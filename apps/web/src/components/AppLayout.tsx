@@ -10,8 +10,8 @@ import {
   FileQuestion,
   Trash2,
   ChevronDown,
-  PanelLeftClose,
-  PanelLeftOpen,
+  ChevronLeft,
+  ChevronRight,
   Users,
   ScrollText,
   FileSignature,
@@ -60,6 +60,21 @@ const HR_SUB_ITEMS = [
   { to: "/hr/gratitudes", labelKey: "nav.hrGratitudes", icon: Award },
 ] as const;
 
+/** Sarlavhalar - joriy manzilga qarab tepadagi panelda ko'rsatish uchun. */
+const PAGE_TITLES: { test: (path: string) => boolean; labelKey: string }[] = [
+  { test: (p) => p === "/", labelKey: "nav.dashboard" },
+  { test: (p) => p === "/my-hr", labelKey: "nav.myHr" },
+  { test: (p) => p.startsWith("/documents"), labelKey: "nav.needApproval" },
+  { test: (p) => p.startsWith("/letters/incoming"), labelKey: "nav.incoming" },
+  { test: (p) => p.startsWith("/letters/outgoing"), labelKey: "nav.letter" },
+  { test: (p) => p.startsWith("/letters/reference"), labelKey: "nav.reference" },
+  { test: (p) => p.startsWith("/letters/warning"), labelKey: "nav.warnings" },
+  { test: (p) => p.startsWith("/letters/archive"), labelKey: "nav.deleted" },
+  { test: (p) => p.startsWith("/letters"), labelKey: "nav.lettersGroup" },
+  { test: (p) => p.startsWith("/hr"), labelKey: "nav.hr" },
+  { test: (p) => p.startsWith("/integrations"), labelKey: "nav.integrations" },
+  { test: (p) => p.startsWith("/settings"), labelKey: "nav.settings" },
+];
 
 /** Bo'lim nomi yonida ko'rsatiladigan sondagi bo'rtma - tasdiq kutayotgan/yangi elementlar soni. 0 bo'lsa umuman ko'rinmaydi. */
 function CountBadge({ count, tone = "blue" }: { count: number; tone?: "blue" | "red" }) {
@@ -67,7 +82,7 @@ function CountBadge({ count, tone = "blue" }: { count: number; tone?: "blue" | "
   return (
     <span
       className={`ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white ${
-        tone === "red" ? "bg-red-500" : "bg-brand-accent"
+        tone === "red" ? "bg-red-500" : "bg-sky-600"
       }`}
     >
       {count > 99 ? "99+" : count}
@@ -82,13 +97,17 @@ function Item({ to, label, icon: Icon, badge, badgeTone }: { to: string; label: 
       end
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
-          isActive ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+          isActive ? "bg-sky-50 text-sky-700 font-medium" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
         }`
       }
     >
-      <Icon size={18} />
-      {label}
-      {typeof badge === "number" && <CountBadge count={badge} tone={badgeTone} />}
+      {({ isActive }) => (
+        <>
+          <Icon size={18} className={isActive ? "text-sky-600" : "text-slate-400"} />
+          {label}
+          {typeof badge === "number" && <CountBadge count={badge} tone={badgeTone} />}
+        </>
+      )}
     </NavLink>
   );
 }
@@ -99,7 +118,7 @@ function SubItem({ to, label, icon: Icon }: { to: string; label: string; icon: t
       to={to}
       className={({ isActive }) =>
         `flex items-center gap-2.5 rounded-lg py-2 pl-9 pr-3 text-[13px] transition ${
-          isActive ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+          isActive ? "bg-sky-50 text-sky-700 font-medium" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
         }`
       }
     >
@@ -116,7 +135,7 @@ function SubSubItem({ to, label, icon: Icon }: { to: string; label: string; icon
       to={to}
       className={({ isActive }) =>
         `flex items-center gap-2.5 rounded-lg py-2 pl-14 pr-3 text-[13px] transition ${
-          isActive ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+          isActive ? "bg-sky-50 text-sky-700 font-medium" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
         }`
       }
     >
@@ -177,33 +196,41 @@ export function AppLayout() {
     setOutgoingOpen(isInOutgoingSection);
   }, [location.pathname, isInLettersSection, isInHrSection, isInOutgoingSection]);
 
+  const pageTitleKey = PAGE_TITLES.find((x) => x.test(location.pathname))?.labelKey;
+  const initials = (user?.fullName ?? "")
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside
-        className={`girih-dark relative flex flex-col text-white transition-all duration-300 ${
+        className={`relative flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ${
           sidebarOpen ? "w-64" : "w-0 overflow-hidden"
         }`}
       >
-        <div className="flex items-center gap-2 px-6 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-accent/20 text-brand-accent">
+        <div className="flex items-center gap-2 px-5 py-5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-600 text-white">
             <FileText size={20} />
           </div>
           <div className="flex-1">
-            <div className="text-sm font-semibold">WAFA</div>
-            <div className="text-xs text-white/50">EDO tizimi</div>
+            <div className="text-sm font-semibold text-slate-900">WAFA</div>
+            <div className="text-xs text-slate-400">EDO tizimi</div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
             title="Menyuni yopish"
-            className="rounded-lg p-1.5 text-white/50 transition hover:bg-white/10 hover:text-white"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           >
-            <PanelLeftClose size={18} />
+            <ChevronLeft size={18} />
           </button>
         </div>
-        {/* Islom hoshiyasiga ishora - ingichka oltin chiziq */}
-        <div className="relative mx-4 h-px bg-gradient-to-r from-transparent via-gold-500/45 to-transparent" aria-hidden="true" />
 
-        <nav className="relative flex-1 space-y-1 px-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3">
+          <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Asosiy</div>
           {TOP_NAV_ITEMS.filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : "approvals"))
             .map((x) => (
               <Item
@@ -221,17 +248,17 @@ export function AppLayout() {
             <button
               onClick={() => setLettersOpen((v) => !v)}
               className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${
-                isInLettersSection ? "text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+                isInLettersSection ? "text-slate-900 font-medium" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
               <span className="flex items-center gap-3">
-                <FileText size={18} />
+                <FileText size={18} className={isInLettersSection ? "text-sky-600" : "text-slate-400"} />
                 {t("nav.lettersGroup")}
                 <CountBadge count={draftLettersCount} />
               </span>
               <ChevronDown
                 size={15}
-                className={`transition-transform ${lettersOpen ? "rotate-180" : ""}`}
+                className={`text-slate-400 transition-transform ${lettersOpen ? "rotate-180" : ""}`}
               />
             </button>
 
@@ -242,7 +269,7 @@ export function AppLayout() {
                   <button
                     onClick={() => setOutgoingOpen((v) => !v)}
                     className={`flex w-full items-center justify-between rounded-lg py-2 pl-9 pr-3 text-[13px] transition ${
-                      isInOutgoingSection ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                      isInOutgoingSection ? "text-slate-900 font-medium" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                   >
                     <span className="flex items-center gap-2.5"><Mail size={15} />{t("nav.outgoing")}</span>
@@ -262,21 +289,20 @@ export function AppLayout() {
             )}
           </div>
 
-          {/* Fayllar arxivi - alohida, "Hujjatlar" bo'limiga bog'liq emas */}
           {/* Yig'iladigan "Kadrlar" bo'limi */}
           <div>
             <button
               onClick={() => setHrOpen((v) => !v)}
               className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${
-                isInHrSection ? "text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+                isInHrSection ? "text-slate-900 font-medium" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
               <span className="flex items-center gap-3">
-                <Users size={18} />
+                <Users size={18} className={isInHrSection ? "text-sky-600" : "text-slate-400"} />
                 {t("nav.hr")}
                 <CountBadge count={pendingLeavesCount} />
               </span>
-              <ChevronDown size={15} className={`transition-transform ${hrOpen ? "rotate-180" : ""}`} />
+              <ChevronDown size={15} className={`text-slate-400 transition-transform ${hrOpen ? "rotate-180" : ""}`} />
             </button>
             {hrOpen && (
               <div className="mt-0.5 space-y-0.5">
@@ -287,49 +313,64 @@ export function AppLayout() {
             )}
           </div>
 
+          <div className="my-2 border-t border-slate-100" />
           {can("deleted") && <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />}
           {can("integrations") && <Item to="/integrations" label={t("nav.integrations")} icon={Plug} />}
           {can("settings") && <Item to="/settings" label={t("nav.settings")} icon={Settings} />}
         </nav>
 
-        <div className="relative border-t border-white/10 px-3 py-4">
+        <div className="border-t border-slate-100 px-3 py-3">
           {/* Tilni almashtirish - sessiya davomida ham o'zgartirish mumkin */}
-          <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-white/5 p-1">
+          <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
             {LANGUAGES.map((item) => (
               <button
                 key={item.code}
                 onClick={() => setLanguage(item.code)}
                 className={`rounded px-2 py-1.5 text-[11px] font-semibold transition ${
-                  language === item.code ? "bg-white/15 text-white" : "text-white/50 hover:text-white"
+                  language === item.code ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-700"
                 }`}
               >
                 {item.short}
               </button>
             ))}
           </div>
-          <div className="mb-2 px-3 text-xs text-white/50">{user?.fullName}</div>
-          <button
-            onClick={logout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white"
-          >
-            <LogOut size={18} />
-            {t("nav.logout")}
-          </button>
         </div>
       </aside>
 
-      <main className="relative flex-1 overflow-y-auto">
-        {!sidebarOpen && (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Tepadagi panel - menyuni ochish, joriy bo'lim, foydalanuvchi va chiqish */}
+        <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4">
           <button
-            onClick={() => setSidebarOpen(true)}
-            title="Menyuni ochish"
-            className="absolute left-3 top-4 z-20 rounded-lg bg-brand-900 p-2 text-white shadow-lg transition hover:bg-brand-800"
+            onClick={() => setSidebarOpen((v) => !v)}
+            title={sidebarOpen ? "Menyuni yopish" : "Menyuni ochish"}
+            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           >
-            <PanelLeftOpen size={18} />
+            {sidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
           </button>
-        )}
-        <Outlet />
-      </main>
+          <div className="flex-1 text-sm font-semibold text-slate-800">{pageTitleKey ? t(pageTitleKey as any) : ""}</div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <div className="text-sm font-medium text-slate-800">{user?.fullName}</div>
+              <div className="text-xs text-slate-400">{user?.role}</div>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
+              {initials || <UserCircle2 size={20} />}
+            </div>
+            <button
+              onClick={logout}
+              title={t("nav.logout")}
+              className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        </header>
+
+        <main className="relative flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
