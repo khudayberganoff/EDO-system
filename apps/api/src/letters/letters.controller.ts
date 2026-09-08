@@ -27,7 +27,9 @@ export class LettersController {
   @Get("counts") counts() { return this.lettersService.countsByDirection(); }
   @Get("approvers") @ApiOperation({ summary: "Tasdiqlashi mumkin bo'lgan rahbarlar" }) approvers() { return this.lettersService.listApprovers(); }
   @Get("archive") archive() { return this.lettersService.archiveList(); }
-  @Get("next-number") nextNumber(@Query("type") type: LetterType) { return this.lettersService.getNextDocumentNumber(type); }
+  @Get("next-number") nextNumber(@Query("type") type: LetterType, @Query("direction") direction: "INCOMING" | "OUTGOING" = "OUTGOING", @CurrentUser() user: AuthenticatedUser) {
+    return this.lettersService.peekNextDocumentNumber(type, direction, user.id);
+  }
 
   @Get("export") async export(@Query() query: QueryLettersDto, @Res() res: Response) {
     const letters = await this.lettersService.exportRows(query);

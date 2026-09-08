@@ -29,6 +29,9 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMyAccess } from "../api/settings";
+import { fetchDocuments } from "../api/documents";
+import { fetchLetters } from "../api/letters";
+import { fetchHrStats } from "../api/hr";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 
@@ -58,7 +61,21 @@ const HR_SUB_ITEMS = [
 ] as const;
 
 
-function Item({ to, label, icon: Icon }: { to: string; label: string; icon: typeof Mail }) {
+/** Bo'lim nomi yonida ko'rsatiladigan sondagi bo'rtma - tasdiq kutayotgan/yangi elementlar soni. 0 bo'lsa umuman ko'rinmaydi. */
+function CountBadge({ count, tone = "blue" }: { count: number; tone?: "blue" | "red" }) {
+  if (!count || count <= 0) return null;
+  return (
+    <span
+      className={`ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white ${
+        tone === "red" ? "bg-red-500" : "bg-brand-accent"
+      }`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+function Item({ to, label, icon: Icon, badge, badgeTone }: { to: string; label: string; icon: typeof Mail; badge?: number; badgeTone?: "blue" | "red" }) {
   return (
     <NavLink
       to={to}
@@ -71,6 +88,7 @@ function Item({ to, label, icon: Icon }: { to: string; label: string; icon: type
     >
       <Icon size={18} />
       {label}
+      {typeof badge === "number" && <CountBadge count={badge} tone={badgeTone} />}
     </NavLink>
   );
 }
@@ -113,6 +131,31 @@ export function AppLayout() {
   // Interfeys foydalanuvchining ruxsatlariga qarab quriladi
   const { data: access } = useQuery({ queryKey: ["settings", "my-access"], queryFn: fetchMyAccess });
   const can = (module: string) => access?.[module]?.canView !== false;
+
+  // Menyudagi son-bo'rtmalar - har biri o'z bo'limi uchun "diqqat talab qiladigan" elementlar soni.
+  const { data: pendingSignatureDocs } = useQuery({
+    queryKey: ["documents", "count", "pendingSignature"],
+    queryFn: () => fetchDocuments({ status: "PENDING_SIGNATURE", page: 1 }),
+    enabled: can("approvals"),
+  });
+  const { data: pendingLetters } = useQuery({
+    queryKey: ["letters", "count", "pendingApproval"],
+    queryFn: () => fetchLetters({ status: "PENDING_APPROVAL" as any }),
+    enabled: can("approvals"),
+  });
+  const { data: draftLetters } = useQuery({
+    queryKey: ["letters", "count", "draft"],
+    queryFn: () => fetchLetters({ status: "DRAFT" as any }),
+    enabled: can("letters"),
+  });
+  const { data: hrStats } = useQuery({
+    queryKey: ["hr", "stats", "sidebar"],
+    queryFn: fetchHrStats,
+    enabled: can("hr"),
+  });
+  const needApprovalCount = (pendingSignatureDocs?.total ?? 0) + (pendingLetters?.items?.length ?? 0);
+  const draftLettersCount = draftLetters?.items?.length ?? 0;
+  const pendingLeavesCount = hrStats?.pendingLeaves ?? 0;
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const isInLettersSection = location.pathname.startsWith("/letters") && location.pathname !== "/letters/archive";
@@ -162,7 +205,16 @@ export function AppLayout() {
 
         <nav className="relative flex-1 space-y-1 px-3">
           {TOP_NAV_ITEMS.filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : "approvals"))
-            .map((x) => <Item key={x.to} to={x.to} label={t(x.labelKey)} icon={x.icon} />)}
+            .map((x) => (
+              <Item
+                key={x.to}
+                to={x.to}
+                label={t(x.labelKey)}
+                icon={x.icon}
+                badge={x.labelKey === "nav.needApproval" ? needApprovalCount : undefined}
+                badgeTone="red"
+              />
+            ))}
 
           {/* Yig'iladigan "Hujjatlar" bo'limi - Xat / Ogohlantirish / Ma'lumotnoma */}
           <div>
@@ -175,6 +227,7 @@ export function AppLayout() {
               <span className="flex items-center gap-3">
                 <FileText size={18} />
                 {t("nav.lettersGroup")}
+                <CountBadge count={draftLettersCount} />
               </span>
               <ChevronDown
                 size={15}
@@ -221,6 +274,7 @@ export function AppLayout() {
               <span className="flex items-center gap-3">
                 <Users size={18} />
                 {t("nav.hr")}
+                <CountBadge count={pendingLeavesCount} />
               </span>
               <ChevronDown size={15} className={`transition-transform ${hrOpen ? "rotate-180" : ""}`} />
             </button>
