@@ -18,6 +18,7 @@ export interface Employee {
   status: string;
   dismissDate?: string;
   userId?: string | null;
+  user?: { email: string; role: string } | null;
   notes?: string;
   _count?: { orders: number; contracts: number; leaves: number };
 }
@@ -208,6 +209,12 @@ export async function deleteGratitude(id: string) {
 export async function linkEmployeeUser(employeeId: string, userId: string | null) {
   const { data } = await apiClient.post(`/hr/employees/${employeeId}/link-user`, { userId });
   return data;
+}
+
+/** Xodim uchun login/parolni avtomatik yaratib, tizim hisobiga bog'laydi - parol faqat shu javobda qaytadi. */
+export async function createEmployeeSystemAccount(employeeId: string, role: string) {
+  const { data } = await apiClient.post(`/hr/employees/${employeeId}/create-system-account`, { role });
+  return data as { email: string; password: string; fullName: string };
 }
 
 /** Tizim foydalanuvchilari - xodim kartasini bog'lash uchun */

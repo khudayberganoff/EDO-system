@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 import * as XLSX from "xlsx";
+import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { LetterPdfService } from "../letters/letter-pdf.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -37,7 +38,7 @@ export class HrService {
     return this.prisma.employee.findMany({
       where,
       orderBy: { fullName: "asc" },
-      include: { _count: { select: { orders: true, contracts: true, leaves: true } } },
+      include: { _count: { select: { orders: true, contracts: true, leaves: true } }, user: { select: { email: true, role: true } } },
     });
   }
 
@@ -48,6 +49,7 @@ export class HrService {
         orders: { orderBy: { orderDate: "desc" } },
         contracts: { orderBy: { startDate: "desc" } },
         leaves: { orderBy: { startDate: "desc" } },
+        user: { select: { email: true, role: true } },
       },
     });
     if (!employee) throw new NotFoundException("Xodim topilmadi.");
@@ -670,6 +672,63 @@ export class HrService {
   async linkUser(employeeId: string, userId: string | null, user: { id: string; role: string }) {
     this.ensureHrAccess(user.role);
     return this.prisma.employee.update({ where: { id: employeeId }, data: { userId } });
+  }
+
+  /**
+   * Xodim uchun tizim hisobini AVTOMATIK yaratadi - login (email) va parol
+   * o'zi generatsiya qilinadi, faqat rol tanlanadi. Parol faqat shu javobda
+   * bir marta qaytariladi (bcrypt bilan bir tomonlama shifrlanadi, keyin
+   * uni hech kim - administrator ham - qayta ko'ra olmaydi).
+   */
+  async createSystemAccount(employeeId: string, role: string, actor: { id: string; role: string }) {
+    this.ensureHrAccess(actor.role);
+    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+    if (!employee) throw new NotFoundException("Xodim topilmadi.");
+    if (employee.userId) throw new BadRequestException("Bu xodim allaqachon tizim hisobiga bog'langan.");
+    if (![Role.ADMIN, Role.MANAGER, Role.EMPLOYEE].includes(role as Role)) {
+      throw new BadRequestException("Noma'lum rol.");
+    }
+
+    const email = await this.generateUniqueLogin(employee.fullName);
+    const password = this.generatePassword();
+
+    const newUser = await this.prisma.user.create({
+      data: { fullName: employee.fullName, email, passwordHash: await bcrypt.hash(password, 10), role },
+    });
+    await this.prisma.employee.update({ where: { id: employeeId }, data: { userId: newUser.id } });
+    await this.auditLog.record({
+      userId: actor.id, action: AuditAction.CREATE,
+      metadata: { kind: "user", userId: newUser.id, viaEmployee: employeeId },
+    });
+
+    return { email, password, fullName: employee.fullName };
+  }
+
+  /** F.I.Sh asosida takrorlanmas login (email) - lotin harflari, bo'sh joy o'rniga nuqta, @wafagroup.uz domeni. */
+  private async generateUniqueLogin(fullName: string): Promise<string> {
+    const slug = fullName
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/gi, "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .join(".") || "xodim";
+
+    let email = `${slug}@wafagroup.uz`;
+    let n = 1;
+    while (await this.prisma.user.findUnique({ where: { email } })) {
+      email = `${slug}${++n}@wafagroup.uz`;
+    }
+    return email;
+  }
+
+  /** O'qishga qulay, lekin taxmin qilish qiyin parol yaratadi (adashtiruvchi 0/O, 1/l/I belgilarisiz). */
+  private generatePassword(): string {
+    const letters = "abcdefghijkmnpqrstuvwxyz";
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const digits = "23456789";
+    const pick = (set: string, n: number) => Array.from({ length: n }, () => set[Math.floor(Math.random() * set.length)]).join("");
+    return `${pick(upper, 1)}${pick(letters, 5)}${pick(digits, 3)}!`;
   }
 
   /** Kadrlar bo'limi bosh sahifasi uchun qisqacha statistika. */
