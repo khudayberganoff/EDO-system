@@ -83,6 +83,16 @@ export class LettersService {
     return this.getLetterheadStatus();
   }
 
+  /**
+   * Fayl nomida ishlatish uchun hujjat raqamini xavfsizlantiradi - "/" yoki "\\"
+   * bo'lsa, fayl tizimi buni papka ajratkichi deb tushunib xatolik berardi
+   * (masalan "OG1-1/2026" -> "uploads/letters/xat-OG1-1/2026-qoralama.docx"
+   * yo'lida "OG1-1" papkasi yo'q bo'lgani uchun ENOENT chiqardi).
+   */
+  private safeFileToken(value: string): string {
+    return value.replace(/[\\/]/g, "-");
+  }
+
   /** Xat turiga mos raqam boshlanishi: X-, MA-, OG1-, OG2- */
   private numberPrefix(type: LetterType): string {
     return type === LetterType.FIRST_WARNING ? "OG1"
@@ -123,7 +133,7 @@ export class LettersService {
       const year = new Date().getFullYear();
       const departmentId = userId ? await this.resolveDepartmentScope(userId) : "GENERAL";
       const counter = await this.prisma.documentCounter.findUnique({ where: { departmentId_year: { departmentId, year } } });
-      return { documentNumber: `${prefix}-${(counter?.lastNumber ?? 0) + 1}/${year}` };
+      return { documentNumber: `${prefix}-${(counter?.lastNumber ?? 0) + 1}-${year}` };
     }
 
     const letters = await this.prisma.letter.findMany({ where: { type, direction }, select: { documentNumber: true } });
@@ -157,7 +167,7 @@ export class LettersService {
         update: { lastNumber: { increment: 1 } },
       });
 
-      return { documentNumber: `${prefix}-${counter.lastNumber}/${year}` };
+      return { documentNumber: `${prefix}-${counter.lastNumber}-${year}` };
     }
 
     // Kiruvchi xatlar: oldingi mantiq - eng katta mavjud raqam asos qilib olinadi.
@@ -360,7 +370,7 @@ export class LettersService {
     // shuning uchun PDF va DOCX bir xil ko'rinadi (QR ham ichida).
     const docx = await this.buildDocx(letter, approved, letter.qrToken ?? undefined);
     const buffer = await this.pdfService.docxToPdf(docx);
-    return { buffer, name: `xat-${letter.documentNumber}.pdf` };
+    return { buffer, name: `xat-${this.safeFileToken(letter.documentNumber)}.pdf` };
   }
 
   /** Xatning Word shablonidan olingan haqiqiy matni (QR sahifasida ko'rsatish uchun). */
@@ -417,7 +427,7 @@ export class LettersService {
   async generateDraftFile(id: string) {
     const letter = await this.findOne(id);
     const file = await this.buildDocx(letter, false);
-    const name = `xat-${letter.documentNumber}-qoralama.docx`;
+    const name = `xat-${this.safeFileToken(letter.documentNumber)}-qoralama.docx`;
     const full = path.join(ARCHIVE_DIR, name); fs.writeFileSync(full, file);
     await this.prisma.letter.update({ where: { id }, data: { draftFileUrl: `/uploads/letters/${name}` } });
     return `/uploads/letters/${name}`;
@@ -426,7 +436,7 @@ export class LettersService {
   async generateFinalFile(id: string, token: string) {
     const letter = await this.findOne(id);
     const file = await this.buildDocx(letter, true, token);
-    const name = `xat-${letter.documentNumber}-tasdiqlangan.docx`;
+    const name = `xat-${this.safeFileToken(letter.documentNumber)}-tasdiqlangan.docx`;
     fs.writeFileSync(path.join(ARCHIVE_DIR, name), file);
     return `/uploads/letters/${name}`;
   }
