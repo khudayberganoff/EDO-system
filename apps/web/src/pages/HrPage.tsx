@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2, FileText, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2, FileText, FileSpreadsheet, Copy, KeyRound, AlertTriangle } from "lucide-react";
 import {
   fetchEmployees, createEmployee, deleteEmployee,
   fetchHrOrders, createHrOrder, deleteHrOrder, fetchNextOrderNumber, downloadHrOrder, exportHrOrders,
@@ -13,7 +13,7 @@ import {
   fetchHolidays, createHoliday, deleteHoliday,
   fetchAttendance, setAttendance,
   fetchGratitudes, createGratitude, deleteGratitude,
-  fetchSystemUsers, linkEmployeeUser,
+  linkEmployeeUser, createEmployeeSystemAccount,
 } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
@@ -118,9 +118,9 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [linkTarget, setLinkTarget] = useState<Employee | null>(null);
-  // Yangi xodim qo'shilgandan keyin - buyruq va/yoki shartnoma (mehnat yoki GPX) kerakligini so'rash uchun.
-  const [followUpEmployee, setFollowUpEmployee] = useState<{ id: string; fullName: string } | null>(null);
-  const [followUpAction, setFollowUpAction] = useState<null | { kind: "order"; type: string } | { kind: "contract"; type: string }>(null);
+  // Xodim tafsilotlari oynasi - yangi xodim qo'shilgandan keyin avtomatik ochiladi,
+  // shuningdek jadvaldagi istalgan xodim ustiga bosib ham ochish mumkin.
+  const [detailEmployee, setDetailEmployee] = useState<Employee | null>(null);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["hr", "employees", search], queryFn: () => fetchEmployees({ search: search || undefined }) });
   const remove = useMutation({
@@ -144,8 +144,25 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
         {isLoading && <Empty colSpan={9}>{t("hr.loading")}</Empty>}
         {!isLoading && data?.length === 0 && <Empty colSpan={9}>{t("hr.noEmployees")}</Empty>}
         {data?.map((e: Employee) => (
-          <tr key={e.id} className="hover:bg-slate-50">
-            <td className="px-4 py-3 font-medium text-slate-900">{e.fullName}
+          <tr key={e.id} onClick={() => setDetailEmployee(e)} className="cursor-pointer hover:bg-slate-50">
+            <td className="px-4 py-3 font-medium text-slate-900">
+              <div className="flex items-center gap-1.5">
+                {e.fullName}
+                {e.status === "ACTIVE" && (!e._count?.orders || !e._count?.contracts) && (
+                  <span
+                    title={
+                      !e._count?.orders && !e._count?.contracts
+                        ? "Buyruq va shartnoma hali tayyorlanmagan"
+                        : !e._count?.orders
+                        ? "Buyruq hali tayyorlanmagan"
+                        : "Shartnoma hali tayyorlanmagan"
+                    }
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                  >
+                    <AlertTriangle size={11} /> Hujjat kerak
+                  </span>
+                )}
+              </div>
               {e.phone && <div className="text-xs font-normal text-slate-400">{e.phone}</div>}
             </td>
             <td className="px-4 py-3 text-slate-600">{e.position}</td>
@@ -164,7 +181,7 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
             <td className="px-4 py-3">
               {canEdit ? (
                 <button
-                  onClick={() => setLinkTarget(e)}
+                  onClick={(ev) => { ev.stopPropagation(); setLinkTarget(e); }}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                     e.userId ? "bg-brand-50 text-brand-800 hover:bg-brand-100" : "text-slate-400 hover:bg-slate-100"
                   }`}
@@ -182,7 +199,10 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
             </td>
             <td className="px-4 py-3">
               {canEdit && (
-                <button onClick={() => confirm(`${e.fullName} o'chirilsinmi? Uning buyruq, shartnoma va ta'tillari ham o'chadi.`) && remove.mutate(e.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50">
+                <button
+                  onClick={(ev) => { ev.stopPropagation(); confirm(`${e.fullName} o'chirilsinmi? Uning buyruq, shartnoma va ta'tillari ham o'chadi.`) && remove.mutate(e.id); }}
+                  className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"
+                >
                   <Trash2 size={16} />
                 </button>
               )}
@@ -194,72 +214,103 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
       {showCreate && (
         <EmployeeModal
           onClose={() => setShowCreate(false)}
-          onCreated={(employee) => { setShowCreate(false); setFollowUpEmployee(employee); }}
+          onCreated={(employee) => { setShowCreate(false); setDetailEmployee(employee); }}
         />
       )}
       {linkTarget && <LinkUserModal employee={linkTarget} onClose={() => setLinkTarget(null)} />}
-      {followUpEmployee && !followUpAction && (
-        <NewHireFollowUpModal
-          employeeName={followUpEmployee.fullName}
-          onClose={() => setFollowUpEmployee(null)}
-          onChoose={(action) => setFollowUpAction(action)}
-        />
-      )}
-      {followUpEmployee && followUpAction?.kind === "order" && (
-        <OrderModal
-          initialEmployeeId={followUpEmployee.id}
-          initialType={followUpAction.type}
-          onClose={() => { setFollowUpAction(null); setFollowUpEmployee(null); }}
-        />
-      )}
-      {followUpEmployee && followUpAction?.kind === "contract" && (
-        <ContractModal
-          initialEmployeeId={followUpEmployee.id}
-          initialType={followUpAction.type}
-          onClose={() => { setFollowUpAction(null); setFollowUpEmployee(null); }}
+      {detailEmployee && (
+        <EmployeeDetailModal
+          employee={detailEmployee}
+          canEdit={canEdit}
+          onClose={() => setDetailEmployee(null)}
         />
       )}
     </>
   );
 }
 
-/** Yangi xodim qo'shilgandan keyin - unga buyruq va/yoki shartnoma (mehnat yoki GPX) kerakligini so'raydi. */
-function NewHireFollowUpModal({
-  employeeName, onClose, onChoose,
-}: {
-  employeeName: string;
-  onClose: () => void;
-  onChoose: (action: { kind: "order"; type: string } | { kind: "contract"; type: string }) => void;
-}) {
+/**
+ * Xodim tafsilotlari - qisqacha ma'lumot va qaysi hujjatlar (buyruq, shartnoma,
+ * tizim hisobi) hali tayyorlanmaganini ko'rsatadi, shu yerdan bevosita yaratish
+ * mumkin. Yangi xodim qo'shilgandan keyin avtomatik ochiladi.
+ */
+function EmployeeDetailModal({ employee, canEdit, onClose }: { employee: Employee; canEdit: boolean; onClose: () => void }) {
+  const [action, setAction] = useState<null | { kind: "order"; type: string } | { kind: "contract"; type: string } | { kind: "link" }>(null);
+
+  const hasOrder = !!employee._count?.orders;
+  const hasContract = !!employee._count?.contracts;
+  const hasAccount = !!employee.userId;
+
+  if (action?.kind === "order") {
+    return <OrderModal initialEmployeeId={employee.id} initialType={action.type} onClose={() => { setAction(null); onClose(); }} />;
+  }
+  if (action?.kind === "contract") {
+    return <ContractModal initialEmployeeId={employee.id} initialType={action.type} onClose={() => { setAction(null); onClose(); }} />;
+  }
+  if (action?.kind === "link") {
+    return <LinkUserModal employee={employee} onClose={() => { setAction(null); onClose(); }} />;
+  }
+
   return (
-    <Modal title="Xodim qo'shildi" onClose={onClose}>
-      <p className="text-sm text-slate-600">
-        <span className="font-medium text-slate-900">{employeeName}</span> uchun ishga qabul qilish buyrug'i va/yoki mehnat shartnomasi (yoki GPX shartnoma) tuzish kerakmi?
-      </p>
-      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <button
-          onClick={() => onChoose({ kind: "order", type: "HIRE" })}
-          className="rounded-lg border border-sky-600 px-4 py-3 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
-        >
-          Buyruq yaratish
-        </button>
-        <button
-          onClick={() => onChoose({ kind: "contract", type: "PERMANENT" })}
-          className="rounded-lg border border-sky-600 px-4 py-3 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
-        >
-          Mehnat shartnomasi
-        </button>
-        <button
-          onClick={() => onChoose({ kind: "contract", type: "GPH" })}
-          className="rounded-lg border border-sky-600 px-4 py-3 text-sm font-medium text-sky-700 transition hover:bg-sky-50"
-        >
-          GPX shartnoma
-        </button>
+    <Modal title={employee.fullName} onClose={onClose}>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div><span className="text-slate-400">Lavozimi:</span> <span className="text-slate-800">{employee.position}</span></div>
+        <div><span className="text-slate-400">Bo'limi:</span> <span className="text-slate-800">{employee.department ?? "—"}</span></div>
+        <div><span className="text-slate-400">Ishga kirgan sana:</span> <span className="text-slate-800">{fmtDate(employee.hireDate)}</span></div>
+        <div><span className="text-slate-400">Telefon:</span> <span className="text-slate-800">{employee.phone ?? "—"}</span></div>
       </div>
-      <div className="mt-4 text-right">
-        <button onClick={onClose} className="text-sm text-slate-400 hover:text-slate-600">Kerak emas, keyinroq</button>
+
+      <div className="mt-5 space-y-2">
+        <DocStatusRow
+          label="Ishga qabul buyrug'i"
+          done={hasOrder}
+          canEdit={canEdit}
+          onCreate={() => setAction({ kind: "order", type: "HIRE" })}
+        />
+        <DocStatusRow
+          label="Mehnat shartnomasi / GPX"
+          done={hasContract}
+          canEdit={canEdit}
+          onCreate={() => setAction({ kind: "contract", type: "PERMANENT" })}
+        />
+        <DocStatusRow
+          label="Tizim hisobi (login)"
+          done={hasAccount}
+          detail={employee.user?.email}
+          canEdit={canEdit}
+          onCreate={() => setAction({ kind: "link" })}
+        />
+      </div>
+
+      <div className="mt-5 text-right">
+        <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm">Yopish</button>
       </div>
     </Modal>
+  );
+}
+
+function DocStatusRow({
+  label, done, detail, canEdit, onCreate,
+}: {
+  label: string;
+  done: boolean;
+  detail?: string;
+  canEdit: boolean;
+  onCreate: () => void;
+}) {
+  return (
+    <div className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${done ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+      <div className="flex items-center gap-2 text-sm">
+        {done ? <Check size={16} className="text-emerald-600" /> : <AlertTriangle size={16} className="text-amber-600" />}
+        <span className={done ? "text-emerald-900" : "text-amber-900"}>{label}</span>
+        {done && detail && <span className="text-xs text-emerald-700">({detail})</span>}
+      </div>
+      {!done && canEdit && (
+        <button onClick={onCreate} className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700">
+          Tayyorlash
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -276,38 +327,112 @@ function passportState(expiry?: string | null): { level: "expired" | "soon" | "o
 }
 
 /** Xodim kartasini tizim foydalanuvchisiga bog'lash oynasi. */
+const SYSTEM_ROLES = [
+  { value: "EMPLOYEE", label: "Xodim" },
+  { value: "MANAGER", label: "Bo'lim boshlig'i / rahbariyat" },
+  { value: "ADMIN", label: "Administrator" },
+];
+
+/**
+ * Xodimni tizim hisobiga bog'lash.
+ * Allaqachon bog'langan bo'lsa - login ko'rsatiladi va bog'lanishni bekor qilish mumkin.
+ * Bog'lanmagan bo'lsa - faqat ROL so'raladi, login va parol tizim tomonidan
+ * avtomatik yaratiladi (mavjud foydalanuvchilardan qo'lda tanlash shart emas).
+ */
 function LinkUserModal({ employee, onClose }: { employee: Employee; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState(employee.userId ?? "");
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["hr"] });
+  const [role, setRole] = useState("EMPLOYEE");
   const [error, setError] = useState<string | null>(null);
-  const { data: users, isLoading } = useQuery({ queryKey: ["system-users"], queryFn: fetchSystemUsers });
+  const [result, setResult] = useState<{ email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const mutation = useMutation({
-    mutationFn: () => linkEmployeeUser(employee.id, userId || null),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
-    onError: (e: any) => setError(e?.response?.data?.message ?? "Bog'lab bo'lmadi."),
+  const unlink = useMutation({
+    mutationFn: () => linkEmployeeUser(employee.id, null),
+    onSuccess: () => { invalidate(); onClose(); },
   });
+
+  const create = useMutation({
+    mutationFn: () => createEmployeeSystemAccount(employee.id, role),
+    onSuccess: (r) => { invalidate(); setResult({ email: r.email, password: r.password }); },
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Hisob yaratib bo'lmadi."),
+  });
+
+  const copy = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(`Login: ${result.email}\nParol: ${result.password}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (result) {
+    return (
+      <Modal title="Tizim hisobi yaratildi" onClose={onClose}>
+        <div className="mb-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Bu parol faqat hozir ko'rsatiladi. Nusxa olib, xodimga yetkazing.
+        </div>
+        <div className="space-y-2 rounded-lg bg-slate-900 p-4 text-sm text-slate-100">
+          <div><span className="text-slate-400">Login: </span>{result.email}</div>
+          <div><span className="text-slate-400">Parol: </span><code className="text-base">{result.password}</code></div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={copy} className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">
+            {copied ? <Check size={15} /> : <Copy size={15} />} Nusxa olish
+          </button>
+          <button onClick={onClose} className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white">Yopish</button>
+        </div>
+      </Modal>
+    );
+  }
+
+  if (employee.userId) {
+    return (
+      <Modal title="Tizim hisobiga bog'lash" onClose={onClose}>
+        <p className="mb-3 text-sm text-slate-500">
+          <strong className="text-slate-800">{employee.fullName}</strong> quyidagi login bilan tizimga kiradi:
+        </p>
+        <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+          <span className="text-slate-400">Login: </span>
+          <span className="font-medium text-slate-800">{employee.user?.email ?? "—"}</span>
+          {employee.user?.role && <span className="ml-2 text-xs text-slate-400">({label(SYSTEM_ROLES, employee.user.role)})</span>}
+        </div>
+        {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm">Yopish</button>
+          <button
+            onClick={() => unlink.mutate()}
+            disabled={unlink.isPending}
+            className="rounded-lg border border-rose-300 px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50"
+          >
+            Bog'lanishni bekor qilish
+          </button>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal title="Tizim hisobiga bog'lash" onClose={onClose}>
       <p className="mb-4 text-sm text-slate-500">
-        <strong className="text-slate-800">{employee.fullName}</strong> kartasini tizim foydalanuvchisiga bog'lang —
-        shundan so'ng u "Mening HR" sahifasida o'z ma'lumotlarini ko'radi.
+        <strong className="text-slate-800">{employee.fullName}</strong> uchun login va parol avtomatik yaratiladi -
+        faqat qaysi rolga bog'lanishini tanlang.
       </p>
-
-      <Field label="Tizim foydalanuvchisi">
-        {isLoading ? (
-          <p className="text-sm text-slate-400">Yuklanmoqda...</p>
-        ) : (
-          <select value={userId} onChange={(e) => setUserId(e.target.value)} className="input">
-            <option value="">— bog'lanmagan —</option>
-            {users?.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>)}
-          </select>
-        )}
+      <Field label="Roli">
+        <select value={role} onChange={(e) => setRole(e.target.value)} className="input">
+          {SYSTEM_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
       </Field>
-
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
-      <Actions onClose={onClose} disabled={mutation.isPending} onSave={() => mutation.mutate()} />
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm">Bekor qilish</button>
+        <button
+          onClick={() => create.mutate()}
+          disabled={create.isPending}
+          className="flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+        >
+          <KeyRound size={15} /> Hisob yaratish
+        </button>
+      </div>
     </Modal>
   );
 }
@@ -324,7 +449,7 @@ function workExperience(hireDate: string, dismissDate?: string | null): string {
   return [years > 0 ? `${years} yil` : "", rest > 0 ? `${rest} oy` : ""].filter(Boolean).join(" ") || "1 oydan kam";
 }
 
-function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?: (employee: { id: string; fullName: string }) => void }) {
+function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?: (employee: Employee) => void }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     fullName: "", position: "", department: "", hireDate: new Date().toISOString().slice(0, 10),
@@ -352,7 +477,7 @@ function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?
     }),
     onSuccess: (employee: any) => {
       queryClient.invalidateQueries({ queryKey: ["hr"] });
-      if (onCreated) onCreated({ id: employee.id, fullName: employee.fullName ?? form.fullName });
+      if (onCreated) onCreated({ ...employee, fullName: employee.fullName ?? form.fullName });
       else onClose();
     },
     onError: (e: any) => setError(errorText(e)),

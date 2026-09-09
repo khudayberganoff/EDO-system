@@ -271,4 +271,11 @@ export class HrController {
   linkUser(@Param("id") id: string, @Body() body: { userId: string | null }, @CurrentUser() user: AuthenticatedUser) {
     return this.hrService.linkUser(id, body?.userId ?? null, user);
   }
+
+  @Post("employees/:id/create-system-account")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Xodim uchun login/parolni avtomatik yaratib, tizim hisobiga bog'laydi" })
+  createSystemAccount(@Param("id") id: string, @Body() body: { role: string }, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.createSystemAccount(id, body?.role, user);
+  }
 }
