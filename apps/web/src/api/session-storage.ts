@@ -27,6 +27,12 @@ export function readUser<T>(): T | null {
   }
 }
 
+/** Saqlangan foydalanuvchi obyektini yangilaydi (masalan parol almashtirilgandan keyin) - token o'zgarmaydi. */
+export function updateStoredUser(user: unknown) {
+  const storage = localStorage.getItem("edo_user") ? localStorage : sessionStorage;
+  storage.setItem("edo_user", JSON.stringify(user));
+}
+
 export function clearSession() {
   KEYS.forEach((key) => {
     localStorage.removeItem(key);

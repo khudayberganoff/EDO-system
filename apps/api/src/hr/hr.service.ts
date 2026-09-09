@@ -693,7 +693,7 @@ export class HrService {
     const password = this.generatePassword();
 
     const newUser = await this.prisma.user.create({
-      data: { fullName: employee.fullName, email, passwordHash: await bcrypt.hash(password, 10), role },
+      data: { fullName: employee.fullName, email, passwordHash: await bcrypt.hash(password, 10), role, mustChangePassword: true },
     });
     await this.prisma.employee.update({ where: { id: employeeId }, data: { userId: newUser.id } });
     await this.auditLog.record({

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
@@ -44,7 +44,34 @@ export class AuthService {
         role: user.role,
         isActive: user.isActive,
         createdAt: user.createdAt.toISOString(),
+        mustChangePassword: user.mustChangePassword,
       },
     };
+  }
+
+  /**
+   * Foydalanuvchi o'zi parolini almashtiradi (joriy parolni bilishi shart).
+   * Avtomatik yaratilgan yoki administrator tiklagan hisoblarda birinchi
+   * kirishda majburiy - shundan keyin mustChangePassword yechiladi.
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("Foydalanuvchi topilmadi.");
+
+    const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!matches) throw new UnauthorizedException("Joriy parol noto'g'ri.");
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException("Yangi parol kamida 8 ta belgidan iborat bo'lishi kerak.");
+    }
+    if (newPassword === currentPassword) {
+      throw new BadRequestException("Yangi parol joriy paroldan farq qilishi kerak.");
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await bcrypt.hash(newPassword, 10), mustChangePassword: false },
+    });
+    await this.auditLog.record({ userId, action: AuditAction.UPDATE, metadata: { kind: "passwordSelfChange" } });
+    return { success: true };
   }
 }

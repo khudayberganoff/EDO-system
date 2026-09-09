@@ -177,7 +177,7 @@ export class SettingsService {
 
     await this.prisma.user.update({
       where: { id },
-      data: { passwordHash: await bcrypt.hash(password, 10) },
+      data: { passwordHash: await bcrypt.hash(password, 10), mustChangePassword: true },
     });
     await this.auditLog.record({
       userId: actorId, action: AuditAction.UPDATE,

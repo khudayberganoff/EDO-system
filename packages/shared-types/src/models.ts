@@ -19,6 +19,8 @@ export interface UserDto {
   role: UserRole;
   isActive: boolean;
   createdAt: string;
+  /// Keyingi kirishda parolni majburiy almashtirish kerakmi
+  mustChangePassword?: boolean;
 }
 
 export interface DocumentVersionDto {
