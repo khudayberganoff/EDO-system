@@ -30,6 +30,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  dailyTasks       DailyTask[]       @relation("DailyTaskOwner")
   documents        Document[]        @relation("DocumentOwner")
   workflowSteps    WorkflowStep[]    @relation("StepApprover")
   documentVersions DocumentVersion[] @relation("VersionAuthor")
@@ -547,4 +548,24 @@ model MailAttachment {
   createdAt DateTime @default(now())
 
   @@index([mailId])
+}
+
+/// Bosh sahifadagi kundalik reja/vazifa - har bir foydalanuvchi o'zi uchun
+/// muayyan sana va (ixtiyoriy) soat bo'yicha yozib qo'yadigan shaxsiy eslatma.
+model DailyTask {
+  id     String @id @default(cuid())
+  user   User   @relation("DailyTaskOwner", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  /// Kun (vaqtsiz - faqat sana qismi solishtiriladi)
+  date DateTime
+  /// Soat, masalan "09:30" - ixtiyoriy (kun davomida, aniq vaqtsiz vazifalar ham bo'lishi mumkin)
+  time String?
+  title String
+  done  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
 }
