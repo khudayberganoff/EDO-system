@@ -6,6 +6,7 @@ import { LetterStatus } from "@edo/shared-types";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
 import { FileText, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { formatUzGregorian, formatHijri } from "../utils/hijriDate";
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -36,14 +37,16 @@ export function DashboardPage() {
   const totalActive = Math.max(0, totalAll - archivedCount) + pendingLettersCount;
   const pendingSignature = pendingSignatureDocs + pendingLettersCount;
 
-  const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
+  const now = new Date();
+  const today = formatUzGregorian(now);
+  const todayHijri = formatHijri(now);
 
   return (
     <div className="p-8">
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-xs font-medium uppercase tracking-wide text-sky-600">{t("dashboard.greeting")}</p>
         <h1 className="mt-1 text-[26px] font-semibold text-slate-900">{t("dashboard.hello")}, {user?.fullName}!</h1>
-        <p className="mt-1 text-sm text-slate-500">{today}</p>
+        <p className="mt-1 text-sm text-slate-500">{today} <span className="text-slate-300">•</span> {todayHijri}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
