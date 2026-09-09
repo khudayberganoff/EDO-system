@@ -379,7 +379,7 @@ function ResetPasswordModal({ user, onClose }: { user: SystemUser; onClose: () =
           <>
             <div className="mb-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <Info size={16} className="mt-0.5 shrink-0" />
-              <span>Bu parol faqat hozir ko'rsatiladi. Nusxa olib, xodimga yetkazing.</span>
+              <span>Bu parol faqat hozir ko'rsatiladi. Nusxa olib, xodimga yetkazing. Keyingi kirishda u parolni albatta almashtirishi so'raladi.</span>
             </div>
             <div className="space-y-2 rounded-lg bg-slate-900 p-4 text-sm text-slate-100">
               <div><span className="text-slate-400">Login: </span>{user.email}</div>
