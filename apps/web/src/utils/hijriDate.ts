@@ -7,7 +7,7 @@
  * tili uchun to'liq lokal ma'lumot yo'q) - shuning uchun oy nomlarini o'zimiz
  * belgilaymiz.
  */
-const UZ_MONTHS = [
+export const UZ_MONTHS = [
   "yanvar", "fevral", "mart", "aprel", "may", "iyun",
   "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr",
 ];
@@ -19,6 +19,11 @@ const HIJRI_MONTHS = [
 
 export function formatUzGregorian(date: Date): string {
   return `${date.getDate()}-${UZ_MONTHS[date.getMonth()]}, ${date.getFullYear()}`;
+}
+
+/** Faqat oy va yil - masalan "sentyabr 2026" (kalendar sarlavhasi uchun). */
+export function formatUzMonthYear(date: Date): string {
+  return `${UZ_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 /**
