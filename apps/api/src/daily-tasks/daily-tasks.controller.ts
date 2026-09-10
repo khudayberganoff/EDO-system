@@ -9,8 +9,9 @@ export class DailyTasksController {
   constructor(private service: DailyTasksService) {}
 
   @Get()
-  @ApiOperation({ summary: "Muayyan sanadagi shaxsiy vazifalar ro'yxati" })
-  list(@Query("date") date: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+  @ApiOperation({ summary: "Vazifalar ro'yxati - ?date=YYYY-MM-DD (bitta kun) yoki ?month=YYYY-MM (butun oy, kalendar uchun)" })
+  list(@Query("date") date: string | undefined, @Query("month") month: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    if (month) return this.service.listForMonth(user.id, month);
     return this.service.listForDate(user.id, date);
   }
 

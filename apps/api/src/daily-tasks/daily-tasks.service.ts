@@ -25,6 +25,20 @@ export class DailyTasksService {
     });
   }
 
+  /**
+   * Butun oy uchun vazifalar - kalendar tokchalarida qaysi kunlarda reja
+   * borligini (nuqta bilan) ko'rsatish uchun. `month` "YYYY-MM" formatida.
+   */
+  async listForMonth(userId: string, month?: string) {
+    const base = month ? new Date(`${month}-01`) : new Date();
+    const start = new Date(Date.UTC(base.getFullYear(), base.getMonth(), 1));
+    const end = new Date(Date.UTC(base.getFullYear(), base.getMonth() + 1, 1));
+    return this.prisma.dailyTask.findMany({
+      where: { userId, date: { gte: start, lt: end } },
+      orderBy: [{ date: "asc" }, { time: "asc" }, { createdAt: "asc" }],
+    });
+  }
+
   async create(dto: CreateDailyTaskDto, userId: string) {
     return this.prisma.dailyTask.create({
       data: { userId, date: startOfDay(dto.date), time: dto.time, title: dto.title },
