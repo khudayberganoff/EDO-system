@@ -16,6 +16,12 @@ export async function fetchDailyTasks(date: string) {
   return data;
 }
 
+/** Butun oy uchun vazifalar - kalendar tokchalarida nuqta bilan belgilash uchun. month: "YYYY-MM" */
+export async function fetchDailyTasksForMonth(month: string) {
+  const { data } = await apiClient.get<DailyTask[]>("/daily-tasks", { params: { month } });
+  return data;
+}
+
 export async function createDailyTask(payload: { date: string; time?: string; title: string }) {
   const { data } = await apiClient.post<DailyTask>("/daily-tasks", payload);
   return data;
