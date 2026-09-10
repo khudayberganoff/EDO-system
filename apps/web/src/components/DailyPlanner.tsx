@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays } from "lucide-react";
 import { createDailyTask, deleteDailyTask, fetchDailyTasks, fetchDailyTasksForMonth, updateDailyTask, type DailyTask } from "../api/dailyTasks";
-import { formatUzGregorian } from "../utils/hijriDate";
+import { formatUzGregorian, formatUzMonthYear } from "../utils/hijriDate";
 
 const WEEKDAYS_UZ = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -24,10 +24,10 @@ function mondayFirstWeekday(d: Date): number {
 }
 
 /**
- * Bosh sahifadagi kundalik reja/vazifalar bloki - oy kalendari (30/31 kunlik
- * to'r) orqali kun tanlanadi, vazifa reja borligi kunning ostida nuqta bilan
- * ko'rinadi. Tanlangan kun uchun (ixtiyoriy ravishda SOAT bilan) shaxsiy
- * vazifalar yoziladi va bajarilganini belgilash mumkin. Har kim faqat
+ * Bosh sahifadagi kundalik reja/vazifalar bloki: chapda tor oy kalendari
+ * (faqat kun tanlash uchun), o'ngda kengroq panelda tanlangan kunning
+ * vazifalari - soat (ixtiyoriy) bilan yoziladi va bajarilgani belgilanadi.
+ * Reja yozilgan kunlar kalendarda nuqta bilan ko'rinadi. Har kim faqat
  * o'zining ro'yxatini ko'radi.
  */
 export function DailyPlanner() {
@@ -90,123 +90,119 @@ export function DailyPlanner() {
     setVisibleMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
   };
 
-  const monthLabel = visibleMonth.toLocaleDateString("uz-UZ", { month: "long", year: "numeric" });
+  const goToday = () => {
+    setSelectedDate(new Date());
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+  };
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <CalendarDays size={18} className="text-sky-600" />
+    <div className="mt-4 flex flex-col gap-4 lg:flex-row">
+      {/* Chap - tor oy kalendari, faqat kun tanlash uchun */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:w-[300px] lg:shrink-0">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <CalendarDays size={17} className="text-sky-600" />
           Kundalik reja
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => goMonth(-1)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
-            <ChevronLeft size={16} />
+
+        <div className="mb-2 flex items-center justify-between">
+          <button onClick={() => goMonth(-1)} className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+            <ChevronLeft size={15} />
           </button>
-          <span className="min-w-[130px] text-center text-sm font-medium capitalize text-slate-700">{monthLabel}</span>
-          <button onClick={() => goMonth(1)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
-            <ChevronRight size={16} />
+          <span className="text-xs font-medium capitalize text-slate-600">{formatUzMonthYear(visibleMonth)}</span>
+          <button onClick={() => goMonth(1)} className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+            <ChevronRight size={15} />
           </button>
         </div>
-      </div>
 
-      {/* Oy kalendari - 30/31 kunlik to'r, reja yozilgan kunlar nuqta bilan */}
-      <div className="mb-5 grid grid-cols-7 gap-1">
-        {WEEKDAYS_UZ.map((w) => (
-          <div key={w} className="py-1 text-center text-[11px] font-medium uppercase text-slate-400">{w}</div>
-        ))}
-        {monthCells.map((d, i) => {
-          if (!d) return <div key={`blank-${i}`} />;
-          const key = toDateKey(d);
-          const isSelected = isSameDay(d, selectedDate);
-          const isToday = isSameDay(d, today);
-          const hasTasks = daysWithTasks.has(key);
-          return (
-            <button
-              key={key}
-              onClick={() => setSelectedDate(d)}
-              className={`relative flex h-9 flex-col items-center justify-center rounded-lg text-sm transition ${
-                isSelected
-                  ? "bg-sky-600 text-white font-semibold"
-                  : isToday
-                  ? "bg-sky-50 text-sky-700 font-semibold"
-                  : "text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              {d.getDate()}
-              {hasTasks && (
-                <span className={`absolute bottom-1 h-1 w-1 rounded-full ${isSelected ? "bg-white" : "bg-sky-500"}`} />
-              )}
-            </button>
-          );
-        })}
-      </div>
+        <div className="grid grid-cols-7 gap-0.5">
+          {WEEKDAYS_UZ.map((w) => (
+            <div key={w} className="py-1 text-center text-[10px] font-medium uppercase text-slate-400">{w}</div>
+          ))}
+          {monthCells.map((d, i) => {
+            if (!d) return <div key={`blank-${i}`} />;
+            const key = toDateKey(d);
+            const isSelected = isSameDay(d, selectedDate);
+            const isToday = isSameDay(d, today);
+            const hasTasks = daysWithTasks.has(key);
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedDate(d)}
+                className={`relative flex h-8 flex-col items-center justify-center rounded-lg text-[13px] transition ${
+                  isSelected
+                    ? "bg-sky-600 text-white font-semibold"
+                    : isToday
+                    ? "bg-sky-50 text-sky-700 font-semibold"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {d.getDate()}
+                {hasTasks && <span className={`absolute bottom-0.5 h-1 w-1 rounded-full ${isSelected ? "bg-white" : "bg-sky-500"}`} />}
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-sm font-medium text-slate-800">{formatUzGregorian(selectedDate)}</div>
         {!isSameDay(selectedDate, today) && (
-          <button
-            onClick={() => { setSelectedDate(new Date()); setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1)); }}
-            className="text-xs font-medium text-sky-600 hover:text-sky-700"
-          >
+          <button onClick={goToday} className="mt-3 w-full rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50">
             Bugunga qaytish
           </button>
         )}
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <input
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          className="input w-28"
-        />
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="Vazifa matni - masalan, 'Buxgalteriya bilan uchrashuv'"
-          className="input flex-1 min-w-[200px]"
-        />
-        <button
-          onClick={submit}
-          disabled={!title.trim() || createMutation.isPending}
-          className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50"
-        >
-          <Plus size={16} /> Qo'shish
-        </button>
-      </div>
+      {/* O'ng - kengroq panel, tanlangan kunning vazifalari */}
+      <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 text-sm font-semibold text-slate-900">{formatUzGregorian(selectedDate)}</div>
 
-      {isLoading && <p className="py-4 text-center text-sm text-slate-400">Yuklanmoqda...</p>}
-      {!isLoading && sorted.length === 0 && (
-        <p className="py-6 text-center text-sm text-slate-400">Bu kunga hali reja yozilmagan.</p>
-      )}
-      {sorted.length > 0 && (
-        <ul className="divide-y divide-slate-100">
-          {sorted.map((t) => (
-            <li key={t.id} className="flex items-center gap-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={t.done}
-                onChange={() => toggleMutation.mutate(t)}
-                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
-              />
-              {t.time && (
-                <span className="w-14 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-center text-xs font-medium text-slate-500">
-                  {t.time}
-                </span>
-              )}
-              <span className={`flex-1 text-sm ${t.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{t.title}</span>
-              <button
-                onClick={() => removeMutation.mutate(t.id)}
-                className="rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-600"
-              >
-                <Trash2 size={15} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="input w-28" />
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="Vazifa matni - masalan, 'Buxgalteriya bilan uchrashuv'"
+            className="input flex-1 min-w-[200px]"
+          />
+          <button
+            onClick={submit}
+            disabled={!title.trim() || createMutation.isPending}
+            className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50"
+          >
+            <Plus size={16} /> Qo'shish
+          </button>
+        </div>
+
+        {isLoading && <p className="py-4 text-center text-sm text-slate-400">Yuklanmoqda...</p>}
+        {!isLoading && sorted.length === 0 && (
+          <p className="py-6 text-center text-sm text-slate-400">Bu kunga hali reja yozilmagan.</p>
+        )}
+        {sorted.length > 0 && (
+          <ul className="divide-y divide-slate-100">
+            {sorted.map((t) => (
+              <li key={t.id} className="flex items-center gap-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={t.done}
+                  onChange={() => toggleMutation.mutate(t)}
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
+                />
+                {t.time && (
+                  <span className="w-14 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-center text-xs font-medium text-slate-500">
+                    {t.time}
+                  </span>
+                )}
+                <span className={`flex-1 text-sm ${t.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{t.title}</span>
+                <button
+                  onClick={() => removeMutation.mutate(t.id)}
+                  className="rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-600"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
