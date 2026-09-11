@@ -47,7 +47,7 @@ export class SettingsController {
   @Post("users")
   @Roles(Role.ADMIN)
   createUser(@Body() body: CreateUserDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.settingsService.createUser(body, user.id);
+    return this.settingsService.createUser(body, user.id, user.organizationId);
   }
 
   @Post("users/:id/reset-password")

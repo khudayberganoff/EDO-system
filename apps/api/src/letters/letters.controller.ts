@@ -19,20 +19,20 @@ const STATUS_LABELS: Record<string, string> = { DRAFT: "Qoralama", PENDING_APPRO
 export class LettersController {
   constructor(private lettersService: LettersService) {}
 
-  @Post() create(@Body() dto: CreateLetterDto, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.create(dto, user.id); }
+  @Post() create(@Body() dto: CreateLetterDto, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.create(dto, user.id, user.organizationId); }
 
   @Post("ai-generate") aiGenerate(@Body() body: any) { return this.lettersService.aiGenerate(body); }
 
-  @Get() findAll(@Query() query: QueryLettersDto) { return this.lettersService.findAll(query); }
-  @Get("counts") counts() { return this.lettersService.countsByDirection(); }
+  @Get() findAll(@Query() query: QueryLettersDto, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.findAll(query, user.organizationId); }
+  @Get("counts") counts(@CurrentUser() user: AuthenticatedUser) { return this.lettersService.countsByDirection(user.organizationId); }
   @Get("approvers") @ApiOperation({ summary: "Tasdiqlashi mumkin bo'lgan rahbarlar" }) approvers() { return this.lettersService.listApprovers(); }
-  @Get("archive") archive() { return this.lettersService.archiveList(); }
+  @Get("archive") archive(@CurrentUser() user: AuthenticatedUser) { return this.lettersService.archiveList(user.organizationId); }
   @Get("next-number") nextNumber(@Query("type") type: LetterType, @Query("direction") direction: "INCOMING" | "OUTGOING" = "OUTGOING", @CurrentUser() user: AuthenticatedUser) {
-    return this.lettersService.peekNextDocumentNumber(type, direction, user.id);
+    return this.lettersService.peekNextDocumentNumber(type, direction, user.id, user.organizationId);
   }
 
-  @Get("export") async export(@Query() query: QueryLettersDto, @Res() res: Response) {
-    const letters = await this.lettersService.exportRows(query);
+  @Get("export") async export(@Query() query: QueryLettersDto, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const letters = await this.lettersService.exportRows(query, user.organizationId);
     const rows = letters.map((letter, index) => ({
       "T/r": index + 1,
       "Hujjat raqami": letter.documentNumber,
@@ -74,7 +74,7 @@ export class LettersController {
     return this.lettersService.removeLetterhead(user);
   }
 
-  // --- QR orqali ochiq tekshiruv (login talab qilinmaydi) ---
+  // --- QR orqali ochiq tekshiruv (login talab qilinmaydi) - tashkilotdan qat'i nazar ishlaydi ---
   @Public()
   @Get("verify/:id")
   verify(@Param("id") id: string, @Query("token") token: string) {
@@ -94,30 +94,30 @@ export class LettersController {
 
   /** Xatning Word shablonidan olingan haqiqiy matni (ko'rish oynasi uchun). */
   @Get(":id/rendered-text")
-  async renderedText(@Param("id") id: string) {
-    return { paragraphs: await this.lettersService.getRenderedText(id) };
+  async renderedText(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return { paragraphs: await this.lettersService.getRenderedText(id, user.organizationId) };
   }
 
   /** Tizim ichida: tasdiqlangan xatning PDF nusxasi. */
   @Get(":id/download-pdf")
-  async downloadPdf(@Param("id") id: string, @Res() res: Response) {
-    const { buffer, name } = await this.lettersService.buildPdf(id);
+  async downloadPdf(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const { buffer, name } = await this.lettersService.buildPdf(id, user.organizationId);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
     res.send(buffer);
   }
 
-  @Get(":id") findOne(@Param("id") id: string) { return this.lettersService.findOne(id); }
+  @Get(":id") findOne(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.findOne(id, user.organizationId); }
 
-  @Post(":id/submit") submit(@Param("id") id: string, @Body() body: { approverId?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id, body?.approverId); }
-  @Patch(":id") updateBody(@Param("id") id: string, @Body() body: { bodyText?: string; summary?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.updateBody(id, body, user.id); }
+  @Post(":id/submit") submit(@Param("id") id: string, @Body() body: { approverId?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.submitForApproval(id, user.id, body?.approverId, user.organizationId); }
+  @Patch(":id") updateBody(@Param("id") id: string, @Body() body: { bodyText?: string; summary?: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.updateBody(id, body, user.id, user.organizationId); }
 
   @Post(":id/approve") @Roles(Role.ADMIN, Role.MANAGER) approve(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.approve(id, user); }
   @Post(":id/reject") @Roles(Role.ADMIN, Role.MANAGER) reject(@Param("id") id: string, @Body() body: { reason: string }, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.reject(id, user, body?.reason ?? ""); }
-  @Post(":id/delete") delete(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.softDelete(id, user.id); }
+  @Post(":id/delete") delete(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.softDelete(id, user.id, user.organizationId); }
 
-  @Get(":id/download/:kind") async download(@Param("id") id: string, @Param("kind") kind: "draft" | "final", @Res() res: Response) {
-    const result = await this.lettersService.download(id, kind);
+  @Get(":id/download/:kind") async download(@Param("id") id: string, @Param("kind") kind: "draft" | "final", @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const result = await this.lettersService.download(id, kind, user.organizationId);
     res.download(result.full, result.name);
   }
 }

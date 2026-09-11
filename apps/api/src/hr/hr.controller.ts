@@ -15,20 +15,20 @@ export class HrController {
 
   @Get("stats")
   @ApiOperation({ summary: "Kadrlar bo'limi statistikasi" })
-  stats() {
-    return this.hrService.stats();
+  stats(@CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.stats(user.organizationId);
   }
 
   // ---------- Xodimlar ----------
 
   @Get("employees")
-  listEmployees(@Query("search") search?: string, @Query("status") status?: string) {
-    return this.hrService.listEmployees({ search, status });
+  listEmployees(@Query("search") search: string | undefined, @Query("status") status: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.listEmployees({ search, status, organizationId: user.organizationId });
   }
 
   @Get("employees/:id")
-  getEmployee(@Param("id") id: string) {
-    return this.hrService.getEmployee(id);
+  getEmployee(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.getEmployee(id, user.organizationId);
   }
 
   @Post("employees")
@@ -52,8 +52,8 @@ export class HrController {
   // ---------- Buyruqlar ----------
 
   @Get("orders")
-  listOrders(@Query("employeeId") employeeId?: string, @Query("type") type?: string) {
-    return this.hrService.listOrders({ employeeId, type });
+  listOrders(@Query("employeeId") employeeId: string | undefined, @Query("type") type: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.listOrders({ employeeId, type, organizationId: user.organizationId });
   }
 
   @Get("orders/next-number")
@@ -100,8 +100,8 @@ export class HrController {
   // ---------- Mehnat shartnomalari ----------
 
   @Get("contracts")
-  listContracts(@Query("employeeId") employeeId?: string) {
-    return this.hrService.listContracts({ employeeId });
+  listContracts(@Query("employeeId") employeeId: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.listContracts({ employeeId, organizationId: user.organizationId });
   }
 
   @Post("contracts")
@@ -119,8 +119,8 @@ export class HrController {
   // ---------- Ta'tillar ----------
 
   @Get("leaves")
-  listLeaves(@Query("employeeId") employeeId?: string, @Query("status") status?: string) {
-    return this.hrService.listLeaves({ employeeId, status });
+  listLeaves(@Query("employeeId") employeeId: string | undefined, @Query("status") status: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.listLeaves({ employeeId, status, organizationId: user.organizationId });
   }
 
   @Post("leaves")

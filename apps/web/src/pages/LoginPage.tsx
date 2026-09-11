@@ -1,9 +1,11 @@
-import { FormEvent, useCallback, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff, Mail, Users, QrCode } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
+import { fetchOrganizations } from "../api/auth";
+import type { OrganizationDto } from "@edo/shared-types";
 
 /** Sakkiz burchakli yulduz - islom geometriyasidagi asosiy motiv. */
 function StarMark({ className = "" }: { className?: string }) {
@@ -27,6 +29,16 @@ export function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Tashkilot tanlagichi - login qilishdan oldin qaysi tashkilot nomidan kirishini tanlash shart
+  const [organizations, setOrganizations] = useState<OrganizationDto[]>([]);
+  const [organizationId, setOrganizationId] = useState("");
+  useEffect(() => {
+    fetchOrganizations().then((list) => {
+      setOrganizations(list);
+      if (list.length === 1) setOrganizationId(list[0].id);
+    }).catch(() => {});
+  }, []);
 
   // Sichqoncha harakati - yulduzlar kursor atrofida yonib turishi uchun
   const glowRef = useRef<HTMLDivElement>(null);
@@ -53,9 +65,13 @@ export function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!organizationId) {
+      setError("Tashkilotni tanlang.");
+      return;
+    }
     setLoading(true);
     try {
-      await login({ email, password }, remember);
+      await login({ email, password, organizationId }, remember);
       navigate("/");
     } catch {
       setError(t("login.error"));
@@ -135,6 +151,29 @@ export function LoginPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <Building2 size={12} /> Tashkilot
+                  </label>
+                  <div className="space-y-1.5">
+                    {organizations.map((org) => (
+                      <button
+                        key={org.id}
+                        type="button"
+                        onClick={() => setOrganizationId(org.id)}
+                        className={`flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-left text-sm transition ${
+                          organizationId === org.id
+                            ? "border-brand-600 bg-brand-50 font-medium text-brand-900"
+                            : "border-slate-200 bg-slate-50/70 text-slate-600 hover:border-slate-300"
+                        }`}
+                      >
+                        {org.name}
+                        {organizationId === org.id && <Check size={15} className="text-brand-700" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     {t("login.emailPlaceholder")}
                   </label>
@@ -188,7 +227,7 @@ export function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !organizationId}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-800 py-3.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
                 >
                   {loading && <Loader2 size={16} className="animate-spin" />}

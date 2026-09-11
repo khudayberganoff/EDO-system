@@ -33,6 +33,13 @@ export function updateStoredUser(user: unknown) {
   storage.setItem("edo_user", JSON.stringify(user));
 }
 
+/** Token va foydalanuvchini yangilaydi - avvalgi "eslab qolish" tanlovi (localStorage/sessionStorage) saqlanadi. Tashkilot almashtirilganda ishlatiladi. */
+export function updateSession(token: string, user: unknown) {
+  const storage = localStorage.getItem("edo_access_token") ? localStorage : sessionStorage;
+  storage.setItem("edo_access_token", token);
+  storage.setItem("edo_user", JSON.stringify(user));
+}
+
 export function clearSession() {
   KEYS.forEach((key) => {
     localStorage.removeItem(key);

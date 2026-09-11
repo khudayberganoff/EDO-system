@@ -101,15 +101,17 @@ export class LettersService {
   }
 
   /**
-   * Foydalanuvchining bo'limi (Kadrlar kartotekasidagi departmentRef orqali).
-   * Bo'limga biriktirilmagan foydalanuvchilar uchun umumiy "GENERAL" hisoblagich ishlatiladi.
+   * Foydalanuvchining bo'limi (Kadrlar kartotekasidagi departmentRef orqali),
+   * tashkilot ID'si bilan birga - shunda ikkala tashkilotning hisoblagichlari
+   * ham bir-biriga aralashmaydi (bir xil bo'lim nomi/umumiy "GENERAL" bo'lsa
+   * ham). Bo'limga biriktirilmagan foydalanuvchilar uchun "GENERAL" ishlatiladi.
    */
-  private async resolveDepartmentScope(userId: string): Promise<string> {
+  private async resolveDepartmentScope(userId: string, organizationId: string): Promise<string> {
     const employee = await this.prisma.employee.findFirst({
       where: { userId },
       select: { departmentRefId: true },
     });
-    return employee?.departmentRefId ?? "GENERAL";
+    return `${organizationId}:${employee?.departmentRefId ?? "GENERAL"}`;
   }
 
   private incomingLetterNumber(letters: { documentNumber: string }[], prefix: string) {
@@ -126,17 +128,17 @@ export class LettersService {
    * Xat yaratish formasida foydalanuvchiga oldindan raqam ko'rsatish uchun ishlatiladi
    * (real raqam faqat "Yaratish" bosilganda, `create()` ichida beriladi).
    */
-  async peekNextDocumentNumber(type: LetterType, direction: "INCOMING" | "OUTGOING" = "OUTGOING", userId?: string) {
+  async peekNextDocumentNumber(type: LetterType, direction: "INCOMING" | "OUTGOING" = "OUTGOING", userId: string | undefined, organizationId: string) {
     const prefix = this.numberPrefix(type);
 
     if (direction === "OUTGOING") {
       const year = new Date().getFullYear();
-      const departmentId = userId ? await this.resolveDepartmentScope(userId) : "GENERAL";
+      const departmentId = userId ? await this.resolveDepartmentScope(userId, organizationId) : `${organizationId}:GENERAL`;
       const counter = await this.prisma.documentCounter.findUnique({ where: { departmentId_year: { departmentId, year } } });
       return { documentNumber: `${prefix}-${(counter?.lastNumber ?? 0) + 1}-${year}` };
     }
 
-    const letters = await this.prisma.letter.findMany({ where: { type, direction }, select: { documentNumber: true } });
+    const letters = await this.prisma.letter.findMany({ where: { type, direction, organizationId }, select: { documentNumber: true } });
     return { documentNumber: this.incomingLetterNumber(letters, prefix) };
   }
 
@@ -152,12 +154,12 @@ export class LettersService {
    *
    * Kiruvchi hujjatlar uchun eski (turi bo'yicha, eng katta raqamga asoslangan) usul saqlanadi.
    */
-  async getNextDocumentNumber(type: LetterType, direction: "INCOMING" | "OUTGOING", userId?: string) {
+  async getNextDocumentNumber(type: LetterType, direction: "INCOMING" | "OUTGOING", userId: string | undefined, organizationId: string) {
     const prefix = this.numberPrefix(type);
 
     if (direction === "OUTGOING") {
       const year = new Date().getFullYear();
-      const departmentId = userId ? await this.resolveDepartmentScope(userId) : "GENERAL";
+      const departmentId = userId ? await this.resolveDepartmentScope(userId, organizationId) : `${organizationId}:GENERAL`;
 
       // Postgres'da Prisma upsert bitta "INSERT ... ON CONFLICT DO UPDATE" so'roviga
       // aylanadi - shuning uchun bu amal atomik va parallel so'rovlarda ham xavfsiz.
@@ -171,20 +173,21 @@ export class LettersService {
     }
 
     // Kiruvchi xatlar: oldingi mantiq - eng katta mavjud raqam asos qilib olinadi.
-    const letters = await this.prisma.letter.findMany({ where: { type, direction }, select: { documentNumber: true } });
+    const letters = await this.prisma.letter.findMany({ where: { type, direction, organizationId }, select: { documentNumber: true } });
     return { documentNumber: this.incomingLetterNumber(letters, prefix) };
   }
 
-  async create(dto: CreateLetterDto, userId: string) {
+  async create(dto: CreateLetterDto, userId: string, organizationId: string) {
     // 1-ogohlantirish shabloni faqat jismoniy shaxslar (fuqarolar) uchun mo'ljallangan
     const counterpartyType = dto.type === LetterType.FIRST_WARNING ? "CITIZEN" : (dto.counterpartyType || "ORGANIZATION");
     const direction = dto.direction === "INCOMING" ? "INCOMING" : "OUTGOING";
-    const number = await this.getNextDocumentNumber(dto.type, direction, userId);
+    const number = await this.getNextDocumentNumber(dto.type, direction, userId, organizationId);
     const body = dto.bodyText?.trim() || (await this.aiAgent.generate(dto)).text;
     const letter = await this.prisma.letter.create({
       data: {
         direction: dto.direction === "INCOMING" ? "INCOMING" : "OUTGOING", type: dto.type, status: LetterStatus.DRAFT,
         documentNumber: number.documentNumber, documentDate: new Date(dto.documentDate),
+        organizationId,
         counterpartyType, counterpartyName: dto.counterpartyName,
         counterpartyAddress: dto.counterpartyAddress, phoneNumber: dto.phoneNumber, summary: dto.summary,
         bodyText: body, aiGenerated: dto.aiGenerated ?? false, createdById: userId,
@@ -213,8 +216,13 @@ export class LettersService {
     return this.aiAgent.getLearningStats();
   }
 
-  async findAll(query: Partial<QueryLettersDto>) {
-    const where: Prisma.LetterWhereInput = {};
+  /**
+   * `organizationId` berilmasa (masalan tashqi API-kalit orqali kirilganda)
+   * barcha tashkilotlar bo'yicha qaytaradi - hozircha API kalitlar
+   * tashkilotga bog'lanmagan.
+   */
+  async findAll(query: Partial<QueryLettersDto>, organizationId?: string) {
+    const where: Prisma.LetterWhereInput = organizationId ? { organizationId } : {};
     if (query.direction) where.direction = query.direction;
     if (query.type) where.type = query.type;
     if (query.status) {
@@ -231,27 +239,35 @@ export class LettersService {
     return { items, total, page, pageSize };
   }
 
-  async exportRows(query: QueryLettersDto) {
-    const where: Prisma.LetterWhereInput = {};
+  async exportRows(query: QueryLettersDto, organizationId: string) {
+    const where: Prisma.LetterWhereInput = { organizationId };
     if (query.direction) where.direction = query.direction; if (query.type) where.type = query.type; if (query.status) where.status = query.status;
     return this.prisma.letter.findMany({ where, orderBy: [{ documentDate: "asc" }, { createdAt: "asc" }], include: { createdBy: { select: { fullName: true } } } });
   }
 
-  async countsByDirection() {
+  async countsByDirection(organizationId: string) {
     const [all, incoming, outgoing] = await this.prisma.$transaction([
-      this.prisma.letter.count(), this.prisma.letter.count({ where: { direction: "INCOMING" } }), this.prisma.letter.count({ where: { direction: "OUTGOING" } }),
+      this.prisma.letter.count({ where: { organizationId } }),
+      this.prisma.letter.count({ where: { organizationId, direction: "INCOMING" } }),
+      this.prisma.letter.count({ where: { organizationId, direction: "OUTGOING" } }),
     ]); return { all, incoming, outgoing };
   }
 
-  async findOne(id: string) {
+  /**
+   * `organizationId` berilsa - xat boshqa tashkilotga tegishli bo'lsa ham
+   * "topilmadi" deb qaytariladi (mavjudligini oshkor qilmaslik uchun ham
+   * 404, 403 emas) - shu orqali tashkilotlar orasida ID orqali chalkash
+   * kirish (cross-tenant access) oldini olinadi.
+   */
+  async findOne(id: string, organizationId?: string) {
     const letter = await this.prisma.letter.findUnique({ where: { id }, include: { createdBy: { select: { fullName: true } } } });
-    if (!letter) throw new NotFoundException("Xat topilmadi.");
+    if (!letter || (organizationId && letter.organizationId !== organizationId)) throw new NotFoundException("Xat topilmadi.");
     return letter;
   }
 
   /** Tasdiqlashga yuborish. approverId berilsa - xat aynan shu rahbarga biriktiriladi. */
-  async submitForApproval(id: string, userId: string, approverId?: string) {
-    const letter = await this.findOne(id);
+  async submitForApproval(id: string, userId: string, approverId: string | undefined, organizationId: string) {
+    const letter = await this.findOne(id, organizationId);
     if (![LetterStatus.DRAFT].includes(letter.status as LetterStatus)) {
       throw new BadRequestException("Faqat qoralama xatni rahbariyatga yuborish mumkin.");
     }
@@ -290,14 +306,13 @@ export class LettersService {
     });
   }
 
-  async approve(id: string, user: { id: string; role: string }) {
+  async approve(id: string, user: { id: string; role: string; organizationId: string }) {
+    if (![Role.ADMIN, Role.MANAGER].includes(user.role as Role)) throw new ForbiddenException("Faqat rahbariyat xatni tasdiqlashi mumkin.");
+    const letter = await this.findOne(id, user.organizationId);
     // Xat aniq bir rahbarga biriktirilgan bo'lsa - faqat o'sha (yoki ADMIN) tasdiqlaydi
-    const target = await this.prisma.letter.findUnique({ where: { id }, select: { assignedApproverId: true } });
-    if (target?.assignedApproverId && target.assignedApproverId !== user.id && user.role !== Role.ADMIN) {
+    if (letter.assignedApproverId && letter.assignedApproverId !== user.id && user.role !== Role.ADMIN) {
       throw new ForbiddenException("Bu xat boshqa rahbarga tasdiqlash uchun yuborilgan.");
     }
-    if (![Role.ADMIN, Role.MANAGER].includes(user.role as Role)) throw new ForbiddenException("Faqat rahbariyat xatni tasdiqlashi mumkin.");
-    const letter = await this.findOne(id);
     if (letter.status !== LetterStatus.PENDING_APPROVAL) throw new BadRequestException("Xat rahbariyat tasdig'iga yuborilmagan.");
     const token = randomUUID();
     const finalFile = await this.generateFinalFile(id, token);
@@ -307,11 +322,11 @@ export class LettersService {
   }
 
   /** Rahbariyat xatni rad etadi - sabab bilan. Xat qoralamaga qaytmaydi, alohida holat oladi. */
-  async reject(id: string, user: { id: string; role: string }, reason: string) {
+  async reject(id: string, user: { id: string; role: string; organizationId: string }, reason: string) {
     if (![Role.ADMIN, Role.MANAGER].includes(user.role as Role)) {
       throw new ForbiddenException("Faqat rahbariyat xatni rad etishi mumkin.");
     }
-    const letter = await this.findOne(id);
+    const letter = await this.findOne(id, user.organizationId);
     if (letter.status !== LetterStatus.PENDING_APPROVAL) {
       throw new BadRequestException("Xat rahbariyat tasdig'iga yuborilmagan.");
     }
@@ -332,8 +347,8 @@ export class LettersService {
   }
 
   /** Xat matnini tahrirlash - faqat qoralama holatidagi xatlar uchun. */
-  async updateBody(id: string, data: { bodyText?: string; summary?: string }, userId: string) {
-    const letter = await this.findOne(id);
+  async updateBody(id: string, data: { bodyText?: string; summary?: string }, userId: string, organizationId: string) {
+    const letter = await this.findOne(id, organizationId);
     if (letter.status !== LetterStatus.DRAFT) {
       throw new BadRequestException("Faqat qoralama holatidagi xatni tahrirlash mumkin.");
     }
@@ -352,8 +367,8 @@ export class LettersService {
     return updated;
   }
 
-  async softDelete(id: string, userId: string) {
-    await this.findOne(id);
+  async softDelete(id: string, userId: string, organizationId: string) {
+    await this.findOne(id, organizationId);
     const updated = await this.prisma.letter.update({ where: { id }, data: { status: LetterStatus.DELETED } });
     await this.auditLog.record({ userId, action: AuditAction.DELETE, metadata: { letterId: id, kind: "letter" } });
     return updated;
@@ -363,8 +378,8 @@ export class LettersService {
    * Tasdiqlangan xatning PDF nusxasi. Word shablonidan hosil bo'lgan HAQIQIY
    * matn asosida tayyorlanadi, QR kod ham qo'shiladi.
    */
-  async buildPdf(id: string): Promise<{ buffer: Buffer; name: string }> {
-    const letter = await this.findOne(id);
+  async buildPdf(id: string, organizationId?: string): Promise<{ buffer: Buffer; name: string }> {
+    const letter = await this.findOne(id, organizationId);
     const approved = letter.status === LetterStatus.ARCHIVED && !!letter.qrToken;
     // Word shabloni to'ldirilib, aynan o'sha fayl PDF ga aylantiriladi -
     // shuning uchun PDF va DOCX bir xil ko'rinadi (QR ham ichida).
@@ -374,8 +389,8 @@ export class LettersService {
   }
 
   /** Xatning Word shablonidan olingan haqiqiy matni (QR sahifasida ko'rsatish uchun). */
-  async getRenderedText(id: string): Promise<string[]> {
-    const letter = await this.findOne(id);
+  async getRenderedText(id: string, organizationId?: string): Promise<string[]> {
+    const letter = await this.findOne(id, organizationId);
     const approved = letter.status === LetterStatus.ARCHIVED && !!letter.qrToken;
     const docx = await this.buildDocx(letter, approved, letter.qrToken ?? undefined);
     return this.pdfService.extractParagraphs(docx);
@@ -441,8 +456,8 @@ export class LettersService {
     return `/uploads/letters/${name}`;
   }
 
-  async download(id: string, kind: "draft" | "final") {
-    const letter = await this.findOne(id);
+  async download(id: string, kind: "draft" | "final", organizationId: string) {
+    const letter = await this.findOne(id, organizationId);
 
     // Xat tasdiqlangan bo'lsa - doim QR kodli YAKUNIY nusxa beriladi.
     // (Aks holda eski qoralama yuklanib, QR o'rni bo'sh ko'rinib qolardi.)
@@ -469,9 +484,9 @@ export class LettersService {
   }
 
   /** "O'chirilgan" bo'limi - faqat o'chirilgan xatlar (tasdiqlanganlar "Imzolangan"da). */
-  async archiveList() {
+  async archiveList(organizationId: string) {
     return this.prisma.letter.findMany({
-      where: { status: LetterStatus.DELETED },
+      where: { status: LetterStatus.DELETED, organizationId },
       orderBy: { updatedAt: "desc" },
       include: { createdBy: { select: { fullName: true } } },
     });

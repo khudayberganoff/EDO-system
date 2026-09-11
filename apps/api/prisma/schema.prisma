@@ -19,6 +19,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Tizim ikkita tashkilot uchun bo'lingan: WAFA LEASING MCHJ va VAFO MOLIYA
+/// MCHJ MMT. Foydalanuvchi tizimga kirishda qaysi tashkilot nomidan
+/// ishlashini tanlaydi (UserOrganization orqali unga ruxsat berilgan
+/// tashkilotlar orasidan) - shu tashkilot JWT tokenga yoziladi va
+/// Letter/Document/Employee kabi asosiy ma'lumotlar shu bo'yicha ajratiladi.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  userAccess UserOrganization[]
+  letters    Letter[]
+  documents  Document[]
+  employees  Employee[]
+}
+
+/// Foydalanuvchining qaysi tashkilot(lar)ga kirish huquqi borligi.
+/// Oddiy xodim odatda bitta tashkilotga, administrator/rahbariyat esa
+/// ikkalasiga ham ega bo'lishi mumkin - shunda ular orasida tanlab/almashtirib
+/// kiradi.
+model UserOrganization {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+}
+
 model User {
   id           String   @id @default(uuid())
   fullName     String
@@ -33,6 +64,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  organizations    UserOrganization[]
   dailyTasks       DailyTask[]       @relation("DailyTaskOwner")
   documents        Document[]        @relation("DocumentOwner")
   workflowSteps    WorkflowStep[]    @relation("StepApprover")
@@ -61,6 +93,12 @@ model Document {
   status  String @default("DRAFT")
   ownerId String
   owner   User   @relation("DocumentOwner", fields: [ownerId], references: [id])
+
+  /// Qaysi tashkilotga tegishli (WAFA LEASING / VAFO MOLIYA) - null bo'lsa
+  /// eski (tashkilot ajratilishidan oldingi) yozuv, bootstrap-seed uni
+  /// avtomatik WAFA LEASING'ga bog'laydi.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   contractRefId String? // tashqi CRM'dagi shartnoma ID'si (integratsiya nuqtasi)
   createdAt     DateTime @default(now())
@@ -170,6 +208,12 @@ model Letter {
   /// DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | ARCHIVED | DELETED
   status    String @default("DRAFT")
 
+  /// Qaysi tashkilotga tegishli (WAFA LEASING / VAFO MOLIYA) - null bo'lsa
+  /// eski (tashkilot ajratilishidan oldingi) yozuv, bootstrap-seed uni
+  /// avtomatik WAFA LEASING'ga bog'laydi.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   documentNumber      String
   documentDate        DateTime @default(now())
   /// ORGANIZATION | CITIZEN
@@ -213,6 +257,7 @@ model Letter {
   @@index([direction])
   @@index([type])
   @@index([status])
+  @@index([organizationId])
 }
 
 /// Chiquvchi hujjatlar uchun yillik, bo'lim bo'yicha ketma-ket raqamlash.
@@ -237,6 +282,11 @@ model Employee {
   fullName       String
   position       String
   department     String?
+  /// Qaysi tashkilotga tegishli (WAFA LEASING / VAFO MOLIYA) - null bo'lsa
+  /// eski (tashkilot ajratilishidan oldingi) yozuv, bootstrap-seed uni
+  /// avtomatik WAFA LEASING'ga bog'laydi.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
   /// Ishga qabul qilingan sana
   hireDate       DateTime
   birthDate      DateTime?
@@ -279,6 +329,7 @@ model Employee {
 
   @@index([status])
   @@index([fullName])
+  @@index([organizationId])
 }
 
 /// Xodimlar bo'yicha buyruqlar (ishga qabul, bo'shatish, lavozimga o'tkazish va h.k.)
