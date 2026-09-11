@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, MinLength } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class LoginDto {
@@ -11,7 +11,14 @@ export class LoginDto {
   @MinLength(6, { message: "Parol kamida 6 belgidan iborat bo'lishi kerak." })
   password: string;
 
-  @ApiProperty({ description: "Foydalanuvchi tanlagan tashkilot ID'si (GET /auth/organizations dan)" })
+  @ApiProperty({
+    required: false,
+    description:
+      "Foydalanuvchi tanlagan tashkilot ID'si. Foydalanuvchi bir nechta tashkilotga ega bo'lsa va bu berilmasa, " +
+      "javobda requiresOrganizationSelection=true va tashkilotlar ro'yxati qaytadi (token berilmaydi) - " +
+      "shundan keyin xuddi shu email/parol bilan, endi organizationId qo'shib qayta yuborish kerak.",
+  })
   @IsString()
-  organizationId: string;
+  @IsOptional()
+  organizationId?: string;
 }

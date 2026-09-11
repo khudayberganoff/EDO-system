@@ -19,6 +19,14 @@ export class AuthService {
     return this.prisma.organization.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
   }
 
+  /**
+   * Email+parol to'g'ri kelgach:
+   * - foydalanuvchi FAQAT BITTA tashkilotga ega bo'lsa - shu tashkilot bilan darhol kiradi;
+   * - BIR NECHTA tashkilotga ega bo'lsa va `organizationId` hali berilmagan bo'lsa -
+   *   token BERMASDAN, tanlash uchun tashkilotlar ro'yxatini qaytaradi (frontend alohida
+   *   oynada shu ro'yxatni ko'rsatadi, foydalanuvchi tanlagach xuddi shu email/parol bilan,
+   *   endi organizationId bilan qayta yuboradi).
+   */
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
@@ -32,7 +40,18 @@ export class AuthService {
       throw new UnauthorizedException("Email yoki parol noto'g'ri.");
     }
 
-    const organization = await this.assertOrgAccess(user.id, dto.organizationId);
+    if (!dto.organizationId) {
+      const memberships = await this.myOrganizations(user.id);
+      if (memberships.length === 0) {
+        throw new ForbiddenException("Sizga hech qanday tashkilotga kirish huquqi berilmagan.");
+      }
+      if (memberships.length > 1) {
+        return { requiresOrganizationSelection: true as const, organizations: memberships };
+      }
+      dto = { ...dto, organizationId: memberships[0].id };
+    }
+
+    const organization = await this.assertOrgAccess(user.id, dto.organizationId!);
 
     const payload = { sub: user.id, email: user.email, role: user.role, organizationId: organization.id };
     const accessToken = await this.jwtService.signAsync(payload);

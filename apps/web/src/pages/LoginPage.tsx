@@ -1,10 +1,9 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, OrganizationSelectionRequiredError } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
-import { fetchOrganizations } from "../api/auth";
 import type { OrganizationDto } from "@edo/shared-types";
 
 /** Sakkiz burchakli yulduz - islom geometriyasidagi asosiy motiv. */
@@ -30,15 +29,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Tashkilot tanlagichi - login qilishdan oldin qaysi tashkilot nomidan kirishini tanlash shart
-  const [organizations, setOrganizations] = useState<OrganizationDto[]>([]);
-  const [organizationId, setOrganizationId] = useState("");
-  useEffect(() => {
-    fetchOrganizations().then((list) => {
-      setOrganizations(list);
-      if (list.length === 1) setOrganizationId(list[0].id);
-    }).catch(() => {});
-  }, []);
+  // Login/parol to'g'ri kelib, foydalanuvchi bir nechta tashkilotga ega bo'lsa -
+  // shu ro'yxat bilan alohida oyna (modal) ochiladi, kirish shu bilan yakunlanadi.
+  const [orgChoices, setOrgChoices] = useState<OrganizationDto[] | null>(null);
+  const [selectingOrg, setSelectingOrg] = useState(false);
 
   // Sichqoncha harakati - yulduzlar kursor atrofida yonib turishi uchun
   const glowRef = useRef<HTMLDivElement>(null);
@@ -65,18 +59,33 @@ export function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!organizationId) {
-      setError("Tashkilotni tanlang.");
-      return;
-    }
     setLoading(true);
+    try {
+      await login({ email, password }, remember);
+      navigate("/");
+    } catch (err) {
+      if (err instanceof OrganizationSelectionRequiredError) {
+        // Login/parol to'g'ri - faqat qaysi tashkilotdanligini tanlash qoldi
+        setOrgChoices(err.organizations);
+      } else {
+        setError(t("login.error"));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function chooseOrganization(organizationId: string) {
+    setSelectingOrg(true);
+    setError(null);
     try {
       await login({ email, password, organizationId }, remember);
       navigate("/");
     } catch {
+      setOrgChoices(null);
       setError(t("login.error"));
     } finally {
-      setLoading(false);
+      setSelectingOrg(false);
     }
   }
 
@@ -151,29 +160,6 @@ export function LoginPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    <Building2 size={12} /> Tashkilot
-                  </label>
-                  <div className="space-y-1.5">
-                    {organizations.map((org) => (
-                      <button
-                        key={org.id}
-                        type="button"
-                        onClick={() => setOrganizationId(org.id)}
-                        className={`flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-left text-sm transition ${
-                          organizationId === org.id
-                            ? "border-brand-600 bg-brand-50 font-medium text-brand-900"
-                            : "border-slate-200 bg-slate-50/70 text-slate-600 hover:border-slate-300"
-                        }`}
-                      >
-                        {org.name}
-                        {organizationId === org.id && <Check size={15} className="text-brand-700" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     {t("login.emailPlaceholder")}
                   </label>
@@ -227,7 +213,7 @@ export function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || !organizationId}
+                  disabled={loading}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-800 py-3.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
                 >
                   {loading && <Loader2 size={16} className="animate-spin" />}
@@ -250,6 +236,43 @@ export function LoginPage() {
         <span className="mx-2">·</span>
         {t("login.footer")}
       </footer>
+
+      {/* Tashkilot tanlash oynasi - login/parol to'g'ri kelib, foydalanuvchi bir nechta
+          tashkilotga ega bo'lganda (administrator shunday sozlagan bo'lsa) ochiladi. */}
+      {orgChoices && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-1 flex items-center gap-2 text-brand-950">
+              <Building2 size={18} />
+              <h3 className="text-base font-semibold">Tashkilotni tanlang</h3>
+            </div>
+            <p className="mb-5 text-sm text-slate-500">
+              Sizga bir nechta tashkilotga kirish huquqi berilgan - qaysi biri nomidan ishlashni tanlang.
+            </p>
+            <div className="space-y-2">
+              {orgChoices.map((org) => (
+                <button
+                  key={org.id}
+                  type="button"
+                  disabled={selectingOrg}
+                  onClick={() => chooseOrganization(org.id)}
+                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-900 disabled:opacity-50"
+                >
+                  {org.name}
+                  {selectingOrg ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} className="opacity-0 transition group-hover:opacity-100" />}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setOrgChoices(null)}
+              className="mt-4 w-full text-center text-xs text-slate-400 hover:text-slate-600"
+            >
+              Bekor qilish
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { LoginRequestDto, LoginResponseDto, OrganizationDto } from "@edo/shared-types";
+import type { LoginRequestDto, LoginResponseDto, LoginSuccessDto, OrganizationDto } from "@edo/shared-types";
 
 /** Kirish sahifasidagi tashkilot tanlagichi uchun - login qilishdan OLDIN ochiq. */
 export async function fetchOrganizations() {
@@ -20,7 +20,8 @@ export async function fetchMyOrganizations() {
 
 /** Qayta parol so'ramasdan boshqa (kira oladigan) tashkilotga o'tish. */
 export async function switchOrganization(organizationId: string) {
-  const { data } = await apiClient.post<LoginResponseDto>("/auth/switch-organization", { organizationId });
+  // Bu endpoint hech qachon tashkilot tanlashni qayta so'ramaydi - organizationId aniq berilgan
+  const { data } = await apiClient.post<LoginSuccessDto>("/auth/switch-organization", { organizationId });
   return data;
 }
 
