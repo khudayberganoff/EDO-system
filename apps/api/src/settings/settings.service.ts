@@ -140,7 +140,7 @@ export class SettingsService {
     };
   }
 
-  async createUser(data: { fullName: string; email: string; password: string; role: string }, actorId: string) {
+  async createUser(data: { fullName: string; email: string; password: string; role: string }, actorId: string, organizationId: string) {
     const email = data.email.trim().toLowerCase();
     const exists = await this.prisma.user.findUnique({ where: { email } });
     if (exists) throw new BadRequestException("Bu email allaqachon ro'yxatdan o'tgan.");
@@ -154,6 +154,7 @@ export class SettingsService {
         email,
         passwordHash: await bcrypt.hash(data.password, 10),
         role: data.role,
+        organizations: { create: { organizationId } },
       },
       select: { id: true, fullName: true, email: true, role: true, isActive: true },
     });

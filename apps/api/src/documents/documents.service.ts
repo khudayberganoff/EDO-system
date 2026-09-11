@@ -20,13 +20,14 @@ export class DocumentsService {
     private auditLog: AuditLogService,
   ) {}
 
-  async create(dto: CreateDocumentDto, ownerId: string) {
+  async create(dto: CreateDocumentDto, ownerId: string, organizationId: string) {
     const document = await this.prisma.document.create({
       data: {
         title: dto.title,
         type: dto.type,
         contractRefId: dto.contractRefId,
         ownerId,
+        organizationId,
         status: DocumentStatus.DRAFT,
       },
     });
@@ -40,8 +41,8 @@ export class DocumentsService {
     return document;
   }
 
-  async findAll(params: { status?: DocumentStatus; contractRefId?: string; page: number; pageSize: number }) {
-    const where: Prisma.DocumentWhereInput = {};
+  async findAll(params: { status?: DocumentStatus; contractRefId?: string; page: number; pageSize: number; organizationId: string }) {
+    const where: Prisma.DocumentWhereInput = { organizationId: params.organizationId };
     if (params.status) where.status = params.status;
     if (params.contractRefId) where.contractRefId = params.contractRefId;
 
@@ -62,7 +63,8 @@ export class DocumentsService {
     return { items, total, page: params.page, pageSize: params.pageSize };
   }
 
-  async findOne(id: string) {
+  /** `organizationId` berilsa - boshqa tashkilotga tegishli hujjat "topilmadi" deb qaytariladi. */
+  async findOne(id: string, organizationId?: string) {
     const document = await this.prisma.document.findUnique({
       where: { id },
       include: {
@@ -79,14 +81,14 @@ export class DocumentsService {
       },
     });
 
-    if (!document) {
+    if (!document || (organizationId && document.organizationId !== organizationId)) {
       throw new NotFoundException("Hujjat topilmadi.");
     }
     return document;
   }
 
-  async addVersion(documentId: string, file: UploadedFileInfo, userId: string, note?: string) {
-    const document = await this.findOne(documentId);
+  async addVersion(documentId: string, file: UploadedFileInfo, userId: string, note: string | undefined, organizationId: string) {
+    const document = await this.findOne(documentId, organizationId);
 
     if (document.status === DocumentStatus.SIGNED || document.status === DocumentStatus.ARCHIVED) {
       throw new BadRequestException("Imzolangan yoki arxivlangan hujjatga yangi versiya qo'shib bo'lmaydi.");
@@ -117,8 +119,8 @@ export class DocumentsService {
     return version;
   }
 
-  async createWorkflow(documentId: string, dto: CreateWorkflowDto, userId: string) {
-    const document = await this.findOne(documentId);
+  async createWorkflow(documentId: string, dto: CreateWorkflowDto, userId: string, organizationId: string) {
+    const document = await this.findOne(documentId, organizationId);
     if (document.workflow) {
       throw new BadRequestException("Bu hujjat uchun workflow allaqachon yaratilgan.");
     }
@@ -205,9 +207,9 @@ export class DocumentsService {
     }
   }
 
-  async transitionStatus(documentId: string, to: DocumentStatus, userId: string) {
+  async transitionStatus(documentId: string, to: DocumentStatus, userId: string, organizationId?: string) {
     const document = await this.prisma.document.findUnique({ where: { id: documentId } });
-    if (!document) {
+    if (!document || (organizationId && document.organizationId !== organizationId)) {
       throw new NotFoundException("Hujjat topilmadi.");
     }
 

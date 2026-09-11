@@ -29,24 +29,25 @@ export class DocumentsController {
   @Post()
   @ApiOperation({ summary: "Yangi hujjat (DRAFT holatida) yaratish" })
   create(@Body() dto: CreateDocumentDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.documentsService.create(dto, user.id);
+    return this.documentsService.create(dto, user.id, user.organizationId);
   }
 
   @Get()
   @ApiOperation({ summary: "Hujjatlar ro'yxati (filter va sahifalash bilan)" })
   findAll(
-    @Query("status") status?: DocumentStatus,
-    @Query("contractRefId") contractRefId?: string,
-    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page = 1,
-    @Query("pageSize", new DefaultValuePipe(20), ParseIntPipe) pageSize = 20,
+    @Query("status") status: DocumentStatus | undefined,
+    @Query("contractRefId") contractRefId: string | undefined,
+    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query("pageSize", new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.documentsService.findAll({ status, contractRefId, page, pageSize });
+    return this.documentsService.findAll({ status, contractRefId, page, pageSize, organizationId: user.organizationId });
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Bitta hujjatni to'liq ma'lumot bilan olish (versiyalar, workflow)" })
-  findOne(@Param("id") id: string) {
-    return this.documentsService.findOne(id);
+  findOne(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.documentsService.findOne(id, user.organizationId);
   }
 
   @Post(":id/versions")
@@ -72,6 +73,7 @@ export class DocumentsController {
       },
       user.id,
       note,
+      user.organizationId,
     );
   }
 
@@ -82,7 +84,7 @@ export class DocumentsController {
     @Body() dto: CreateWorkflowDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.documentsService.createWorkflow(id, dto, user.id);
+    return this.documentsService.createWorkflow(id, dto, user.id, user.organizationId);
   }
 
   @Post("workflow-steps/:stepId/approve")
@@ -108,6 +110,6 @@ export class DocumentsController {
   @Post(":id/archive")
   @ApiOperation({ summary: "Imzolangan hujjatni arxivlash" })
   archive(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.documentsService.transitionStatus(id, DocumentStatus.ARCHIVED, user.id);
+    return this.documentsService.transitionStatus(id, DocumentStatus.ARCHIVED, user.id, user.organizationId);
   }
 }

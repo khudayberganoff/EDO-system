@@ -25,8 +25,9 @@ export class HrService {
 
   // ---------- Xodimlar ----------
 
-  async listEmployees(query: { search?: string; status?: string }) {
+  async listEmployees(query: { search?: string; status?: string; organizationId?: string }) {
     const where: any = {};
+    if (query.organizationId) where.organizationId = query.organizationId;
     if (query.status) where.status = query.status;
     if (query.search) {
       where.OR = [
@@ -42,7 +43,8 @@ export class HrService {
     });
   }
 
-  async getEmployee(id: string) {
+  /** `organizationId` berilsa - boshqa tashkilotning xodimi "topilmadi" deb qaytariladi. */
+  async getEmployee(id: string, organizationId?: string) {
     const employee = await this.prisma.employee.findUnique({
       where: { id },
       include: {
@@ -52,17 +54,20 @@ export class HrService {
         user: { select: { email: true, role: true } },
       },
     });
-    if (!employee) throw new NotFoundException("Xodim topilmadi.");
+    if (!employee || (organizationId && employee.organizationId !== organizationId)) {
+      throw new NotFoundException("Xodim topilmadi.");
+    }
     return employee;
   }
 
-  async createEmployee(dto: CreateEmployeeDto, user: { id: string; role: string }) {
+  async createEmployee(dto: CreateEmployeeDto, user: { id: string; role: string; organizationId: string }) {
     this.ensureHrAccess(user.role);
     const employee = await this.prisma.employee.create({
       data: {
         fullName: dto.fullName,
         position: dto.position,
         department: dto.department,
+        organizationId: user.organizationId,
         hireDate: new Date(dto.hireDate),
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
         phone: dto.phone,
@@ -83,9 +88,9 @@ export class HrService {
     return employee;
   }
 
-  async updateEmployee(id: string, dto: UpdateEmployeeDto, user: { id: string; role: string }) {
+  async updateEmployee(id: string, dto: UpdateEmployeeDto, user: { id: string; role: string; organizationId: string }) {
     this.ensureHrAccess(user.role);
-    await this.getEmployee(id);
+    await this.getEmployee(id, user.organizationId);
     const employee = await this.prisma.employee.update({
       where: { id },
       data: {
@@ -111,9 +116,9 @@ export class HrService {
     return employee;
   }
 
-  async removeEmployee(id: string, user: { id: string; role: string }) {
+  async removeEmployee(id: string, user: { id: string; role: string; organizationId: string }) {
     this.ensureHrAccess(user.role);
-    await this.getEmployee(id);
+    await this.getEmployee(id, user.organizationId);
     await this.prisma.employee.delete({ where: { id } });
     await this.auditLog.record({ userId: user.id, action: AuditAction.DELETE, metadata: { kind: "employee", employeeId: id } });
     return { deleted: true };
@@ -121,8 +126,9 @@ export class HrService {
 
   // ---------- Buyruqlar ----------
 
-  async listOrders(query: { employeeId?: string; type?: string }) {
+  async listOrders(query: { employeeId?: string; type?: string; organizationId?: string }) {
     const where: any = {};
+    if (query.organizationId) where.employee = { organizationId: query.organizationId };
     if (query.employeeId) where.employeeId = query.employeeId;
     if (query.type) where.type = query.type;
     return this.prisma.hrOrder.findMany({
@@ -284,8 +290,9 @@ export class HrService {
 
   // ---------- Mehnat shartnomalari ----------
 
-  async listContracts(query: { employeeId?: string }) {
+  async listContracts(query: { employeeId?: string; organizationId?: string }) {
     const where: any = {};
+    if (query.organizationId) where.employee = { organizationId: query.organizationId };
     if (query.employeeId) where.employeeId = query.employeeId;
     return this.prisma.employmentContract.findMany({
       where,
@@ -321,8 +328,9 @@ export class HrService {
 
   // ---------- Ta'tillar ----------
 
-  async listLeaves(query: { employeeId?: string; status?: string }) {
+  async listLeaves(query: { employeeId?: string; status?: string; organizationId?: string }) {
     const where: any = {};
+    if (query.organizationId) where.employee = { organizationId: query.organizationId };
     if (query.employeeId) where.employeeId = query.employeeId;
     if (query.status) where.status = query.status;
     return this.prisma.leave.findMany({
@@ -680,10 +688,10 @@ export class HrService {
    * bir marta qaytariladi (bcrypt bilan bir tomonlama shifrlanadi, keyin
    * uni hech kim - administrator ham - qayta ko'ra olmaydi).
    */
-  async createSystemAccount(employeeId: string, role: string, actor: { id: string; role: string }) {
+  async createSystemAccount(employeeId: string, role: string, actor: { id: string; role: string; organizationId: string }) {
     this.ensureHrAccess(actor.role);
     const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
-    if (!employee) throw new NotFoundException("Xodim topilmadi.");
+    if (!employee || employee.organizationId !== actor.organizationId) throw new NotFoundException("Xodim topilmadi.");
     if (employee.userId) throw new BadRequestException("Bu xodim allaqachon tizim hisobiga bog'langan.");
     if (![Role.ADMIN, Role.MANAGER, Role.EMPLOYEE].includes(role as Role)) {
       throw new BadRequestException("Noma'lum rol.");
@@ -695,6 +703,8 @@ export class HrService {
     const newUser = await this.prisma.user.create({
       data: { fullName: employee.fullName, email, passwordHash: await bcrypt.hash(password, 10), role, mustChangePassword: true },
     });
+    // Yangi hisob shu xodim tegishli bo'lgan tashkilotga kira oladi
+    await this.prisma.userOrganization.create({ data: { userId: newUser.id, organizationId: actor.organizationId } });
     await this.prisma.employee.update({ where: { id: employeeId }, data: { userId: newUser.id } });
     await this.auditLog.record({
       userId: actor.id, action: AuditAction.CREATE,
@@ -732,12 +742,14 @@ export class HrService {
   }
 
   /** Kadrlar bo'limi bosh sahifasi uchun qisqacha statistika. */
-  async stats() {
+  /** `organizationId` berilmasa (tashqi API-kalit orqali) - barcha tashkilotlar bo'yicha. */
+  async stats(organizationId?: string) {
+    const orgWhere = organizationId ? { organizationId } : {};
     const [total, active, dismissed, pendingLeaves] = await this.prisma.$transaction([
-      this.prisma.employee.count(),
-      this.prisma.employee.count({ where: { status: "ACTIVE" } }),
-      this.prisma.employee.count({ where: { status: "DISMISSED" } }),
-      this.prisma.leave.count({ where: { status: "REQUESTED" } }),
+      this.prisma.employee.count({ where: orgWhere }),
+      this.prisma.employee.count({ where: { ...orgWhere, status: "ACTIVE" } }),
+      this.prisma.employee.count({ where: { ...orgWhere, status: "DISMISSED" } }),
+      this.prisma.leave.count({ where: { status: "REQUESTED", employee: orgWhere } }),
     ]);
     return { total, active, dismissed, pendingLeaves };
   }

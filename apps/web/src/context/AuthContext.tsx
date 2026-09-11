@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import type { UserDto, LoginRequestDto } from "@edo/shared-types";
-import { login as loginRequest } from "../api/auth";
-import { saveSession, readUser, clearSession, updateStoredUser } from "../api/session-storage";
+import { login as loginRequest, switchOrganization as switchOrgRequest } from "../api/auth";
+import { saveSession, readUser, clearSession, updateStoredUser, updateSession } from "../api/session-storage";
 
 interface AuthContextValue {
   user: UserDto | null;
@@ -10,6 +10,8 @@ interface AuthContextValue {
   logout: () => void;
   /** Parol muvaffaqiyatli almashtirilgandan keyin - majburiy almashtirish belgisini yechadi. */
   markPasswordChanged: () => void;
+  /** Qayta parol so'ramasdan boshqa (kira oladigan) tashkilotga o'tish. */
+  switchOrganization: (organizationId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -37,8 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const switchOrganization = useCallback(async (organizationId: string) => {
+    const response = await switchOrgRequest(organizationId);
+    updateSession(response.accessToken, response.user);
+    setUser(response.user);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, markPasswordChanged }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, markPasswordChanged, switchOrganization }}>
       {children}
     </AuthContext.Provider>
   );

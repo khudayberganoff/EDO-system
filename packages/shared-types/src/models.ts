@@ -21,6 +21,9 @@ export interface UserDto {
   createdAt: string;
   /// Keyingi kirishda parolni majburiy almashtirish kerakmi
   mustChangePassword?: boolean;
+  /// Joriy sessiya bog'langan tashkilot (login'da tanlangan)
+  organizationId?: string;
+  organizationName?: string;
 }
 
 export interface DocumentVersionDto {

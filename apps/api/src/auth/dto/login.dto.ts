@@ -10,4 +10,8 @@ export class LoginDto {
   @IsString()
   @MinLength(6, { message: "Parol kamida 6 belgidan iborat bo'lishi kerak." })
   password: string;
+
+  @ApiProperty({ description: "Foydalanuvchi tanlagan tashkilot ID'si (GET /auth/organizations dan)" })
+  @IsString()
+  organizationId: string;
 }

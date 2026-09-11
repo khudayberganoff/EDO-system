@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
@@ -14,6 +14,11 @@ export class AuthService {
     private auditLog: AuditLogService,
   ) {}
 
+  /** Kirish sahifasidagi tashkilot tanlagichi uchun - login qilishdan OLDIN ochiq (Public). */
+  async listOrganizations() {
+    return this.prisma.organization.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  }
+
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
@@ -27,12 +32,15 @@ export class AuthService {
       throw new UnauthorizedException("Email yoki parol noto'g'ri.");
     }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const organization = await this.assertOrgAccess(user.id, dto.organizationId);
+
+    const payload = { sub: user.id, email: user.email, role: user.role, organizationId: organization.id };
     const accessToken = await this.jwtService.signAsync(payload);
 
     await this.auditLog.record({
       userId: user.id,
       action: AuditAction.LOGIN,
+      metadata: { organizationId: organization.id },
     });
 
     return {
@@ -45,8 +53,58 @@ export class AuthService {
         isActive: user.isActive,
         createdAt: user.createdAt.toISOString(),
         mustChangePassword: user.mustChangePassword,
+        organizationId: organization.id,
+        organizationName: organization.name,
       },
     };
+  }
+
+  /** Joriy foydalanuvchi kira oladigan barcha tashkilotlar - tashkilot almashtirgichini ko'rsatish kerak-emasligini aniqlash uchun. */
+  async myOrganizations(userId: string) {
+    const rows = await this.prisma.userOrganization.findMany({
+      where: { userId },
+      include: { organization: { select: { id: true, name: true } } },
+      orderBy: { organization: { name: "asc" } },
+    });
+    return rows.map((r) => r.organization);
+  }
+
+  /**
+   * Qayta parol so'ramasdan boshqa (foydalanuvchi kira oladigan) tashkilotga
+   * o'tish - rahbariyat ikkala tashkilot orasida shu orqali almashtiradi.
+   */
+  async switchOrganization(userId: string, organizationId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.isActive) throw new UnauthorizedException("Foydalanuvchi topilmadi.");
+
+    const organization = await this.assertOrgAccess(userId, organizationId);
+    const payload = { sub: user.id, email: user.email, role: user.role, organizationId: organization.id };
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt.toISOString(),
+        mustChangePassword: user.mustChangePassword,
+        organizationId: organization.id,
+        organizationName: organization.name,
+      },
+    };
+  }
+
+  /** Foydalanuvchi shu tashkilotga kirish huquqiga ega ekanini tekshiradi va tashkilotni qaytaradi. */
+  private async assertOrgAccess(userId: string, organizationId: string) {
+    const membership = await this.prisma.userOrganization.findUnique({
+      where: { userId_organizationId: { userId, organizationId } },
+      include: { organization: { select: { id: true, name: true } } },
+    });
+    if (!membership) throw new ForbiddenException("Sizga ushbu tashkilotga kirish huquqi berilmagan.");
+    return membership.organization;
   }
 
   /**

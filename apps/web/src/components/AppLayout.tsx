@@ -32,6 +32,7 @@ import { fetchMyAccess } from "../api/settings";
 import { fetchDocuments } from "../api/documents";
 import { fetchLetters } from "../api/letters";
 import { fetchHrStats } from "../api/hr";
+import { fetchMyOrganizations } from "../api/auth";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 
@@ -148,10 +149,25 @@ function SubSubItem({ to, label, icon: Icon, badge }: { to: string; label: strin
 }
 
 export function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, switchOrganization } = useAuth();
   // Interfeys foydalanuvchining ruxsatlariga qarab quriladi
   const { data: access } = useQuery({ queryKey: ["settings", "my-access"], queryFn: fetchMyAccess });
   const can = (module: string) => access?.[module]?.canView !== false;
+
+  // Foydalanuvchi bir nechta tashkilotga kira oladimi - shunda topbar'da almashtirgich ko'rsatiladi
+  const { data: myOrganizations } = useQuery({ queryKey: ["auth", "my-organizations"], queryFn: fetchMyOrganizations });
+  const [switchingOrg, setSwitchingOrg] = useState(false);
+  const handleSwitchOrg = async (organizationId: string) => {
+    if (organizationId === user?.organizationId) return;
+    setSwitchingOrg(true);
+    try {
+      await switchOrganization(organizationId);
+      // Barcha ma'lumotlar (xatlar, hujjatlar, xodimlar...) yangi tashkilot bo'yicha qayta yuklansin
+      window.location.reload();
+    } catch {
+      setSwitchingOrg(false);
+    }
+  };
 
   // Menyudagi son-bo'rtmalar - har biri o'z bo'limi uchun "diqqat talab qiladigan" elementlar soni.
   const { data: pendingSignatureDocs } = useQuery({
@@ -368,6 +384,27 @@ export function AppLayout() {
           <div className="flex-1 text-sm font-semibold text-slate-800">{pageTitleKey ? t(pageTitleKey as any) : ""}</div>
 
           <div className="flex items-center gap-3">
+            {myOrganizations && myOrganizations.length > 1 ? (
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5">
+                <Building2 size={14} className="text-slate-400" />
+                <select
+                  value={user?.organizationId ?? ""}
+                  disabled={switchingOrg}
+                  onChange={(e) => handleSwitchOrg(e.target.value)}
+                  className="bg-transparent text-xs font-medium text-slate-700 outline-none disabled:opacity-50"
+                >
+                  {myOrganizations.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              user?.organizationName && (
+                <div className="hidden items-center gap-1.5 text-xs text-slate-400 sm:flex">
+                  <Building2 size={13} /> {user.organizationName}
+                </div>
+              )
+            )}
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium text-slate-800">{user?.fullName}</div>
               <div className="text-xs text-slate-400">{user?.role}</div>
