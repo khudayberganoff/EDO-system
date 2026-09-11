@@ -1,7 +1,20 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import type { UserDto, LoginRequestDto } from "@edo/shared-types";
+import type { UserDto, LoginRequestDto, OrganizationDto } from "@edo/shared-types";
 import { login as loginRequest, switchOrganization as switchOrgRequest } from "../api/auth";
 import { saveSession, readUser, clearSession, updateStoredUser, updateSession } from "../api/session-storage";
+
+/**
+ * `login()` shu xatoni tashlaydi (token BERMAYDI) agar foydalanuvchi
+ * bir nechta tashkilotga ega bo'lsa va `organizationId` hali tanlanmagan
+ * bo'lsa - LoginPage buni ushlab, alohida oynada tashkilot tanlashni so'raydi.
+ */
+export class OrganizationSelectionRequiredError extends Error {
+  organizations: OrganizationDto[];
+  constructor(organizations: OrganizationDto[]) {
+    super("organization_selection_required");
+    this.organizations = organizations;
+  }
+}
 
 interface AuthContextValue {
   user: UserDto | null;
@@ -21,6 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (payload: LoginRequestDto, remember = true) => {
     const response = await loginRequest(payload);
+    if ("requiresOrganizationSelection" in response) {
+      throw new OrganizationSelectionRequiredError(response.organizations);
+    }
     saveSession(response.accessToken, response.user, remember);
     setUser(response.user);
   }, []);
