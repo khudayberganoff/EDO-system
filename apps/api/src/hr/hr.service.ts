@@ -2,11 +2,25 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 import * as XLSX from "xlsx";
 import * as bcrypt from "bcryptjs";
+import * as fs from "fs";
+import * as path from "path";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ImageModule = require("docxtemplater-image-module-free");
 import { PrismaService } from "../prisma/prisma.service";
 import { LetterPdfService } from "../letters/letter-pdf.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { AuditAction, Role } from "../common/enums";
 import { CreateEmployeeDto, UpdateEmployeeDto, CreateHrOrderDto, CreateContractDto, CreateLeaveDto } from "./dto/hr.dto";
+
+const HIRE_ORDER_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "ISHGA-QABUL-BUYRUQ-NAMUNA.docx");
+const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
+/** Shablonda {%qr_code} rasm joyi bo'sh qolmasligi uchun - oq (bo'sh) 180x180 PNG. */
+const BLANK_IMAGE_PNG = Buffer.from(
+  "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",
+  "base64",
+);
 
 /** Kadrlar bo'limi: xodimlar kartotekasi, buyruqlar, mehnat shartnomalari va ta'tillar. */
 @Injectable()
@@ -197,9 +211,23 @@ export class HrService {
   async buildOrderDocx(id: string): Promise<{ buffer: Buffer; name: string }> {
     const order = await this.prisma.hrOrder.findUnique({
       where: { id },
-      include: { employee: { select: { fullName: true, position: true, department: true } } },
+      include: {
+        employee: {
+          select: {
+            fullName: true, position: true, department: true,
+            departmentRef: { select: { name: true } },
+            organization: { select: { name: true } },
+          },
+        },
+      },
     });
     if (!order) throw new NotFoundException("Buyruq topilmadi.");
+
+    // Ishga qabul qilish buyrug'i - kompaniya taqdim etgan tayyor shablon (har ikkala
+    // tashkilot uchun ham bir xil shablon, faqat tashkilot nomi o'zgaradi) asosida shakllanadi.
+    if (order.type === "HIRE" && fs.existsSync(HIRE_ORDER_TEMPLATE_PATH)) {
+      return this.buildHireOrderDocx(order);
+    }
 
     const TYPE_LABELS: Record<string, string> = {
       HIRE: "Ishga qabul qilish", DISMISS: "Ishdan bo'shatish", TRANSFER: "Lavozimga o'tkazish",
@@ -243,6 +271,48 @@ export class HrService {
     const { buffer: docx, name } = await this.buildOrderDocx(id);
     const pdf = await this.pdfService.docxToPdf(docx);
     return { buffer: pdf, name: name.replace(/\.docx$/, ".pdf") };
+  }
+
+  /**
+   * "Ishga qabul qilish" buyrug'i - kompaniya taqdim etgan tayyor shablon
+   * (templates/ISHGA-QABUL-BUYRUQ-NAMUNA.docx) asosida. Ikkala tashkilot
+   * (WAFA LEASING, VAFO MOLIYA) uchun bitta shablon ishlatiladi - faqat
+   * {tashkilot} tegi xodim tegishli bo'lgan tashkilot nomiga almashadi.
+   * Shablondagi teglar: {tashkilot} {bo'lim nomi} {raqam} {sana} {oy} {yil}
+   * {xodim} {lavozim} {stavka} {%qr_code}
+   */
+  private async buildHireOrderDocx(order: any): Promise<{ buffer: Buffer; name: string }> {
+    try {
+      const content = fs.readFileSync(HIRE_ORDER_TEMPLATE_PATH, "binary");
+      const zip = new PizZip(content);
+      const imageModule = new ImageModule({ centered: false, getImage: () => BLANK_IMAGE_PNG, getSize: () => [90, 90] });
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, modules: [imageModule] });
+
+      const orderDate = order.orderDate ? new Date(order.orderDate) : new Date();
+      // Tayyor shablonda "MCHJda" so'zi matnga qattiq yozilgan - shuning uchun
+      // tashkilot nomidan "MCHJ" qismi olib tashlanadi (masalan "WAFA LEASING MCHJ" -> "WAFA LEASING").
+      const orgFullName = order.employee?.organization?.name ?? "WAFA LEASING MCHJ";
+      const tashkilot = orgFullName.replace(/\s*MCHJ.*$/i, "").trim();
+      const bolim = order.employee?.departmentRef?.name ?? order.employee?.department ?? "";
+
+      doc.render({
+        tashkilot,
+        "bo‘lim nomi": bolim,
+        raqam: order.number ?? "",
+        sana: String(orderDate.getDate()),
+        oy: UZ_MONTHS[orderDate.getMonth()],
+        yil: String(orderDate.getFullYear()),
+        xodim: order.employee?.fullName ?? "",
+        lavozim: order.employee?.position ?? "",
+        stavka: order.rate != null ? String(order.rate) : "1",
+        qr_code: "qr",
+      });
+      const buffer = doc.getZip().generate({ type: "nodebuffer" });
+      return { buffer, name: `buyruq-${order.number}.docx` };
+    } catch (err: any) {
+      const details = err?.properties?.errors?.map((e: any) => e.properties?.explanation).filter(Boolean).join("; ");
+      throw new BadRequestException("Ishga qabul buyrug'i shablonida xatolik: " + (details || err.message));
+    }
   }
 
   /** Buyruqlar ro'yxatini Excel (.xlsx) fayl sifatida shakllantiradi. */
