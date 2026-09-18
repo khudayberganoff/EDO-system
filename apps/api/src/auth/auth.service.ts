@@ -28,7 +28,14 @@ export class AuthService {
    *   endi organizationId bilan qayta yuboradi).
    */
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    // Email qidiruvi katta-kichik harfga SEZGIR (Postgres) - lekin foydalanuvchilar email
+    // yaratilganda har doim kichik harfga normalizatsiya qilinadi (settings.service.ts,
+    // hr.service.ts). Agar kirishda email boshqacha registrda kiritilsa (masalan telefon
+    // klaviaturasi birinchi harfni avtomatik katta qilib qo'ysa) - login/parol TO'G'RI
+    // bo'lsa ham "email yoki parol noto'g'ri" xatosi chiqib qolardi. Shuning uchun bu
+    // yerda ham xuddi shunday normalizatsiya qilinadi.
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
 
     // Xavfsizlik uchun: email topilmadimi yoki parol xato - bir xil xabar qaytariladi
     if (!user || !user.isActive) {
