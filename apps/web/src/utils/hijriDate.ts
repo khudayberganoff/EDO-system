@@ -12,13 +12,22 @@ export const UZ_MONTHS = [
   "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr",
 ];
 
+/** `Date.getDay()` - 0 (yakshanba) dan 6 (shanba) gacha. */
+export const UZ_WEEKDAYS = [
+  "yakshanba", "dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba",
+];
+
+export function formatUzWeekday(date: Date): string {
+  return UZ_WEEKDAYS[date.getDay()];
+}
+
 const HIJRI_MONTHS = [
   "Muharram", "Safar", "Rabi ul-avval", "Rabi us-soniy", "Jumad ul-avval", "Jumad us-soniy",
   "Rajab", "Sha'bon", "Ramazon", "Shavvol", "Zul-qa'da", "Zul-hijja",
 ];
 
 export function formatUzGregorian(date: Date): string {
-  return `${date.getDate()}-${UZ_MONTHS[date.getMonth()]}, ${date.getFullYear()}`;
+  return `${date.getDate()}-${UZ_MONTHS[date.getMonth()]}, ${date.getFullYear()}, ${formatUzWeekday(date)}`;
 }
 
 /** Faqat oy va yil - masalan "sentyabr 2026" (kalendar sarlavhasi uchun). */
