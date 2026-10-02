@@ -36,10 +36,27 @@ export function formatUzMonthYear(date: Date): string {
 }
 
 /**
- * Grigorian -> Hijriy (jadval usuli, "Kувайт algoritmi" - taxminiy, ±1 kunlik
- * farq bo'lishi mumkin, lekin kundalik interfeys uchun yetarli aniqlikda).
+ * Grigorian -> Hijriy. Brauzerning o'z ICU ma'lumotlaridagi rasmiy
+ * Umm al-Qura taqvimidan foydalanamiz (`Intl.DateTimeFormat` +
+ * "islamic-umalqura" kalendari) - bu oyning haqiqiy 29/30 kunlik
+ * davomiyligini hisobga oladi, shuning uchun avvalgi "jadval/Kuvayt
+ * algoritmi" formulasidan farqli o'laroq oylar davomida xato yig'ilib
+ * bormaydi (masalan 2026-10-02 uchun formula "19-Rabi us-soniy" berardi,
+ * haqiqiy Umm al-Qura sanasi esa "21-Rabi us-soniy").
+ *
+ * Agar brauzerda shu kalendar qo'llab-quvvatlanmasa (juda eski brauzer) -
+ * eski taxminiy formulaga qaytamiz, interfeys butunlay buzilib qolmasligi
+ * uchun.
  */
-export function toHijri(date: Date): { day: number; month: number; year: number } {
+const UMALQURA_FORMATTER = (() => {
+  try {
+    return new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", { day: "numeric", month: "numeric", year: "numeric" });
+  } catch {
+    return null;
+  }
+})();
+
+function toHijriFallback(date: Date): { day: number; month: number; year: number } {
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   const d = date.getDate();
@@ -61,6 +78,20 @@ export function toHijri(date: Date): { day: number; month: number; year: number 
   const year = 30 * n + j - 30;
 
   return { day, month, year };
+}
+
+export function toHijri(date: Date): { day: number; month: number; year: number } {
+  if (!UMALQURA_FORMATTER) return toHijriFallback(date);
+  try {
+    const parts = UMALQURA_FORMATTER.formatToParts(date);
+    const day = Number(parts.find((p) => p.type === "day")?.value);
+    const month = Number(parts.find((p) => p.type === "month")?.value);
+    const year = Number(parts.find((p) => p.type === "year")?.value);
+    if (!day || !month || !year) return toHijriFallback(date);
+    return { day, month, year };
+  } catch {
+    return toHijriFallback(date);
+  }
 }
 
 export function formatHijri(date: Date): string {
