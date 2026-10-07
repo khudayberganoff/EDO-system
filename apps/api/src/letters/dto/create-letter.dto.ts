@@ -46,6 +46,10 @@ export class CreateLetterDto {
   @IsOptional() @IsString()
   direction?: string;
 
+  @ApiPropertyOptional({ example: "Karimov Ali Karimovich", description: "Kompaniya direktorining F.I.Sh. (ogohlantirish xati uchun)" })
+  @IsOptional() @IsString()
+  directorName?: string;
+
   @ApiPropertyOptional({ example: "SH-2026-0451", description: "Shartnoma raqami" })
   @IsOptional() @IsString()
   contractNumber?: string;

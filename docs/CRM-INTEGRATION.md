@@ -10,10 +10,17 @@ crm.html'dagi `mon_buildChain`, `mon_computeLedger`, `mon_daysOverdue` ning ko'c
 reja va "payments" to'lovlari bo'yicha xronologik FIFO). Mijoz ma'lumoti EDO'da saqlanmaydi.
 
 Eslatma: CRM'dagi **telefon** bazada emas (crm.html ichidagi `MON_PHONES` ro'yxati) va
-**manzil** yo'q, shuning uchun bu ikki maydon EDO'da qo'lda to'ldiriladi. Telefonlar CRM'da
-jadvalga (masalan `customers.phone`) ko'chirilsa, EDO uni avtomatik olishi mumkin.
+**manzil** yo'q. Telefonlar shaxsiy ma'lumot bo'lgani uchun Git'da emas, serverdagi faylda
+turadi: `CRM_PHONES_FILE` (JSON: `[{"n":"Ism","o":"wafa|vafo","p":"+998...","p2":""}]`),
+mijoz ismi bo'yicha CRM'dagi `mon_matchPhone` algoritmi bilan moslashtiriladi. Fayl bo'lmasa,
+telefon qo'lda kiritiladi. Manzil EDO'da qo'lda to'ldiriladi. Telefonlar CRM'da jadvalga
+ko'chirilsa, fayl kerak bo'lmaydi.
 Hozircha faqat eski portfel (`customers`, `vafo_customers`) o'qiladi; CRM'da yangi yopilgan
 lidlardan hosil bo'lgan shartnomalar (`crm_leads`/`crm_intakes`) hali kiritilmagan.
+
+Ogohlantirish formasida: mijoz turi CRM'dagi `mulkchilik` bo'yicha (Fuqaro/Tashkilot)
+tanlanadi; **tashkilot** uchun direktor F.I.Sh. kiritiladi (xatda "<nom> direktori <F.I.Sh.>ga");
+**xayriya to'lovi** = kechikkan summa x kechikkan kun x 0,4% (avtomatik).
 
 ## 1. CRM bazasida (bir marta, `postgres` foydalanuvchisi bilan)
 
@@ -41,7 +48,10 @@ rad etilishi kerak.
    `CRM_DATABASE_URL=postgresql://edo_reader:<PAROL>@supabase-db:5432/postgres`
 2. `/opt/edo/docker-compose.yml` dagi `edo` xizmati `environment:` ga qo'shing:
    `CRM_DATABASE_URL: ${CRM_DATABASE_URL:-}`
-3. `cd /opt/edo && docker compose -p edo up -d edo`
+3. Telefonlar uchun (ixtiyoriy): `/opt/edo/crm-phones.json` faylini yarating, `edo` xizmatiga
+   `volumes:` ga `./crm-phones.json:/app/crm-phones.json:ro` va `environment:` ga
+   `CRM_PHONES_FILE: /app/crm-phones.json` qo'shing.
+4. `cd /opt/edo && docker compose -p edo up -d edo`
 
 EDO `supabase_default` tarmog'iga ulangan, shuning uchun `supabase-db` nomi ishlaydi.
 `CRM_DATABASE_URL` berilmasa, "CRM'dan tanlash" bo'limi ko'rinmaydi va xatlar avvalgidek
