@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { Pool } from "pg";
 import { computeLedger, dayOf, isoOfDay, type Extra, type PlanMonth } from "./crm-ledger";
+import { loadPhones, matchPhone } from "./crm-phones";
 
 export interface CrmContract {
   organization: string;
@@ -90,6 +91,8 @@ export class CrmService {
     const q = params.q?.trim().toLowerCase() || null;
     const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
     const today = todayTashkent();
+    const phones = loadPhones();
+    const phoneOrg = org === "vafo_moliya" ? "vafo" : "wafa";
 
     let customers: any[];
     let payments: any[];
@@ -139,7 +142,7 @@ export class CrmService {
         clientId: String(c.id),
         clientName: name,
         clientType: clientType(c.mulkchilik ?? null, name),
-        phone: null,
+        phone: (() => { const ph = matchPhone(phones, name, phoneOrg); return ph ? ph.p || ph.p2 || null : null; })(),
         address: null,
         contractId: String(c.id),
         contractNumber: num.number,

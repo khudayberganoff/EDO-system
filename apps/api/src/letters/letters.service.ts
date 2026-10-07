@@ -178,8 +178,10 @@ export class LettersService {
   }
 
   async create(dto: CreateLetterDto, userId: string, organizationId: string) {
-    // 1-ogohlantirish shabloni faqat jismoniy shaxslar (fuqarolar) uchun mo'ljallangan
-    const counterpartyType = dto.type === LetterType.FIRST_WARNING ? "CITIZEN" : (dto.counterpartyType || "ORGANIZATION");
+    // 1-ogohlantirish: standart - fuqaro; kompaniyaga yuborilsa, direktor F.I.Sh. bilan yoziladi
+    const counterpartyType = dto.type === LetterType.FIRST_WARNING
+      ? (dto.counterpartyType === "ORGANIZATION" ? "ORGANIZATION" : "CITIZEN")
+      : (dto.counterpartyType || "ORGANIZATION");
     const direction = dto.direction === "INCOMING" ? "INCOMING" : "OUTGOING";
     const number = await this.getNextDocumentNumber(dto.type, direction, userId, organizationId);
     const body = dto.bodyText?.trim() || (await this.aiAgent.generate(dto)).text;
@@ -192,6 +194,7 @@ export class LettersService {
         counterpartyAddress: dto.counterpartyAddress, phoneNumber: dto.phoneNumber, summary: dto.summary,
         bodyText: body, aiGenerated: dto.aiGenerated ?? false, createdById: userId,
         contractNumber: dto.contractNumber,
+        directorName: counterpartyType === "ORGANIZATION" ? dto.directorName?.trim() || undefined : undefined,
         contractDate: dto.contractDate ? new Date(dto.contractDate) : undefined,
         paymentDueDay: dto.paymentDueDay,
         monthlyPaymentAmount: dto.monthlyPaymentAmount,
@@ -537,6 +540,8 @@ export class LettersService {
       const overdueDays = letter.overdueDays ?? 0;
       const monthlyPayment = letter.monthlyPaymentAmount ?? 0;
       const charityAmount = letter.charityAmount ?? 0;
+      const isOrg = letter.counterpartyType === "ORGANIZATION";
+      const director = (letter.directorName ?? "").trim();
 
       doc.render({
         kun: String(docDate.getDate()),
@@ -544,7 +549,13 @@ export class LettersService {
         yil: String(docDate.getFullYear()),
         "xat raqami": letter.documentNumber ?? "",
         manzil: letter.counterpartyAddress ?? "",
+        // Manzil bo'lsa: "...da istiqomat qiluvchi" (fuqaro) yoki "...da joylashgan" (kompaniya)
+        manzil_son: letter.counterpartyAddress ? (isOrg ? "da joylashgan " : "da istiqomat qiluvchi ") : "",
+        // Fuqaro: "fuqaro <ism>ga"; kompaniya: "<nom> direktori <F.I.Sh.>ga"
+        kimga_old: isOrg ? "" : "fuqaro ",
         kimga: letter.counterpartyName ?? "",
+        kimga_son: isOrg ? (director ? ` direktori ${director}ga` : "ga") : "ga",
+        direktor: director,
         telefon_raqam: letter.phoneNumber ?? "",
         shartnoma_raqami: letter.contractNumber ?? "",
         shartnoma_tuzilgan_kun: contractDate ? String(contractDate.getDate()) : "",
@@ -602,6 +613,7 @@ export class LettersService {
         oy: UZ_MONTHS[docDate.getMonth()],
         yil: String(docDate.getFullYear()),
         kimga: letter.counterpartyName ?? "",
+        direktor: letter.directorName ?? "",
         manzil: letter.counterpartyAddress ?? "",
         telefon: letter.phoneNumber ?? "",
         telefon_raqam: letter.phoneNumber ?? "",
