@@ -495,6 +495,23 @@ export class LettersService {
     });
   }
 
+  /**
+   * Qabul qiluvchi (fuqaro / kompaniya) bo'yicha shablon teglari - 1-ogohlantirish va xat blankida umumiy:
+   * {manzil}{manzil_son}  ->  "<manzil>da istiqomat qiluvchi" (fuqaro) / "<manzil>da joylashgan" (kompaniya)
+   * {kimga_old}{kimga}{kimga_son} -> "fuqaro <ism>ga" yoki "<nom> direktori <F.I.Sh.>ga".
+   * Manzil bo'lmasa, "...da istiqomat qiluvchi" qismi umuman yozilmaydi.
+   */
+  private recipientTags(letter: any) {
+    const isOrg = letter.counterpartyType === "ORGANIZATION";
+    const director = (letter.directorName ?? "").trim();
+    return {
+      manzil_son: letter.counterpartyAddress ? (isOrg ? "da joylashgan " : "da istiqomat qiluvchi ") : "",
+      kimga_old: isOrg ? "" : "fuqaro ",
+      kimga_son: isOrg ? (director ? ` direktori ${director}ga` : "ga") : "ga",
+      direktor: director,
+    };
+  }
+
   private async buildDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
     if (letter.type === LetterType.FIRST_WARNING) {
       // 1-ogohlantirish - kompaniya taqdim etgan qat'iy yuridik shablon, doim shu
@@ -540,8 +557,6 @@ export class LettersService {
       const overdueDays = letter.overdueDays ?? 0;
       const monthlyPayment = letter.monthlyPaymentAmount ?? 0;
       const charityAmount = letter.charityAmount ?? 0;
-      const isOrg = letter.counterpartyType === "ORGANIZATION";
-      const director = (letter.directorName ?? "").trim();
 
       doc.render({
         kun: String(docDate.getDate()),
@@ -549,13 +564,8 @@ export class LettersService {
         yil: String(docDate.getFullYear()),
         "xat raqami": letter.documentNumber ?? "",
         manzil: letter.counterpartyAddress ?? "",
-        // Manzil bo'lsa: "...da istiqomat qiluvchi" (fuqaro) yoki "...da joylashgan" (kompaniya)
-        manzil_son: letter.counterpartyAddress ? (isOrg ? "da joylashgan " : "da istiqomat qiluvchi ") : "",
-        // Fuqaro: "fuqaro <ism>ga"; kompaniya: "<nom> direktori <F.I.Sh.>ga"
-        kimga_old: isOrg ? "" : "fuqaro ",
         kimga: letter.counterpartyName ?? "",
-        kimga_son: isOrg ? (director ? ` direktori ${director}ga` : "ga") : "ga",
-        direktor: director,
+        ...this.recipientTags(letter),
         telefon_raqam: letter.phoneNumber ?? "",
         shartnoma_raqami: letter.contractNumber ?? "",
         shartnoma_tuzilgan_kun: contractDate ? String(contractDate.getDate()) : "",
@@ -613,7 +623,7 @@ export class LettersService {
         oy: UZ_MONTHS[docDate.getMonth()],
         yil: String(docDate.getFullYear()),
         kimga: letter.counterpartyName ?? "",
-        direktor: letter.directorName ?? "",
+        ...this.recipientTags(letter),
         manzil: letter.counterpartyAddress ?? "",
         telefon: letter.phoneNumber ?? "",
         telefon_raqam: letter.phoneNumber ?? "",
