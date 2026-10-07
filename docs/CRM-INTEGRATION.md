@@ -1,53 +1,40 @@
 # EDO <-> CRM: ogohlantirish xatlari uchun mijoz va qarzdorlik ma'lumoti
 
 EDO "Ogohlantirish" xati shaklida **"CRM'dan tanlash"** bo'limi bor: kechikkan shartnoma
-tanlansa, xatga mijoz nomi, telefon, shartnoma raqami/sanasi, oylik to'lov, to'lov kuni,
-kechikkan kunlar va muddati o'tgan qarzdorlik avtomatik tushadi.
+tanlansa, xatga mijoz turi (fuqaro/kompaniya) va nomi, shartnoma raqami/sanasi, oylik to'lov,
+to'lov kuni, kechikkan kunlar (DPD) va muddati o'tgan qarzdorlik avtomatik tushadi.
 
-EDO CRM bazasiga (Supabase `supabase-db`) **faqat o'qish** huquqi bilan ulanadi va
-**faqat `edo_portfolio` view'ini** o'qiydi. Mijoz ma'lumoti EDO'da saqlanmaydi: har safar
-CRM'dan o'qiladi.
+EDO CRM bazasiga (Supabase `supabase-db`) **faqat o'qish** huquqi bilan ulanadi. Qarzdorlik
+CRM'dagi **Monitoring -> Portfel** bilan bir xil hisoblanadi (`apps/api/src/crm/crm-ledger.ts`:
+crm.html'dagi `mon_buildChain`, `mon_computeLedger`, `mon_daysOverdue` ning ko'chirmasi, "months"
+reja va "payments" to'lovlari bo'yicha xronologik FIFO). Mijoz ma'lumoti EDO'da saqlanmaydi.
 
-## 1. CRM tomonida (bir marta, `postgres` foydalanuvchisi bilan)
+Eslatma: CRM'dagi **telefon** bazada emas (crm.html ichidagi `MON_PHONES` ro'yxati) va
+**manzil** yo'q, shuning uchun bu ikki maydon EDO'da qo'lda to'ldiriladi. Telefonlar CRM'da
+jadvalga (masalan `customers.phone`) ko'chirilsa, EDO uni avtomatik olishi mumkin.
+Hozircha faqat eski portfel (`customers`, `vafo_customers`) o'qiladi; CRM'da yangi yopilgan
+lidlardan hosil bo'lgan shartnomalar (`crm_leads`/`crm_intakes`) hali kiritilmagan.
 
-### 1.1. `edo_portfolio` view'i
-Mazmuni CRM'ning **Monitoring -> Portfel** jadvali bilan bir xil bo'lishi kerak
-(bir qator = bitta faol shartnoma, "Holat sanasi" = bugun). Ustunlar:
+## 1. CRM bazasida (bir marta, `postgres` foydalanuvchisi bilan)
 
-| Ustun | Tur | Izoh |
-|---|---|---|
-| `organization` | text | `wafa_leasing` yoki `vafo_moliya` |
-| `client_id` | text | mijoz ID |
-| `client_name` | text | Mijoz (FIO yoki kompaniya nomi) |
-| `client_type` | text | `CITIZEN` (fuqaro) yoki `ORGANIZATION` (kompaniya) |
-| `phone` | text | telefon (`+998...`) |
-| `address` | text | manzil (bo'lsa, bo'sh bo'lishi mumkin) |
-| `contract_id` | text | shartnoma ID |
-| `contract_number` | text | shartnoma raqami (masalan `17`) |
-| `contract_date` | date | shartnoma sanasi |
-| `end_date` | date | tugash sanasi |
-| `product` | text | mahsulot (Murobaha, Lizing, ...) |
-| `principal_balance` | numeric | Asosiy qoldiq |
-| `profit_balance` | numeric | Ustama qoldiq |
-| `overdue_amount` | numeric | **Muddati o'tgan** summa (amaldagi qarzdorlik) |
-| `dpd` | integer | Kechikkan kunlar (DPD) |
-| `monthly_payment` | numeric | Oylik to'lov |
-| `payment_day` | integer | To'lov kuni (har oy 20-kun -> `20`) |
-
-Summalar **raqam** bo'lishi kerak (`509498670`, "509 498 670 so'm" emas).
-`CREATE VIEW public.edo_portfolio AS SELECT ... FROM ...;` — qaysi jadval/hisob
-`customers`, `payments`, `months` dan olinishini CRM'ning o'zi biladi.
-`vafo_customers` (Vafo Moliya) ham shu view'ga `UNION ALL` bilan kiritilsin.
-
-### 1.2. Faqat o'qiydigan rol
+Faqat o'qiydigan rol, faqat 4 ta jadvalga:
 ```sql
 CREATE ROLE edo_reader LOGIN PASSWORD '<KUCHLI_PAROL>';
 ALTER ROLE edo_reader SET default_transaction_read_only = on;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM edo_reader;
 GRANT USAGE ON SCHEMA public TO edo_reader;
-GRANT SELECT ON public.edo_portfolio TO edo_reader;
+GRANT SELECT ON public.customers, public.payments, public.vafo_customers, public.vafo_payments TO edo_reader;
 ```
-Tekshirish: `edo_reader` bilan `select * from customers` **rad etilishi**, `select * from edo_portfolio` ishlashi kerak.
+Jadvallarda RLS yoqilgan; hozirgi `USING (true)` siyosatlari `edo_reader` ga ham tegishli
+(o'qishga ruxsat). Agar siyosatlar `authenticated` bilan cheklansa, qo'shing:
+```sql
+CREATE POLICY edo_read ON public.customers FOR SELECT TO edo_reader USING (true);
+CREATE POLICY edo_read ON public.payments FOR SELECT TO edo_reader USING (true);
+CREATE POLICY edo_read ON public.vafo_customers FOR SELECT TO edo_reader USING (true);
+CREATE POLICY edo_read ON public.vafo_payments FOR SELECT TO edo_reader USING (true);
+```
+Tekshirish: `edo_reader` bilan boshqa jadval (masalan `crm_users`) o'qilmasligi, `delete from customers`
+rad etilishi kerak.
 
 ## 2. EDO serveri tomonida
 1. `/opt/edo/.env` ga qo'shing (kodga/Git'ga qo'shmang):
@@ -61,7 +48,7 @@ EDO `supabase_default` tarmog'iga ulangan, shuning uchun `supabase-db` nomi ishl
 qo'lda to'ldiriladi.
 
 ## Xavfsizlik eslatmasi
-CRM jadvallarida (`customers`, `payments`, `vafo_customers`) `USING (true)` qoidali
-RLS siyosatlari bor (`TO` ko'rsatilmagan). Bu `anon` kalit bilan kirgan har kimga
-mijozlar ismi, telefoni va qarzini o'qish/o'zgartirish imkonini berishi mumkin. CRM
-dasturchisi buni tekshirib, siyosatlarni `authenticated` rol bilan cheklashi tavsiya etiladi.
+CRM jadvallarida (`customers`, `payments`, `vafo_customers`) `USING (true)` qoidali RLS
+siyosatlari bor (`TO` ko'rsatilmagan). Bu `anon` kalit bilan kirgan har kimga mijozlar
+ismi va qarzini o'qish/o'zgartirish imkonini berishi mumkin. CRM dasturchisi buni tekshirib,
+siyosatlarni `authenticated` rol bilan cheklashi tavsiya etiladi.
