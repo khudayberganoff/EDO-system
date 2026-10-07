@@ -17,6 +17,7 @@ import { PublicApiModule } from "./public-api/public-api.module";
 import { SettingsModule } from "./settings/settings.module";
 import { MailModule } from "./mail/mail.module";
 import { DailyTasksModule } from "./daily-tasks/daily-tasks.module";
+import { CrmModule } from "./crm/crm.module";
 
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -50,6 +51,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     SettingsModule,
     MailModule,
     DailyTasksModule,
+    CrmModule,
   ],
   providers: [
     // Tartib muhim: avval kim ekanligini aniqlaymiz (JWT), keyin nima qila olishini (Roles)

@@ -8,6 +8,8 @@ import { aiGenerateLetter, approveLetter, createLetter, deleteLetter, downloadLe
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
 import { ViewLetterModal, RejectLetterModal, LetterStatusPill, EditLetterModal, SubmitLetterModal } from "../components/LetterModals";
+import { CrmContractPicker } from "../components/CrmContractPicker";
+import type { CrmContract } from "../api/crm";
 import { formatUzPhone, normalizeUzPhone, isValidUzPhone, formatMoney, parseMoney } from "../utils/format";
 
 const STATUS_KEYS: Record<string, string> = { DRAFT: "letters.drafts", PENDING_APPROVAL: "letters.pendingApproval", APPROVED: "archive.approved", REJECTED: "letters.rejected", ARCHIVED: "letters.archived", DELETED: "archive.deleted" };
@@ -147,6 +149,20 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
   // Faqat "Ogohlantirish" (FIRST_WARNING/FINAL_WARNING) xatlari uchun qo'shimcha maydonlar
   const [contractNumber, setContractNumber] = useState(""); const [contractDate, setContractDate] = useState(""); const [monthlyPaymentAmount, setMonthlyPaymentAmount] = useState(""); const [overdueDays, setOverdueDays] = useState(""); const [charityAmount, setCharityAmount] = useState(""); const [paymentDueDay, setPaymentDueDay] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  // CRM'dan tanlangan shartnoma bo'yicha amaldagi (muddati o'tgan) qarzdorlik - xat mazmunida ko'rsatiladi
+  const [crmDebt, setCrmDebt] = useState<number | null>(null);
+  const applyCrm = (c: CrmContract) => {
+    setCounterpartyType(c.clientType);
+    setCounterpartyName(c.clientName);
+    setCounterpartyAddress(c.address ?? "");
+    setPhoneNumber(c.phone ? formatUzPhone(c.phone) : "");
+    setContractNumber(c.contractNumber ?? "");
+    setContractDate(c.contractDate ?? "");
+    setMonthlyPaymentAmount(c.monthlyPayment ? formatMoney(String(Math.round(c.monthlyPayment))) : "");
+    setOverdueDays(c.dpd !== null ? String(c.dpd) : "");
+    setPaymentDueDay(c.paymentDay ? String(c.paymentDay) : "");
+    setCrmDebt(c.overdueAmount !== null && c.overdueAmount > 0 ? Math.round(c.overdueAmount) : null);
+  };
   const [aiLoading, setAiLoading] = useState(false); const [learnedFrom, setLearnedFrom] = useState<number | null>(null); const queryClient = useQueryClient();
   const isFirstWarning = type === LetterType.FIRST_WARNING;
   const isWarning = type === LetterType.FIRST_WARNING || type === LetterType.FINAL_WARNING;
@@ -171,7 +187,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
       const dateText = contractDate ? new Date(contractDate).toLocaleDateString("uz-UZ") : "";
       parts.push(`shartnoma № ${contractNumber}${dateText ? ` (${dateText})` : ""}`);
     }
-    const debt = parseMoney(monthlyPaymentAmount);
+    const debt = crmDebt ?? parseMoney(monthlyPaymentAmount);
     if (debt) parts.push(`qarzdorlik: ${formatMoney(String(debt))} so'm`);
     if (overdueDays) parts.push(`${overdueDays} kun kechikish`);
     return parts.join(" · ") || "1-ogohlantirish";
@@ -203,6 +219,8 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
 
     {isWarning && (
       <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+        <CrmContractPicker onSelect={applyCrm} />
+        {crmDebt !== null && <div className="mb-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm text-slate-700"><span>CRM bo'yicha qarzdorlik: <strong className="text-rose-600">{formatMoney(String(crmDebt))} so'm</strong></span><button type="button" onClick={() => setCrmDebt(null)} className="text-xs text-slate-400 hover:text-slate-600">Tozalash</button></div>}
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900"><AlertTriangle size={16}/> {t("letterForm.financialData")}</div>
         <div className="grid grid-cols-2 gap-4">
           <Field label={t("letterForm.contractNumber")}><input value={contractNumber} onChange={e=>setContractNumber(e.target.value)} placeholder="SH-2026-0451" className="input"/></Field>
