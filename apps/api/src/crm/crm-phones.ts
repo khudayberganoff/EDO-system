@@ -57,3 +57,47 @@ export function loadPhones(): ReturnType<typeof prepare> {
     return [];
   }
 }
+
+/** crm.html ichidagi `const MON_PHONES = [ {n:"..",o:"wafa",p:"+998..",p2:"",note:""}, ... ];` ro'yxatini o'qiydi. */
+export function parsePhonesFromHtml(html: string): PhoneEntry[] {
+  const start = html.indexOf("const MON_PHONES = [");
+  if (start < 0) return [];
+  const end = html.indexOf("\n];", start);
+  const block = html.slice(start, end > 0 ? end : start + 200_000);
+  const str = (v: string) => { try { return JSON.parse(`"${v}"`) as string; } catch { return v; } };
+  const re = /n:"((?:[^"\\]|\\.)*)",\s*o:"(\w+)",\s*p:"([^"]*)",\s*p2:"([^"]*)"/g;
+  const out: PhoneEntry[] = [];
+  for (const m of block.matchAll(re)) out.push({ n: str(m[1]), o: m[2], p: m[3], p2: m[4] });
+  return out;
+}
+
+const DEFAULT_PHONES_URL = "https://wafaleasing.uz/crm.html";
+const URL_TTL_MS = 30 * 60_000;
+let urlCache: { at: number; list: ReturnType<typeof prepare> } | null = null;
+
+/**
+ * Telefonlar manbasi: avval CRM_PHONES_FILE (JSON fayl), bo'sh/yo'q bo'lsa CRM sahifasining
+ * o'zi (CRM_PHONES_URL, standart https://wafaleasing.uz/crm.html) - ro'yxat CRM bilan doim
+ * bir xil bo'ladi, serverga fayl qo'yish shart emas. Sahifa 30 daqiqa keshlanadi; xatolikda
+ * eski kesh (yoki bo'sh ro'yxat) qaytadi va telefon qo'lda kiritiladi. CRM_PHONES_URL=off - o'chirish.
+ */
+export async function loadPhonesAuto(): Promise<ReturnType<typeof prepare>> {
+  const fromFile = loadPhones();
+  if (fromFile.length) return fromFile;
+  const url = process.env.CRM_PHONES_URL ?? DEFAULT_PHONES_URL;
+  if (!url || url === "off") return [];
+  if (urlCache && Date.now() - urlCache.at < URL_TTL_MS) return urlCache.list;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { "user-agent": "edo-system/1.0" } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const list = prepare(parsePhonesFromHtml(await res.text()));
+    if (!list.length) throw new Error("MON_PHONES ro'yxati topilmadi");
+    urlCache = { at: Date.now(), list };
+    return list;
+  } catch (err: any) {
+    logger.warn(`CRM sahifasidan telefonlarni o'qib bo'lmadi (${url}): ${err.message}`);
+    // qayta-qayta urinmaslik uchun qisqa muddatga eski keshni (yoki bo'sh ro'yxatni) saqlaymiz
+    urlCache = { at: Date.now() - URL_TTL_MS + 5 * 60_000, list: urlCache?.list ?? [] };
+    return urlCache.list;
+  }
+}

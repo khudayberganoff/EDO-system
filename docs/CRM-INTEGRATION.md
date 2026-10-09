@@ -10,11 +10,14 @@ crm.html'dagi `mon_buildChain`, `mon_computeLedger`, `mon_daysOverdue` ning ko'c
 reja va "payments" to'lovlari bo'yicha xronologik FIFO). Mijoz ma'lumoti EDO'da saqlanmaydi.
 
 Eslatma: CRM'dagi **telefon** bazada emas (crm.html ichidagi `MON_PHONES` ro'yxati) va
-**manzil** yo'q. Telefonlar shaxsiy ma'lumot bo'lgani uchun Git'da emas, serverdagi faylda
-turadi: `CRM_PHONES_FILE` (JSON: `[{"n":"Ism","o":"wafa|vafo","p":"+998...","p2":""}]`),
-mijoz ismi bo'yicha CRM'dagi `mon_matchPhone` algoritmi bilan moslashtiriladi. Fayl bo'lmasa,
+**manzil** yo'q. Telefonlar EDO serveri tomonidan CRM sahifasidan o'zi o'qiladi
+(`CRM_PHONES_URL`, standart `https://wafaleasing.uz/crm.html`, 30 daqiqa keshlanadi), shuning
+uchun serverga fayl qo'yish kerak emas va ro'yxat CRM bilan doim bir xil bo'ladi. Telefonlar
+Git'da saqlanmaydi. `CRM_PHONES_URL=off` - o'chirish; muqobil: `CRM_PHONES_FILE` (JSON:
+`[{"n":"Ism","o":"wafa|vafo","p":"+998...","p2":""}]`), u bo'sh bo'lmasa, ustun turadi.
+Mijoz ismi bo'yicha CRM'dagi `mon_matchPhone` algoritmi bilan moslashtiriladi. Topilmasa,
 telefon qo'lda kiritiladi. Manzil EDO'da qo'lda to'ldiriladi. Telefonlar CRM'da jadvalga
-ko'chirilsa, fayl kerak bo'lmaydi.
+ko'chirilsa, bu mexanizm kerak bo'lmaydi.
 Hozircha faqat eski portfel (`customers`, `vafo_customers`) o'qiladi; CRM'da yangi yopilgan
 lidlardan hosil bo'lgan shartnomalar (`crm_leads`/`crm_intakes`) hali kiritilmagan.
 
@@ -48,9 +51,7 @@ rad etilishi kerak.
    `CRM_DATABASE_URL=postgresql://edo_reader:<PAROL>@supabase-db:5432/postgres`
 2. `/opt/edo/docker-compose.yml` dagi `edo` xizmati `environment:` ga qo'shing:
    `CRM_DATABASE_URL: ${CRM_DATABASE_URL:-}`
-3. Telefonlar uchun (ixtiyoriy): `/opt/edo/crm-phones.json` faylini yarating, `edo` xizmatiga
-   `volumes:` ga `./crm-phones.json:/app/crm-phones.json:ro` va `environment:` ga
-   `CRM_PHONES_FILE: /app/crm-phones.json` qo'shing.
+3. Telefonlar uchun hech narsa kerak emas (yuqoriga qarang).
 4. `cd /opt/edo && docker compose -p edo up -d edo`
 
 EDO `supabase_default` tarmog'iga ulangan, shuning uchun `supabase-db` nomi ishlaydi.
