@@ -22,6 +22,7 @@ import { overdueMonthsUz } from "./overdue-months";
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
 const FIRST_WARNING_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "1-OGOHLANTIRISH-NAMUNA.docx");
+const FINAL_WARNING_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "YAKUNIY-OGOHLANTIRISH-NAMUNA.docx");
 /// Xat va ma'lumotnomalar uchun standart blank (kompaniya o'z blankasini yuklamagan holat)
 const LETTER_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "XAT-BLANK-NAMUNA.docx");
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
@@ -46,6 +47,7 @@ export class LettersService {
     fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
     fs.mkdirSync(LETTERHEAD_DIR, { recursive: true });
     if (!fs.existsSync(FIRST_WARNING_TEMPLATE_PATH)) throw new Error("1-ogohlantirish shabloni topilmadi: " + FIRST_WARNING_TEMPLATE_PATH);
+    if (!fs.existsSync(FINAL_WARNING_TEMPLATE_PATH)) throw new Error("Yakuniy ogohlantirish shabloni topilmadi: " + FINAL_WARNING_TEMPLATE_PATH);
   }
 
   // --- Firma blankasi (letterhead) ---
@@ -180,7 +182,7 @@ export class LettersService {
 
   async create(dto: CreateLetterDto, userId: string, organizationId: string) {
     // 1-ogohlantirish: standart - fuqaro; kompaniyaga yuborilsa, direktor F.I.Sh. bilan yoziladi
-    const counterpartyType = dto.type === LetterType.FIRST_WARNING
+    const counterpartyType = dto.type === LetterType.FIRST_WARNING || dto.type === LetterType.FINAL_WARNING
       ? (dto.counterpartyType === "ORGANIZATION" ? "ORGANIZATION" : "CITIZEN")
       : (dto.counterpartyType || "ORGANIZATION");
     const direction = dto.direction === "INCOMING" ? "INCOMING" : "OUTGOING";
@@ -515,10 +517,10 @@ export class LettersService {
   }
 
   private async buildDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
-    if (letter.type === LetterType.FIRST_WARNING) {
-      // 1-ogohlantirish - kompaniya taqdim etgan qat'iy yuridik shablon, doim shu
-      // shablon ishlatiladi (umumiy firma blankasidan mustaqil).
-      return this.buildFirstWarningDocx(letter, approved, token);
+    if (letter.type === LetterType.FIRST_WARNING || letter.type === LetterType.FINAL_WARNING) {
+      // 1-ogohlantirish va yakuniy ogohlantirish - kompaniya taqdim etgan qat'iy yuridik
+      // shablonlar, doim shular ishlatiladi (umumiy firma blankasidan mustaqil).
+      return this.buildWarningDocx(letter, approved, token);
     }
     // 1) Kompaniya o'z blankasini yuklagan bo'lsa - o'sha ustun turadi
     const letterheadFile = this.findLetterheadFile();
@@ -536,17 +538,20 @@ export class LettersService {
   }
 
   /**
-   * "1-ogohlantirish" turidagi xatlar uchun - kompaniya yuborgan aniq yuridik
-   * shablon (templates/1-OGOHLANTIRISH-NAMUNA.docx) ishlatiladi. Shablondagi teglar:
+   * "1-ogohlantirish" (templates/1-OGOHLANTIRISH-NAMUNA.docx) va "yakuniy ogohlantirish"
+   * (templates/YAKUNIY-OGOHLANTIRISH-NAMUNA.docx) xatlari uchun - kompaniya yuborgan aniq
+   * yuridik shablonlar ishlatiladi. Yakuniy shablonda {qarzdorlik_summasi} va
+   * {qarzdorlik_summasi_so'z_bilan} (asosiy qarz) ham bor. Shablondagi teglar:
    *   {kun} {oy} {yil} {xat raqami} {manzil} {kimga} {telefon_raqam}
    *   {shartnoma_raqami} {shartnoma_tuzilgan_kun} {shartnoma_tuzilgan_oy} {shartnoma_tuzilgan_yil}
    *   {grafik_sanasi} {kechikkan_kun} {kechikkan_kun_so'z_bilan}
    *   {kechikkan_oy} {tolov_soz} {oylik_to'lov}=asosiy qarz (xayriyasiz) {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
    *   {%qr_kod}
    */
-  private async buildFirstWarningDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
+  private async buildWarningDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
+    const isFinal = letter.type === LetterType.FINAL_WARNING;
     try {
-      const content = fs.readFileSync(FIRST_WARNING_TEMPLATE_PATH, "binary");
+      const content = fs.readFileSync(isFinal ? FINAL_WARNING_TEMPLATE_PATH : FIRST_WARNING_TEMPLATE_PATH, "binary");
       const zip = new PizZip(content);
       const qrBuffer = approved && token
         ? await QRCode.toBuffer(this.buildVerifyUrl(letter.id, token), { width: 180, margin: 1 })
@@ -586,12 +591,14 @@ export class LettersService {
         "oylik_to\u2019lov_so\u2019z_bilan": moneyToWordsUz(totalDebt).replace(/ so'm$/, ""),
         xayriya_summasi: formatThousandsUz(charityAmount),
         "xayriya_summasi_ so\u2019z_bilan": moneyToWordsUz(charityAmount).replace(/ so'm$/, ""),
+        qarzdorlik_summasi: formatThousandsUz(totalDebt),
+        "qarzdorlik_summasi_so\u2019z_bilan": moneyToWordsUz(totalDebt).replace(/ so'm$/, ""),
         qr_kod: "qr",
       });
       return doc.getZip().generate({ type: "nodebuffer" });
     } catch (err: any) {
       const details = err?.properties?.errors?.map((e: any) => e.properties?.explanation).filter(Boolean).join("; ");
-      throw new BadRequestException("1-ogohlantirish shablonida xatolik: " + (details || err.message));
+      throw new BadRequestException((isFinal ? "Yakuniy ogohlantirish" : "1-ogohlantirish") + " shablonida xatolik: " + (details || err.message));
     }
   }
 

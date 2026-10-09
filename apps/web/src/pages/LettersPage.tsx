@@ -186,6 +186,8 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
   }, [overdueAmount, overdueDays, charityManual]);
   const [aiLoading, setAiLoading] = useState(false); const [learnedFrom, setLearnedFrom] = useState<number | null>(null); const queryClient = useQueryClient();
   const isFirstWarning = type === LetterType.FIRST_WARNING;
+  // 1-ogohlantirish va yakuniy ogohlantirish matni kompaniya shablonidan avtomatik tuziladi
+  const isTemplateWarning = isFirstWarning || type === LetterType.FINAL_WARNING;
   const isWarning = type === LetterType.FIRST_WARNING || type === LetterType.FINAL_WARNING;
   const { data: agentStats } = useQuery({ queryKey: ["letters", "ai-agent-stats"], queryFn: fetchAiAgentStats });
   useEffect(() => { fetchNextLetterNumber(type).then((x) => setNextNumber(x.documentNumber)).catch(() => {}); }, [type]);
@@ -203,7 +205,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
   // 1-ogohlantirishda qisqacha mazmun so'ralmaydi - u shartnoma ma'lumotlaridan
   // avtomatik tuziladi: kimga, shartnoma raqami/sanasi va qarzdorlik summasi.
   const effectiveSummary = (() => {
-    if (!isFirstWarning) return summary;
+    if (!isTemplateWarning) return summary;
     const parts: string[] = [];
     if (counterpartyName) parts.push(counterpartyName);
     if (contractNumber) {
@@ -213,7 +215,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     const debt = parseMoney(overdueAmount) || parseMoney(monthlyPaymentAmount);
     if (debt) parts.push(`qarzdorlik: ${formatMoney(String(debt))} so'm`);
     if (overdueDays) parts.push(`${overdueDays} kun kechikish`);
-    return parts.join(" · ") || "1-ogohlantirish";
+    return parts.join(" · ") || t(`letters.type.${type}` as any);
   })();
   const mutation = useMutation({ mutationFn: () => createLetter({ type, direction, documentDate, counterpartyType, counterpartyName, counterpartyAddress: counterpartyAddress || undefined, phoneNumber: normalizeUzPhone(phoneNumber) || undefined, summary: effectiveSummary, bodyText, aiGenerated: !!bodyText, ...warningPayload() }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["letters"] }); onClose(); },
     onError: (e: any) => {
@@ -222,8 +224,8 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     },
   });
   const agentLearnedCount = agentStats?.[type] ?? 0;
-  const canSubmit = isFirstWarning
-    ? !mutation.isPending && !!counterpartyName && !!contractNumber && !!overdueDays && (counterpartyType !== "ORGANIZATION" || !!directorName.trim())
+  const canSubmit = isTemplateWarning
+    ? !mutation.isPending && !!counterpartyName && !!contractNumber && (isFirstWarning ? !!overdueDays : !!(parseMoney(overdueAmount) || parseMoney(monthlyPaymentAmount))) && (counterpartyType !== "ORGANIZATION" || !!directorName.trim())
     : !mutation.isPending && !!counterpartyName && !!summary && !!bodyText;
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><div className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
     <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-slate-900">{t("letterForm.title", { type: t(`letters.type.${type}` as any) })}</h2><p className="text-xs text-slate-500">{t("letterForm.subtitle")}</p></div><button onClick={onClose}><X size={20}/></button></div>
@@ -240,7 +242,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : t("letterForm.orgName")}><input required value={counterpartyName} onChange={e=>setCounterpartyName(e.target.value)} placeholder={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : '"MISOL KOMPANIYASI" MCHJ'} className="input"/></Field><Field label={t("letterForm.address")}><input value={counterpartyAddress} onChange={e=>setCounterpartyAddress(e.target.value)} className="input"/></Field></div>
     {counterpartyType === "ORGANIZATION" && <div className="mt-4 grid grid-cols-2 gap-4"><Field label={t("letterForm.directorName")}><input required value={directorName} onChange={e=>setDirectorName(e.target.value)} placeholder="Karimov Ali Karimovich" className="input"/></Field><div/></div>}
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label={t("letterForm.phone")}><input inputMode="tel" value={phoneNumber} onChange={e=>setPhoneNumber(formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67" className="input"/>{phoneNumber && !isValidUzPhone(phoneNumber) && <span className="mt-1 block text-xs text-amber-600">Raqam to'liq emas (9 ta raqam kerak)</span>}</Field><div/></div>
-    {!isFirstWarning && <div className="mt-4"><Field label={t("letterForm.summary")}><textarea required value={summary} onChange={e=>setSummary(e.target.value)} rows={3} placeholder="Masalan: shartnoma shartlari bo‘yicha to‘lovni o‘z vaqtida amalga oshirish zarurligi haqida..." className="input"/></Field></div>}
+    {!isTemplateWarning && <div className="mt-4"><Field label={t("letterForm.summary")}><textarea required value={summary} onChange={e=>setSummary(e.target.value)} rows={3} placeholder="Masalan: shartnoma shartlari bo‘yicha to‘lovni o‘z vaqtida amalga oshirish zarurligi haqida..." className="input"/></Field></div>}
 
     {isWarning && (
       <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
@@ -258,7 +260,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
       </div>
     )}
 
-    {isFirstWarning ? (
+    {isTemplateWarning ? (
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
         {t("letterForm.templateNote")}
       </div>
