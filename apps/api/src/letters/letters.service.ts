@@ -17,6 +17,7 @@ import { QueryLettersDto } from "./dto/query-letters.dto";
 import { LetterAiAgentService } from "./letter-ai-agent.service";
 import { LetterPdfService } from "./letter-pdf.service";
 import { moneyToWordsUz, daysToWordsUz } from "./number-to-words.uz";
+import { overdueMonthsUz } from "./overdue-months";
 
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
@@ -540,7 +541,7 @@ export class LettersService {
    *   {kun} {oy} {yil} {xat raqami} {manzil} {kimga} {telefon_raqam}
    *   {shartnoma_raqami} {shartnoma_tuzilgan_kun} {shartnoma_tuzilgan_oy} {shartnoma_tuzilgan_yil}
    *   {grafik_sanasi} {kechikkan_kun} {kechikkan_kun_so'z_bilan}
-   *   {kechikkan_oy} {oylik_to'lov}=asosiy qarz (xayriyasiz) {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
+   *   {kechikkan_oy} {tolov_soz} {oylik_to'lov}=asosiy qarz (xayriyasiz) {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
    *   {%qr_kod}
    */
   private async buildFirstWarningDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
@@ -560,8 +561,8 @@ export class LettersService {
       // Asosiy (muddati o'tgan) qarz va xayriya xatda ALOHIDA ko'rsatiladi, qo'shilmaydi
       // (muddati o'tgan summa kiritilmagan bo'lsa - oylik to'lov summasi olinadi)
       const totalDebt = letter.overdueAmount ?? letter.monthlyPaymentAmount ?? 0;
-      // To'lov kechikkan oy: xat sanasidan kechikkan kunlar soni ayirib topiladi
-      const overdueSince = new Date(docDate.getTime() - overdueDays * 86_400_000);
+      // Kechikkan oylar: eng eski to'lov oyidan xat sanasigacha muddati kelgan barcha oylar
+      const overdueMonths = overdueMonthsUz(docDate, overdueDays);
 
       doc.render({
         kun: String(docDate.getDate()),
@@ -579,7 +580,8 @@ export class LettersService {
         grafik_sanasi: letter.paymentDueDay != null ? String(letter.paymentDueDay) : "",
         kechikkan_kun: String(overdueDays),
         "kechikkan_kun_so\u2019z_bilan": daysToWordsUz(overdueDays),
-        kechikkan_oy: UZ_MONTHS[overdueSince.getMonth()],
+        kechikkan_oy: overdueMonths.text,
+        tolov_soz: overdueMonths.count > 1 ? "to\u2018lovlar" : "to\u2018lov",
         "oylik_to\u2019lov": formatThousandsUz(totalDebt),
         "oylik_to\u2019lov_so\u2019z_bilan": moneyToWordsUz(totalDebt).replace(/ so'm$/, ""),
         xayriya_summasi: formatThousandsUz(charityAmount),
