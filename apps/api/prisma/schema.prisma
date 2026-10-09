@@ -309,6 +309,12 @@ model Employee {
   /// JSHSHIR (14 raqam)
   pinfl          String?
   address        String?
+  /// Xodim rasmi va obyektivkasi (ixtiyoriy). Fayllar uploads/.private/employees da saqlanadi
+  /// va faqat tizimga kirgan foydalanuvchilarga /hr/employees/:id/photo|objectivka orqali beriladi.
+  photoFile      String?
+  objectivkaFile String?
+  /// Obyektivkaning asl fayl nomi (yuklab olishda ko'rsatiladi)
+  objectivkaName String?
   /// ACTIVE | DISMISSED
   status         String   @default("ACTIVE")
   dismissDate    DateTime?

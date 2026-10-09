@@ -20,6 +20,10 @@ export interface Employee {
   userId?: string | null;
   user?: { email: string; role: string } | null;
   notes?: string;
+  /** Rasm va obyektivka (ixtiyoriy) - bo'sh bo'lsa "qo'shilmagan" */
+  photoFile?: string | null;
+  objectivkaFile?: string | null;
+  objectivkaName?: string | null;
   _count?: { orders: number; contracts: number; leaves: number };
 }
 
@@ -38,6 +42,22 @@ export async function createEmployee(payload: Record<string, unknown>) {
 }
 export async function updateEmployee(id: string, payload: Record<string, unknown>) {
   const { data } = await apiClient.patch(`/hr/employees/${id}`, payload);
+  return data;
+}
+export type EmployeeFileKind = "photo" | "objectivka";
+export async function uploadEmployeeFile(id: string, kind: EmployeeFileKind, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await apiClient.post<Employee>(`/hr/employees/${id}/${kind}`, form, { headers: { "Content-Type": "multipart/form-data" } });
+  return data;
+}
+export async function deleteEmployeeFile(id: string, kind: EmployeeFileKind) {
+  const { data } = await apiClient.delete<Employee>(`/hr/employees/${id}/${kind}`);
+  return data;
+}
+/** Fayl avtorizatsiya bilan beriladi, shuning uchun blob sifatida olinadi. */
+export async function fetchEmployeeFile(id: string, kind: EmployeeFileKind) {
+  const { data } = await apiClient.get<Blob>(`/hr/employees/${id}/${kind}`, { responseType: "blob" });
   return data;
 }
 export async function deleteEmployee(id: string) {
