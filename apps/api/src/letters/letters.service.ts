@@ -197,6 +197,7 @@ export class LettersService {
         counterpartyAddress: dto.counterpartyAddress, phoneNumber: dto.phoneNumber, summary: dto.summary,
         bodyText: body, aiGenerated: dto.aiGenerated ?? false, createdById: userId,
         contractNumber: dto.contractNumber,
+        contractKind: dto.contractKind,
         directorName: counterpartyType === "ORGANIZATION" ? dto.directorName?.trim() || undefined : undefined,
         contractDate: dto.contractDate ? new Date(dto.contractDate) : undefined,
         paymentDueDay: dto.paymentDueDay,
@@ -548,6 +549,27 @@ export class LettersService {
    *   {kechikkan_oy} {tolov_soz} {oylik_to'lov}=asosiy qarz (xayriyasiz) {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
    *   {%qr_kod}
    */
+  /**
+   * Shartnoma turiga qarab ogohlantirish matni: Murobaha - "nasiya savdo oldi-sotdi shartnomasi",
+   * Lizing - "lizing (moliyaviy ijara) shartnomasi". Bo'sh bo'lsa Murobaha hisoblanadi.
+   */
+  private contractKindTags(letter: any) {
+    if (letter.contractKind === "LEASING") {
+      return {
+        shartnoma_turi: "lizing (moliyaviy ijara) shartnomasi",
+        xizmat_turi: "lizing (moliyaviy ijara) xizmati",
+        tolov_turi: "lizing to\u2018lovlari",
+        obyekt_turi: "Lizing obyektini",
+      };
+    }
+    return {
+      shartnoma_turi: "nasiya savdo oldi-sotdi shartnomasi",
+      xizmat_turi: "nasiya savdo xizmati",
+      tolov_turi: "nasiya to\u2018lovlari",
+      obyekt_turi: "Nasiya savdo obyektini",
+    };
+  }
+
   private async buildWarningDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
     const isFinal = letter.type === LetterType.FINAL_WARNING;
     try {
@@ -577,6 +599,7 @@ export class LettersService {
         manzil: letter.counterpartyAddress ?? "",
         kimga: letter.counterpartyName ?? "",
         ...this.recipientTags(letter),
+        ...this.contractKindTags(letter),
         telefon_raqam: letter.phoneNumber ?? "",
         shartnoma_raqami: letter.contractNumber ?? "",
         shartnoma_tuzilgan_kun: contractDate ? String(contractDate.getDate()) : "",

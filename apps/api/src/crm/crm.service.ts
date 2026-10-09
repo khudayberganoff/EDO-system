@@ -15,6 +15,7 @@ export interface CrmContract {
   contractDate: string | null;
   endDate: string | null;
   product: string | null;
+  contractKind: "MURABAHA" | "LEASING";
   principalBalance: number | null;
   profitBalance: number | null;
   overdueAmount: number | null;
@@ -150,6 +151,7 @@ export class CrmService {
         contractDate: num.date,
         endDate: led.endDay === null ? null : isoOfDay(led.endDay),
         product: c.tury ?? null,
+        contractKind: /лиз|liz|leas/i.test(String(c.tury ?? "")) ? "LEASING" : "MURABAHA",
         principalBalance: Math.round(led.principalLeft),
         profitBalance: Math.round(led.profitLeft),
         overdueAmount: led.overdue > 1000 ? Math.round(led.overdue) : 0,

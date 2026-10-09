@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsEnum, IsNumber, IsInt, IsOptional, IsString, MinLength, Min } from "class-validator";
+import { IsBoolean, IsDateString, IsEnum, IsIn, IsNumber, IsInt, IsOptional, IsString, MinLength, Min } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { LetterType } from "../../common/enums";
@@ -57,6 +57,10 @@ export class CreateLetterDto {
   @ApiPropertyOptional({ example: "2026-01-15", description: "Shartnoma sanasi" })
   @IsOptional() @IsDateString()
   contractDate?: string;
+
+  @ApiPropertyOptional({ example: "MURABAHA", enum: ["MURABAHA", "LEASING"], description: "Shartnoma turi (ogohlantirish matni shunga qarab o'zgaradi)" })
+  @IsOptional() @IsIn(["MURABAHA", "LEASING"])
+  contractKind?: "MURABAHA" | "LEASING";
 
   @ApiPropertyOptional({ example: 15, description: "Har oyning nasiya to'lovi kuni (1-31)" })
   @IsOptional() @Type(() => Number) @IsInt() @Min(1)
