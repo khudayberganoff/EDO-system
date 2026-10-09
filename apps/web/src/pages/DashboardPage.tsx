@@ -5,7 +5,7 @@ import { fetchLetters } from "../api/letters";
 import { LetterStatus } from "@edo/shared-types";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
-import { FileText, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { formatUzGregorian, formatHijri } from "../utils/hijriDate";
 import { DailyPlanner } from "../components/DailyPlanner";
 
@@ -23,7 +23,7 @@ export function DashboardPage() {
 
   const totalAll = useCount("all");
   const archivedCount = useCount("archived", "ARCHIVED");
-  const inReview = useCount("inReview", "IN_REVIEW");
+  // Server "PENDING_SIGNATURE" filtrida "ko'rib chiqilmoqda" hujjatlarini ham qo'shib qaytaradi
   const pendingSignatureDocs = useCount("pendingSignature", "PENDING_SIGNATURE");
   const signed = useCount("signed", "SIGNED");
 
@@ -50,9 +50,8 @@ export function DashboardPage() {
         <p className="mt-1 text-sm text-slate-500">{today} <span className="text-slate-300">•</span> {todayHijri}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard icon={FileText} label={t("dashboard.totalDocuments")} value={totalActive} onClick={() => navigate("/documents")} />
-        <StatCard icon={Clock} label={t("dashboard.inReview")} value={inReview} accent="text-amber-600 bg-amber-50" onClick={() => navigate("/documents?status=IN_REVIEW")} />
         <StatCard icon={AlertCircle} label={t("dashboard.pendingSignature")} value={pendingSignature} accent="text-sky-600 bg-sky-50" onClick={() => navigate("/documents?status=PENDING_SIGNATURE")} />
         <StatCard icon={CheckCircle2} label={t("dashboard.signed")} value={signed} accent="text-emerald-600 bg-emerald-50" onClick={() => navigate("/documents?status=SIGNED")} />
       </div>

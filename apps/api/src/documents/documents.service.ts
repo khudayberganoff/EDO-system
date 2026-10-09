@@ -43,7 +43,12 @@ export class DocumentsService {
 
   async findAll(params: { status?: DocumentStatus; contractRefId?: string; page: number; pageSize: number; organizationId: string }) {
     const where: Prisma.DocumentWhereInput = { organizationId: params.organizationId };
-    if (params.status) where.status = params.status;
+    if (params.status === DocumentStatus.PENDING_SIGNATURE) {
+      // "Ko'rib chiqilmoqda" alohida ko'rsatilmaydi - "Imzo kutilmoqda" bilan birlashtirilgan
+      where.status = { in: [DocumentStatus.IN_REVIEW, DocumentStatus.PENDING_SIGNATURE] };
+    } else if (params.status) {
+      where.status = params.status;
+    }
     if (params.contractRefId) where.contractRefId = params.contractRefId;
 
     const [items, total] = await this.prisma.$transaction([
