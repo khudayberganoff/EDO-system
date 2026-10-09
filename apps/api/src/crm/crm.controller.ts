@@ -17,6 +17,6 @@ export class CrmController {
     const org = await this.prisma.organization.findUnique({ where: { id: user.organizationId }, select: { name: true } });
     // EDO tashkiloti -> CRM'dagi tashkilot kaliti
     const organization = org?.name.toUpperCase().includes("VAFO") ? "vafo_moliya" : "wafa_leasing";
-    return this.crm.searchContracts({ q, organization, overdueOnly: overdue !== "0" });
+    return this.crm.searchContracts({ q, organization, overdueOnly: overdue !== "0", includeClosed: overdue === "0", limit: overdue === "0" ? 100 : undefined });
   }
 }

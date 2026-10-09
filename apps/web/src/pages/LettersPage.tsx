@@ -150,7 +150,10 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
   const [contractNumber, setContractNumber] = useState(""); const [contractDate, setContractDate] = useState(""); const [monthlyPaymentAmount, setMonthlyPaymentAmount] = useState(""); const [overdueDays, setOverdueDays] = useState(""); const [charityAmount, setCharityAmount] = useState(""); const [paymentDueDay, setPaymentDueDay] = useState(""); const [directorName, setDirectorName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   // CRM'dan tanlangan shartnoma bo'yicha amaldagi (muddati o'tgan) qarzdorlik - xat mazmunida ko'rsatiladi
-  const [crmDebt, setCrmDebt] = useState<number | null>(null);
+  const [overdueAmount, setOverdueAmount] = useState("");
+  const [crmPicked, setCrmPicked] = useState(false);
+  // Xayriya summasi avtomatik hisoblanadi, qo'lda o'zgartirilsa - avtomatik hisoblash to'xtaydi
+  const [charityManual, setCharityManual] = useState(false);
   const applyCrm = (c: CrmContract) => {
     setCounterpartyType(c.clientType);
     setDirectorName("");
@@ -162,14 +165,25 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     setMonthlyPaymentAmount(c.monthlyPayment ? formatMoney(String(Math.round(c.monthlyPayment))) : "");
     setOverdueDays(c.dpd !== null ? String(c.dpd) : "");
     setPaymentDueDay(c.paymentDay ? String(c.paymentDay) : "");
-    setCrmDebt(c.overdueAmount !== null && c.overdueAmount > 0 ? Math.round(c.overdueAmount) : null);
+    setOverdueAmount(c.overdueAmount !== null && c.overdueAmount > 0 ? formatMoney(String(Math.round(c.overdueAmount))) : "");
+    setCharityManual(false);
+    setCrmPicked(true);
   };
-  // Xayriya to'lovi (CRM'dan tanlanganda): kechikkan summa x kechikkan kun x 0,4%
+  // Oddiy xat / ma'lumotnoma: CRM'dan faqat qabul qiluvchi (mijoz) ma'lumoti olinadi, ixtiyoriy
+  const applyCrmClient = (c: CrmContract) => {
+    setCounterpartyType(c.clientType);
+    setDirectorName("");
+    setCounterpartyName(c.clientName);
+    setCounterpartyAddress(c.address ?? "");
+    setPhoneNumber(c.phone ? formatUzPhone(c.phone) : "");
+  };
+  // Xayriya to'lovi: kechikkan summa x kechikkan kun x 0,4%
   useEffect(() => {
-    if (crmDebt === null) return;
+    if (charityManual) return;
+    const debt = parseMoney(overdueAmount);
     const days = Number(overdueDays) || 0;
-    setCharityAmount(formatMoney(String(Math.round(crmDebt * days * 0.004))));
-  }, [crmDebt, overdueDays]);
+    setCharityAmount(debt && days ? formatMoney(String(Math.round(debt * days * 0.004))) : "");
+  }, [overdueAmount, overdueDays, charityManual]);
   const [aiLoading, setAiLoading] = useState(false); const [learnedFrom, setLearnedFrom] = useState<number | null>(null); const queryClient = useQueryClient();
   const isFirstWarning = type === LetterType.FIRST_WARNING;
   const isWarning = type === LetterType.FIRST_WARNING || type === LetterType.FINAL_WARNING;
@@ -179,6 +193,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     contractNumber: contractNumber || undefined,
     contractDate: contractDate || undefined,
     monthlyPaymentAmount: parseMoney(monthlyPaymentAmount),
+    overdueAmount: parseMoney(overdueAmount),
     overdueDays: overdueDays ? Number(overdueDays) : undefined,
     charityAmount: parseMoney(charityAmount),
     directorName: counterpartyType === "ORGANIZATION" && directorName.trim() ? directorName.trim() : undefined,
@@ -195,7 +210,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
       const dateText = contractDate ? new Date(contractDate).toLocaleDateString("uz-UZ") : "";
       parts.push(`shartnoma № ${contractNumber}${dateText ? ` (${dateText})` : ""}`);
     }
-    const debt = crmDebt ?? parseMoney(monthlyPaymentAmount);
+    const debt = parseMoney(overdueAmount) || parseMoney(monthlyPaymentAmount);
     if (debt) parts.push(`qarzdorlik: ${formatMoney(String(debt))} so'm`);
     if (overdueDays) parts.push(`${overdueDays} kun kechikish`);
     return parts.join(" · ") || "1-ogohlantirish";
@@ -221,6 +236,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
         : <input readOnly value={t(`letters.type.${type}` as any)} className="input bg-slate-50"/>}</Field><Field label={t("letterForm.number")}><input readOnly value={nextNumber ? `№ ${nextNumber}` : "—"} className="input bg-slate-50"/></Field>
       <Field label={t("letterForm.date")}><input type="date" value={documentDate} onChange={e=>setDocumentDate(e.target.value)} className="input"/></Field><Field label={t("letterForm.recipientType")}><select value={counterpartyType} onChange={e=>setCounterpartyType(e.target.value)} className="input"><option value="CITIZEN">{t("letterForm.citizen")}</option><option value="ORGANIZATION">{t("letterForm.organization")}</option></select></Field>
     </div>
+    {!isWarning && <div className="mt-4"><CrmContractPicker onSelect={applyCrmClient} overdueOnly={false} /></div>}
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : t("letterForm.orgName")}><input required value={counterpartyName} onChange={e=>setCounterpartyName(e.target.value)} placeholder={counterpartyType === "CITIZEN" ? t("letterForm.citizenName") : '"MISOL KOMPANIYASI" MCHJ'} className="input"/></Field><Field label={t("letterForm.address")}><input value={counterpartyAddress} onChange={e=>setCounterpartyAddress(e.target.value)} className="input"/></Field></div>
     {counterpartyType === "ORGANIZATION" && <div className="mt-4 grid grid-cols-2 gap-4"><Field label={t("letterForm.directorName")}><input required value={directorName} onChange={e=>setDirectorName(e.target.value)} placeholder="Karimov Ali Karimovich" className="input"/></Field><div/></div>}
     <div className="mt-4 grid grid-cols-2 gap-4"><Field label={t("letterForm.phone")}><input inputMode="tel" value={phoneNumber} onChange={e=>setPhoneNumber(formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67" className="input"/>{phoneNumber && !isValidUzPhone(phoneNumber) && <span className="mt-1 block text-xs text-amber-600">Raqam to'liq emas (9 ta raqam kerak)</span>}</Field><div/></div>
@@ -229,15 +245,15 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     {isWarning && (
       <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
         <CrmContractPicker onSelect={applyCrm} />
-        {crmDebt !== null && <div className="mb-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm text-slate-700"><span>CRM bo'yicha qarzdorlik: <strong className="text-rose-600">{formatMoney(String(crmDebt))} so'm</strong></span><button type="button" onClick={() => setCrmDebt(null)} className="text-xs text-slate-400 hover:text-slate-600">Tozalash</button></div>}
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900"><AlertTriangle size={16}/> {t("letterForm.financialData")}</div>
         <div className="grid grid-cols-2 gap-4">
           <Field label={t("letterForm.contractNumber")}><input value={contractNumber} onChange={e=>setContractNumber(e.target.value)} placeholder="SH-2026-0451" className="input"/></Field>
           <Field label={t("letterForm.contractDate")}><input type="date" value={contractDate} onChange={e=>setContractDate(e.target.value)} className="input"/></Field>
           {isFirstWarning && <Field label={t("letterForm.paymentDueDay")}><input type="number" min="1" max="31" value={paymentDueDay} onChange={e=>setPaymentDueDay(e.target.value)} placeholder="15" className="input"/></Field>}
           <Field label={t("letterForm.monthlyPayment")}><input inputMode="decimal" value={monthlyPaymentAmount} onChange={e=>setMonthlyPaymentAmount(formatMoney(e.target.value))} placeholder="4 500 000" className="input"/></Field>
+          <Field label={t("letterForm.overdueAmount")}><input inputMode="decimal" value={overdueAmount} onChange={e=>setOverdueAmount(formatMoney(e.target.value))} placeholder="9 000 000" className="input"/>{crmPicked && <span className="mt-1 block text-xs text-slate-500">{t("letterForm.overdueFromCrm")}</span>}</Field>
           <Field label={t("letterForm.overdueDays")}><input type="number" min="0" value={overdueDays} onChange={e=>setOverdueDays(e.target.value)} placeholder="12" className="input"/></Field>
-          <Field label={t("letterForm.charityAmount")}><input inputMode="decimal" value={charityAmount} onChange={e=>setCharityAmount(formatMoney(e.target.value))} placeholder="150 000" className="input"/>{crmDebt !== null && <span className="mt-1 block text-xs text-slate-500">{t("letterForm.charityAuto")}</span>}</Field>
+          <Field label={t("letterForm.charityAmount")}><input inputMode="decimal" value={charityAmount} onChange={e=>{setCharityManual(true);setCharityAmount(formatMoney(e.target.value));}} placeholder="150 000" className="input"/>{!charityManual && <span className="mt-1 block text-xs text-slate-500">{t("letterForm.charityAuto")}</span>}</Field>
         </div>
       </div>
     )}

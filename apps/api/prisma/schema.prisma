@@ -232,6 +232,8 @@ model Letter {
   directorName          String?
   contractDate          DateTime?
   monthlyPaymentAmount  Float?
+  /// Muddati o'tgan qarzdorlik summasi (xayriya to'lovisiz)
+  overdueAmount         Float?
   overdueDays           Int?
   charityAmount         Float?
   /// Har oyning nasiya to'lovi amalga oshirilishi kerak bo'lgan sanasi (kun raqami, masalan 15)

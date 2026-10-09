@@ -66,6 +66,10 @@ export class CreateLetterDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
   monthlyPaymentAmount?: number;
 
+  @ApiPropertyOptional({ example: 4500000, description: "Muddati o'tgan qarzdorlik summasi (xayriya to'lovisiz, so'm)" })
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0)
+  overdueAmount?: number;
+
   @ApiPropertyOptional({ example: 12, description: "Kechikkan kunlar soni" })
   @IsOptional() @Type(() => Number) @IsInt() @Min(0)
   overdueDays?: number;

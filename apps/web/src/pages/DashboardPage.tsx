@@ -27,16 +27,22 @@ export function DashboardPage() {
   const pendingSignatureDocs = useCount("pendingSignature", "PENDING_SIGNATURE");
   const signed = useCount("signed", "SIGNED");
 
-  // Rahbariyat tasdig'ini kutayotgan xatlar ham "Imzo kutilmoqda" hisobiga kiradi
-  const { data: pendingLetters } = useQuery({
-    queryKey: ["letters", "pending-approval-dashboard"],
-    queryFn: () => fetchLetters({ status: LetterStatus.PENDING_APPROVAL as any }),
-  });
-  const pendingLettersCount = pendingLetters?.items?.length ?? 0;
+  // Xat modulidagi xatlar ham hujjatlar ro'yxatida ko'rinadi (DocumentsPage dagi moslik):
+  // Qoralama -> Qoralama, Tasdiq kutayotgan -> Imzo kutilmoqda, Arxivlangan -> Imzolangan.
+  const useLetterCount = (status: LetterStatus) =>
+    useQuery({
+      queryKey: ["letters", "count", status],
+      queryFn: () => fetchLetters({ status: status as any }),
+    }).data?.total ?? 0;
+  const draftLetters = useLetterCount(LetterStatus.DRAFT);
+  const pendingLettersCount = useLetterCount(LetterStatus.PENDING_APPROVAL);
+  const signedLetters = useLetterCount(LetterStatus.ARCHIVED);
 
   // "Jami hujjatlar" - arxivlangan (o'chirilgan) hujjatlardan tashqari hammasi
-  const totalActive = Math.max(0, totalAll - archivedCount) + pendingLettersCount;
+  const totalActive =
+    Math.max(0, totalAll - archivedCount) + draftLetters + pendingLettersCount + signedLetters;
   const pendingSignature = pendingSignatureDocs + pendingLettersCount;
+  const signedTotal = signed + signedLetters;
 
   const now = new Date();
   const today = formatUzGregorian(now);
@@ -53,7 +59,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard icon={FileText} label={t("dashboard.totalDocuments")} value={totalActive} onClick={() => navigate("/documents")} />
         <StatCard icon={AlertCircle} label={t("dashboard.pendingSignature")} value={pendingSignature} accent="text-sky-600 bg-sky-50" onClick={() => navigate("/documents?status=PENDING_SIGNATURE")} />
-        <StatCard icon={CheckCircle2} label={t("dashboard.signed")} value={signed} accent="text-emerald-600 bg-emerald-50" onClick={() => navigate("/documents?status=SIGNED")} />
+        <StatCard icon={CheckCircle2} label={t("dashboard.signed")} value={signedTotal} accent="text-emerald-600 bg-emerald-50" onClick={() => navigate("/documents?status=SIGNED")} />
       </div>
 
       <DailyPlanner />
