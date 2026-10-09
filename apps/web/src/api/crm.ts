@@ -12,6 +12,7 @@ export interface CrmContract {
   contractDate: string | null;
   endDate: string | null;
   product: string | null;
+  contractKind: "MURABAHA" | "LEASING";
   principalBalance: number | null;
   profitBalance: number | null;
   overdueAmount: number | null;

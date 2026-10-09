@@ -228,6 +228,8 @@ model Letter {
   /// Faqat OGOHLANTIRISH (FIRST_WARNING/FINAL_WARNING) turidagi xatlar uchun ixtiyoriy maydonlar.
   /// Boshqa turlarda bo'sh (null) qoladi.
   contractNumber        String?
+  /// Shartnoma turi: MURABAHA (nasiya savdo oldi-sotdi) yoki LEASING (lizing / moliyaviy ijara); bo'sh = MURABAHA
+  contractKind          String?
   /// Kompaniyaga yuboriladigan ogohlantirishda - direktorning F.I.Sh.
   directorName          String?
   contractDate          DateTime?

@@ -150,6 +150,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
   const [contractNumber, setContractNumber] = useState(""); const [contractDate, setContractDate] = useState(""); const [monthlyPaymentAmount, setMonthlyPaymentAmount] = useState(""); const [overdueDays, setOverdueDays] = useState(""); const [charityAmount, setCharityAmount] = useState(""); const [paymentDueDay, setPaymentDueDay] = useState(""); const [directorName, setDirectorName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   // CRM'dan tanlangan shartnoma bo'yicha amaldagi (muddati o'tgan) qarzdorlik - xat mazmunida ko'rsatiladi
+  const [contractKind, setContractKind] = useState<"MURABAHA" | "LEASING">("MURABAHA");
   const [overdueAmount, setOverdueAmount] = useState("");
   const [crmPicked, setCrmPicked] = useState(false);
   // Xayriya summasi avtomatik hisoblanadi, qo'lda o'zgartirilsa - avtomatik hisoblash to'xtaydi
@@ -161,6 +162,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     setCounterpartyAddress(c.address ?? "");
     setPhoneNumber(c.phone ? formatUzPhone(c.phone) : "");
     setContractNumber(c.contractNumber ?? "");
+    setContractKind(c.contractKind ?? "MURABAHA");
     setContractDate(c.contractDate ?? "");
     setMonthlyPaymentAmount(c.monthlyPayment ? formatMoney(String(Math.round(c.monthlyPayment))) : "");
     setOverdueDays(c.dpd !== null ? String(c.dpd) : "");
@@ -198,6 +200,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
     overdueAmount: parseMoney(overdueAmount),
     overdueDays: overdueDays ? Number(overdueDays) : undefined,
     charityAmount: parseMoney(charityAmount),
+    contractKind: isTemplateWarning ? contractKind : undefined,
     directorName: counterpartyType === "ORGANIZATION" && directorName.trim() ? directorName.trim() : undefined,
     paymentDueDay: isFirstWarning && paymentDueDay ? Number(paymentDueDay) : undefined,
   } : {});
@@ -251,6 +254,7 @@ function CreateLetterModal({ type: initialType, direction, allowTypeChoice, onCl
         <div className="grid grid-cols-2 gap-4">
           <Field label={t("letterForm.contractNumber")}><input value={contractNumber} onChange={e=>setContractNumber(e.target.value)} placeholder="SH-2026-0451" className="input"/></Field>
           <Field label={t("letterForm.contractDate")}><input type="date" value={contractDate} onChange={e=>setContractDate(e.target.value)} className="input"/></Field>
+          <Field label={t("letterForm.contractKind")}><select value={contractKind} onChange={e=>setContractKind(e.target.value as "MURABAHA" | "LEASING")} className="input"><option value="MURABAHA">{t("letterForm.kindMurabaha")}</option><option value="LEASING">{t("letterForm.kindLeasing")}</option></select></Field>
           {isFirstWarning && <Field label={t("letterForm.paymentDueDay")}><input type="number" min="1" max="31" value={paymentDueDay} onChange={e=>setPaymentDueDay(e.target.value)} placeholder="15" className="input"/></Field>}
           <Field label={t("letterForm.monthlyPayment")}><input inputMode="decimal" value={monthlyPaymentAmount} onChange={e=>setMonthlyPaymentAmount(formatMoney(e.target.value))} placeholder="4 500 000" className="input"/></Field>
           <Field label={t("letterForm.overdueAmount")}><input inputMode="decimal" value={overdueAmount} onChange={e=>setOverdueAmount(formatMoney(e.target.value))} placeholder="9 000 000" className="input"/>{crmPicked && <span className="mt-1 block text-xs text-slate-500">{t("letterForm.overdueFromCrm")}</span>}</Field>
