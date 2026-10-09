@@ -540,7 +540,7 @@ export class LettersService {
    *   {kun} {oy} {yil} {xat raqami} {manzil} {kimga} {telefon_raqam}
    *   {shartnoma_raqami} {shartnoma_tuzilgan_kun} {shartnoma_tuzilgan_oy} {shartnoma_tuzilgan_yil}
    *   {grafik_sanasi} {kechikkan_kun} {kechikkan_kun_so'z_bilan}
-   *   {kechikkan_oy} {oylik_to'lov}=jami qarz+xayriya {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
+   *   {kechikkan_oy} {oylik_to'lov}=asosiy qarz (xayriyasiz) {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
    *   {%qr_kod}
    */
   private async buildFirstWarningDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
@@ -557,9 +557,9 @@ export class LettersService {
       const contractDate = letter.contractDate ? new Date(letter.contractDate) : null;
       const overdueDays = letter.overdueDays ?? 0;
       const charityAmount = letter.charityAmount ?? 0;
-      // "Jami qarzdorlik" = muddati o'tgan qarz + hisoblangan xayriya to'lovi
+      // Asosiy (muddati o'tgan) qarz va xayriya xatda ALOHIDA ko'rsatiladi, qo'shilmaydi
       // (muddati o'tgan summa kiritilmagan bo'lsa - oylik to'lov summasi olinadi)
-      const totalDebt = (letter.overdueAmount ?? letter.monthlyPaymentAmount ?? 0) + charityAmount;
+      const totalDebt = letter.overdueAmount ?? letter.monthlyPaymentAmount ?? 0;
       // To'lov kechikkan oy: xat sanasidan kechikkan kunlar soni ayirib topiladi
       const overdueSince = new Date(docDate.getTime() - overdueDays * 86_400_000);
 
