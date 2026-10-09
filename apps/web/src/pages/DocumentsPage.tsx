@@ -14,7 +14,6 @@ import { DocumentStatus, LetterStatus } from "@edo/shared-types";
 const STATUS_FILTERS: { value: DocumentStatus | ""; labelKey: string }[] = [
   { value: "", labelKey: "documents.all" },
   { value: DocumentStatus.DRAFT, labelKey: "documents.draft" },
-  { value: DocumentStatus.IN_REVIEW, labelKey: "documents.inReview" },
   { value: DocumentStatus.PENDING_SIGNATURE, labelKey: "documents.pendingSignature" },
   { value: DocumentStatus.SIGNED, labelKey: "documents.signed" },
   { value: DocumentStatus.REJECTED, labelKey: "documents.rejected" },
