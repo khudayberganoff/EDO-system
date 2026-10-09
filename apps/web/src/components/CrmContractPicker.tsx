@@ -7,7 +7,7 @@ import { formatMoney } from "../utils/format";
 const money = (n: number | null) => (n === null ? "—" : `${formatMoney(String(Math.round(n)))} so'm`);
 
 /** Ogohlantirish xati shaklida: CRM portfelidan mijoz/shartnomani tanlash. */
-export function CrmContractPicker({ onSelect }: { onSelect: (c: CrmContract) => void }) {
+export function CrmContractPicker({ onSelect, overdueOnly = true }: { onSelect: (c: CrmContract) => void; overdueOnly?: boolean }) {
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -19,8 +19,8 @@ export function CrmContractPicker({ onSelect }: { onSelect: (c: CrmContract) => 
   }, [text]);
 
   const list = useQuery({
-    queryKey: ["crm", "contracts", q],
-    queryFn: () => searchCrmContracts(q),
+    queryKey: ["crm", "contracts", q, overdueOnly],
+    queryFn: () => searchCrmContracts(q, overdueOnly),
     enabled: !!status.data?.enabled && open,
     retry: false,
   });
@@ -29,14 +29,14 @@ export function CrmContractPicker({ onSelect }: { onSelect: (c: CrmContract) => 
 
   return (
     <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50/60 p-4">
-      <div className="mb-2 text-sm font-semibold text-sky-900">CRM'dan tanlash</div>
+      <div className="mb-2 text-sm font-semibold text-sky-900">CRM'dan tanlash{!overdueOnly && <span className="ml-2 text-xs font-normal text-slate-500">ixtiyoriy - qo'lda ham yozish mumkin</span>}</div>
       <div className="relative">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           value={text}
           onChange={(e) => { setText(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Mijoz nomi yoki shartnoma raqami bo'yicha qidiring (kechikkanlar)"
+          placeholder={overdueOnly ? "Mijoz nomi yoki shartnoma raqami bo'yicha qidiring (kechikkanlar)" : "Mijoz nomi yoki shartnoma raqami bo'yicha qidiring (ixtiyoriy)"}
           className="input pl-9"
         />
       </div>
@@ -44,7 +44,7 @@ export function CrmContractPicker({ onSelect }: { onSelect: (c: CrmContract) => 
         <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white">
           {list.isLoading && <div className="px-3 py-3 text-sm text-slate-500">Yuklanmoqda...</div>}
           {list.isError && <div className="px-3 py-3 text-sm text-rose-600">CRM'dan ma'lumot olib bo'lmadi.</div>}
-          {list.data?.length === 0 && <div className="px-3 py-3 text-sm text-slate-500">Kechikkan shartnoma topilmadi.</div>}
+          {list.data?.length === 0 && <div className="px-3 py-3 text-sm text-slate-500">{overdueOnly ? "Kechikkan shartnoma topilmadi." : "Mijoz topilmadi."}</div>}
           {list.data?.map((c) => (
             <button
               key={`${c.organization}-${c.contractId}`}
@@ -57,8 +57,14 @@ export function CrmContractPicker({ onSelect }: { onSelect: (c: CrmContract) => 
                 <span className="block text-xs text-slate-500">№ {c.contractNumber ?? "—"}{c.contractDate ? ` · ${new Date(c.contractDate).toLocaleDateString("uz-UZ")}` : ""}</span>
               </span>
               <span className="shrink-0 text-right">
-                <span className="block text-xs font-semibold text-rose-600">{money(c.overdueAmount)}</span>
-                <span className="block text-xs text-slate-500">{c.dpd ?? 0} kun</span>
+                {overdueOnly || (c.overdueAmount ?? 0) > 0 ? (
+                  <>
+                    <span className="block text-xs font-semibold text-rose-600">{money(c.overdueAmount)}</span>
+                    <span className="block text-xs text-slate-500">{c.dpd ?? 0} kun</span>
+                  </>
+                ) : (
+                  <span className="block text-xs text-slate-500">{c.clientType === "ORGANIZATION" ? "Kompaniya" : "Fuqaro"}</span>
+                )}
               </span>
             </button>
           ))}

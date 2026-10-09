@@ -198,6 +198,7 @@ export class LettersService {
         contractDate: dto.contractDate ? new Date(dto.contractDate) : undefined,
         paymentDueDay: dto.paymentDueDay,
         monthlyPaymentAmount: dto.monthlyPaymentAmount,
+        overdueAmount: dto.overdueAmount,
         overdueDays: dto.overdueDays,
         charityAmount: dto.charityAmount,
       },
@@ -539,7 +540,7 @@ export class LettersService {
    *   {kun} {oy} {yil} {xat raqami} {manzil} {kimga} {telefon_raqam}
    *   {shartnoma_raqami} {shartnoma_tuzilgan_kun} {shartnoma_tuzilgan_oy} {shartnoma_tuzilgan_yil}
    *   {grafik_sanasi} {kechikkan_kun} {kechikkan_kun_so'z_bilan}
-   *   {oylik_to'lov} {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
+   *   {kechikkan_oy} {oylik_to'lov}=jami qarz+xayriya {oylik_to'lov_so'z_bilan} {xayriya_summasi} {xayriya_summasi_ so'z_bilan}
    *   {%qr_kod}
    */
   private async buildFirstWarningDocx(letter: any, approved: boolean, token?: string): Promise<Buffer> {
@@ -555,8 +556,12 @@ export class LettersService {
       const docDate = letter.documentDate ? new Date(letter.documentDate) : new Date();
       const contractDate = letter.contractDate ? new Date(letter.contractDate) : null;
       const overdueDays = letter.overdueDays ?? 0;
-      const monthlyPayment = letter.monthlyPaymentAmount ?? 0;
       const charityAmount = letter.charityAmount ?? 0;
+      // "Jami qarzdorlik" = muddati o'tgan qarz + hisoblangan xayriya to'lovi
+      // (muddati o'tgan summa kiritilmagan bo'lsa - oylik to'lov summasi olinadi)
+      const totalDebt = (letter.overdueAmount ?? letter.monthlyPaymentAmount ?? 0) + charityAmount;
+      // To'lov kechikkan oy: xat sanasidan kechikkan kunlar soni ayirib topiladi
+      const overdueSince = new Date(docDate.getTime() - overdueDays * 86_400_000);
 
       doc.render({
         kun: String(docDate.getDate()),
@@ -574,8 +579,9 @@ export class LettersService {
         grafik_sanasi: letter.paymentDueDay != null ? String(letter.paymentDueDay) : "",
         kechikkan_kun: String(overdueDays),
         "kechikkan_kun_so\u2019z_bilan": daysToWordsUz(overdueDays),
-        "oylik_to\u2019lov": formatThousandsUz(monthlyPayment),
-        "oylik_to\u2019lov_so\u2019z_bilan": moneyToWordsUz(monthlyPayment).replace(/ so'm$/, ""),
+        kechikkan_oy: UZ_MONTHS[overdueSince.getMonth()],
+        "oylik_to\u2019lov": formatThousandsUz(totalDebt),
+        "oylik_to\u2019lov_so\u2019z_bilan": moneyToWordsUz(totalDebt).replace(/ so'm$/, ""),
         xayriya_summasi: formatThousandsUz(charityAmount),
         "xayriya_summasi_ so\u2019z_bilan": moneyToWordsUz(charityAmount).replace(/ so'm$/, ""),
         qr_kod: "qr",

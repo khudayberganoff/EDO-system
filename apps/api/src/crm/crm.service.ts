@@ -85,7 +85,7 @@ export class CrmService {
     return this.pool;
   }
 
-  async searchContracts(params: { q?: string; organization?: string; overdueOnly?: boolean; limit?: number }): Promise<CrmContract[]> {
+  async searchContracts(params: { q?: string; organization?: string; overdueOnly?: boolean; includeClosed?: boolean; limit?: number }): Promise<CrmContract[]> {
     const org = params.organization === "vafo_moliya" ? "vafo_moliya" : "wafa_leasing";
     const t = TABLES[org];
     const q = params.q?.trim().toLowerCase() || null;
@@ -130,7 +130,8 @@ export class CrmService {
         vafo: t.vafo,
         today,
       });
-      if (!(led.principalLeft > 1000)) continue; // CRM: faol shartnoma = asosiy qoldiq > 1000
+      // CRM: faol shartnoma = asosiy qoldiq > 1000 (xat uchun "hammasi" tanlansa, yopilganlar ham kiradi)
+      if (!params.includeClosed && !(led.principalLeft > 1000)) continue;
       if (params.overdueOnly && !(led.overdue > 1000 || led.dpd >= 1)) continue;
 
       const name = String(c.name ?? "");
@@ -157,7 +158,8 @@ export class CrmService {
         paymentDay: Number(c.paydey) || 20,
       });
     }
-    out.sort((a, b) => (b.dpd ?? 0) - (a.dpd ?? 0) || a.clientName.localeCompare(b.clientName));
+    if (params.includeClosed) out.sort((a, b) => a.clientName.localeCompare(b.clientName));
+    else out.sort((a, b) => (b.dpd ?? 0) - (a.dpd ?? 0) || a.clientName.localeCompare(b.clientName));
     return out.slice(0, limit);
   }
 }
