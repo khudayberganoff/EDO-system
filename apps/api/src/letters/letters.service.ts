@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, ImageRun, VerticalAlign } from "docx";
+import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, ImageRun, VerticalAlign, HorizontalPositionRelativeFrom, HorizontalPositionAlign, VerticalPositionRelativeFrom, TextWrappingType, TextWrappingSide } from "docx";
 import * as QRCode from "qrcode";
 import * as fs from "fs";
 import * as path from "path";
@@ -18,6 +18,7 @@ import { LetterAiAgentService } from "./letter-ai-agent.service";
 import { LetterPdfService } from "./letter-pdf.service";
 import { moneyToWordsUz, daysToWordsUz } from "./number-to-words.uz";
 import { overdueMonthsUz } from "./overdue-months";
+import { floatGeneratedImages } from "./docx-float-qr";
 
 const ARCHIVE_DIR = path.resolve(process.cwd(), "uploads", "letters");
 const LETTERHEAD_DIR = path.resolve(process.cwd(), "uploads", "letterhead");
@@ -618,7 +619,7 @@ export class LettersService {
         "qarzdorlik_summasi_so\u2019z_bilan": moneyToWordsUz(totalDebt).replace(/ so'm$/, ""),
         qr_kod: "qr",
       });
-      return doc.getZip().generate({ type: "nodebuffer" });
+      return floatGeneratedImages(doc.getZip().generate({ type: "nodebuffer" }));
     } catch (err: any) {
       const details = err?.properties?.errors?.map((e: any) => e.properties?.explanation).filter(Boolean).join("; ");
       throw new BadRequestException((isFinal ? "Yakuniy ogohlantirish" : "1-ogohlantirish") + " shablonida xatolik: " + (details || err.message));
@@ -674,7 +675,7 @@ export class LettersService {
         xayriya_summasi: letter.charityAmount != null ? money(letter.charityAmount) : "",
         qr_kod: "qr",
       });
-      return doc.getZip().generate({ type: "nodebuffer" });
+      return floatGeneratedImages(doc.getZip().generate({ type: "nodebuffer" }));
     } catch (err: any) {
       const details = err?.properties?.errors?.map((e: any) => e.properties?.explanation).filter(Boolean).join("; ");
       throw new BadRequestException("Firma blankasi (Word shabloni) noto'g'ri formatlangan: " + (details || err.message));
@@ -708,7 +709,7 @@ export class LettersService {
       : [];
     const footer = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: { style: "none" }, bottom: { style: "none" }, left: { style: "none" }, right: { style: "none" }, insideHorizontal: { style: "none" }, insideVertical: { style: "none" } }, rows: [new TableRow({ children: [
       new TableCell({ width: { size: 72, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [new TextRun({ text: "Direktor", bold: true, size: 22 }), new TextRun({ text: "\t\tM. Xudayberganov", bold: true, size: 22 })] })] }),
-      new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: qr ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new ImageRun({ data: qr, transformation: { width: 95, height: 95 }, type: "png" })] })] : [new Paragraph({})] })
+      new TableCell({ width: { size: 28, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, children: qr ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new ImageRun({ data: qr, transformation: { width: 95, height: 95 }, type: "png", floating: { horizontalPosition: { relative: HorizontalPositionRelativeFrom.COLUMN, align: HorizontalPositionAlign.RIGHT }, verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: 0 }, wrap: { type: TextWrappingType.TIGHT, side: TextWrappingSide.BOTH_SIDES }, allowOverlap: true, behindDocument: false } })] })] : [new Paragraph({})] })
     ] })] });
     const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 900, bottom: 720, left: 900 } } }, children: [header, numberDateLine, new Paragraph({ spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: letter.type === LetterType.FINAL_WARNING ? "ЯКУНИЙ ОГОҲЛАНТИРИШ ХАТИ" : letter.type === LetterType.REFERENCE ? "МАЪЛУМОТНОМА" : "XAT", bold: true, size: 26, font: "Times New Roman" })] }), recipient, ...warningTable, new Paragraph({ spacing: { before: 220, after: 220 }, children: [new TextRun({ text: "Xat mazmuni", bold: true, size: 22, font: "Times New Roman" })] }), ...paragraphs, new Paragraph({ spacing: { before: 280 }, children: [new TextRun({ text: "Hurmat bilan,", size: 22, font: "Times New Roman" })] }), footer, ...(approved ? [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `QR tasdiq kodi: ${token}`, size: 14, color: "666666" })] })] : [])] }] });
     return Packer.toBuffer(doc);
