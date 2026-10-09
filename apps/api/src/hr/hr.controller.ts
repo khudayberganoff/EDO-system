@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { HrService } from "./hr.service";
@@ -41,6 +43,37 @@ export class HrController {
   @Roles(Role.ADMIN, Role.MANAGER)
   updateEmployee(@Param("id") id: string, @Body() dto: UpdateEmployeeDto, @CurrentUser() user: AuthenticatedUser) {
     return this.hrService.updateEmployee(id, dto, user);
+  }
+
+  // Xodim rasmi va obyektivkasi (ixtiyoriy). Fayl xotirada olinadi, tashkilot tekshirilgandan keyingina saqlanadi.
+  @Post("employees/:id/:kind(photo|objectivka)")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Xodim rasmi (kind=photo) yoki obyektivkasini (kind=objectivka) yuklash" })
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
+  uploadEmployeeFile(@Param("id") id: string, @Param("kind") kind: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.saveEmployeeFile(id, this.fileKind(kind), file, user);
+  }
+
+  @Delete("employees/:id/:kind(photo|objectivka)")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  removeEmployeeFile(@Param("id") id: string, @Param("kind") kind: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.removeEmployeeFile(id, this.fileKind(kind), user);
+  }
+
+  @Get("employees/:id/:kind(photo|objectivka)")
+  @ApiOperation({ summary: "Xodim rasmi yoki obyektivkasini yuklab olish (faqat avtorizatsiya bilan)" })
+  async getEmployeeFile(@Param("id") id: string, @Param("kind") kind: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const k = this.fileKind(kind);
+    const f = await this.hrService.getEmployeeFile(id, k, user);
+    res.setHeader("Content-Type", f.mime);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Disposition", `${k === "photo" ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(f.downloadName)}`);
+    res.sendFile(f.full);
+  }
+
+  private fileKind(kind: string): "photo" | "objectivka" {
+    if (kind !== "photo" && kind !== "objectivka") throw new BadRequestException("Noto'g'ri fayl turi.");
+    return kind;
   }
 
   @Delete("employees/:id")

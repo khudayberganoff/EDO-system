@@ -14,6 +14,32 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { AuditAction, Role } from "../common/enums";
 import { CreateEmployeeDto, UpdateEmployeeDto, CreateHrOrderDto, CreateContractDto, CreateLeaveDto } from "./dto/hr.dto";
 
+/** Xodim rasmi va obyektivkasi - ommaviy (/uploads) emas, nuqtali (yashirin) papkada. */
+const EMPLOYEE_FILES_DIR = path.resolve(process.cwd(), "uploads", ".private", "employees");
+const EMPLOYEE_FILE_KINDS = {
+  photo: { exts: [".jpg", ".jpeg", ".png", ".webp"], label: "Rasm (JPG, PNG yoki WEBP)" },
+  objectivka: { exts: [".pdf", ".doc", ".docx"], label: "Obyektivka (PDF yoki Word)" },
+} as const;
+export type EmployeeFileKind = keyof typeof EMPLOYEE_FILE_KINDS;
+const MIME_BY_EXT: Record<string, string> = {
+  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
+  ".pdf": "application/pdf", ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+/** Fayl kengaytmasi tarkibiga mos kelishini tekshiradi (yolg'on kengaytmadan himoya). */
+function matchesSignature(ext: string, buf: Buffer): boolean {
+  const starts = (...bytes: number[]) => bytes.every((b, i) => buf[i] === b);
+  switch (ext) {
+    case ".jpg": case ".jpeg": return starts(0xff, 0xd8, 0xff);
+    case ".png": return starts(0x89, 0x50, 0x4e, 0x47);
+    case ".webp": return buf.length > 12 && buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP";
+    case ".pdf": return buf.subarray(0, 5).toString() === "%PDF-";
+    case ".docx": return starts(0x50, 0x4b);
+    case ".doc": return starts(0xd0, 0xcf, 0x11, 0xe0);
+    default: return false;
+  }
+}
+
 const HIRE_ORDER_TEMPLATE_PATH = path.resolve(process.cwd(), "..", "..", "templates", "ISHGA-QABUL-BUYRUQ-NAMUNA.docx");
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 /** Shablonda {%qr_code} rasm joyi bo'sh qolmasligi uchun - oq (bo'sh) 180x180 PNG. */
@@ -130,10 +156,76 @@ export class HrService {
     return employee;
   }
 
+  // ---------- Xodim rasmi va obyektivkasi ----------
+
+  private employeeFilePath(name: string) {
+    return path.join(EMPLOYEE_FILES_DIR, path.basename(name));
+  }
+
+  private removeStoredFile(name?: string | null) {
+    if (!name) return;
+    try { fs.unlinkSync(this.employeeFilePath(name)); } catch { /* fayl allaqachon yo'q */ }
+  }
+
+  async saveEmployeeFile(id: string, kind: EmployeeFileKind, file: { originalname: string; buffer: Buffer } | undefined, user: { id: string; role: string; organizationId: string }) {
+    this.ensureHrAccess(user.role);
+    const employee = await this.getEmployee(id, user.organizationId);
+    if (!file?.buffer?.length) throw new BadRequestException("Fayl tanlanmagan.");
+    const ext = path.extname(file.originalname).toLowerCase();
+    const def = EMPLOYEE_FILE_KINDS[kind];
+    if (!(def.exts as readonly string[]).includes(ext) || !matchesSignature(ext, file.buffer)) {
+      throw new BadRequestException(`Noto'g'ri fayl. Ruxsat etilgan: ${def.label}.`);
+    }
+    fs.mkdirSync(EMPLOYEE_FILES_DIR, { recursive: true });
+    const stored = `${id}-${kind}-${Date.now()}${ext}`;
+    fs.writeFileSync(this.employeeFilePath(stored), file.buffer);
+    const old = kind === "photo" ? employee.photoFile : employee.objectivkaFile;
+    const updated = await this.prisma.employee.update({
+      where: { id },
+      data: kind === "photo"
+        ? { photoFile: stored }
+        : { objectivkaFile: stored, objectivkaName: path.basename(file.originalname).slice(0, 200) },
+    });
+    this.removeStoredFile(old);
+    await this.auditLog.record({ userId: user.id, action: AuditAction.UPDATE, metadata: { kind: `employee-${kind}`, employeeId: id } });
+    return updated;
+  }
+
+  async removeEmployeeFile(id: string, kind: EmployeeFileKind, user: { id: string; role: string; organizationId: string }) {
+    this.ensureHrAccess(user.role);
+    const employee = await this.getEmployee(id, user.organizationId);
+    const old = kind === "photo" ? employee.photoFile : employee.objectivkaFile;
+    const updated = await this.prisma.employee.update({
+      where: { id },
+      data: kind === "photo" ? { photoFile: null } : { objectivkaFile: null, objectivkaName: null },
+    });
+    this.removeStoredFile(old);
+    await this.auditLog.record({ userId: user.id, action: AuditAction.UPDATE, metadata: { kind: `employee-${kind}-removed`, employeeId: id } });
+    return updated;
+  }
+
+  /** Yuklab olish uchun fayl: rasm - tashkilotdagi har bir foydalanuvchiga, obyektivka - faqat rahbariyatga. */
+  async getEmployeeFile(id: string, kind: EmployeeFileKind, user: { role: string; organizationId: string }) {
+    if (kind === "objectivka") this.ensureHrAccess(user.role);
+    const employee = await this.getEmployee(id, user.organizationId);
+    const stored = kind === "photo" ? employee.photoFile : employee.objectivkaFile;
+    const full = stored ? this.employeeFilePath(stored) : null;
+    if (!full || !fs.existsSync(full)) {
+      throw new NotFoundException(kind === "photo" ? "Rasm qo'shilmagan." : "Obyektivka qo'shilmagan.");
+    }
+    const ext = path.extname(stored!).toLowerCase();
+    const downloadName = kind === "objectivka"
+      ? (employee.objectivkaName || `obyektivka${ext}`)
+      : `${employee.fullName}${ext}`;
+    return { full, mime: MIME_BY_EXT[ext] ?? "application/octet-stream", downloadName };
+  }
+
   async removeEmployee(id: string, user: { id: string; role: string; organizationId: string }) {
     this.ensureHrAccess(user.role);
-    await this.getEmployee(id, user.organizationId);
+    const existing = await this.getEmployee(id, user.organizationId);
     await this.prisma.employee.delete({ where: { id } });
+    this.removeStoredFile(existing.photoFile);
+    this.removeStoredFile(existing.objectivkaFile);
     await this.auditLog.record({ userId: user.id, action: AuditAction.DELETE, metadata: { kind: "employee", employeeId: id } });
     return { deleted: true };
   }

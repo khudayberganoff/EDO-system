@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2, FileText, FileSpreadsheet, Copy, KeyRound, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, X, Check, XCircle, Users, Palmtree, Link2, FileText, FileSpreadsheet, Copy, KeyRound, AlertTriangle, Upload, Download } from "lucide-react";
 import {
   fetchEmployees, createEmployee, deleteEmployee,
   fetchHrOrders, createHrOrder, deleteHrOrder, fetchNextOrderNumber, downloadHrOrder, exportHrOrders,
@@ -14,6 +14,7 @@ import {
   fetchAttendance, setAttendance,
   fetchGratitudes, createGratitude, deleteGratitude,
   linkEmployeeUser, createEmployeeSystemAccount,
+  uploadEmployeeFile, deleteEmployeeFile, fetchEmployeeFile, type EmployeeFileKind,
 } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
@@ -140,13 +141,14 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
         {canEdit && <NewButton onClick={() => setShowCreate(true)}>{t("hr.newEmployee")}</NewButton>}
       </div>
 
-      <Table head={[t("hr.colFullName"), t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHireDate"), t("hr.colExperience"), t("hr.colPassportExpiry"), t("hr.colSystemAccount"), t("hr.colStatus"), t("letters.colActions")]}>
-        {isLoading && <Empty colSpan={9}>{t("hr.loading")}</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={9}>{t("hr.noEmployees")}</Empty>}
+      <Table head={[t("hr.colFullName"), t("hr.colPosition"), t("hr.colDepartment"), t("hr.colHireDate"), t("hr.colExperience"), t("hr.colPassportExpiry"), t("hr.colObjectivka"), t("hr.colSystemAccount"), t("hr.colStatus"), t("letters.colActions")]}>
+        {isLoading && <Empty colSpan={10}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={10}>{t("hr.noEmployees")}</Empty>}
         {data?.map((e: Employee) => (
           <tr key={e.id} onClick={() => setDetailEmployee(e)} className="cursor-pointer hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
+                <EmployeeAvatar employee={e} size={32} />
                 {e.fullName}
                 {e.status === "ACTIVE" && (!e._count?.orders || !e._count?.contracts) && (
                   <span
@@ -177,6 +179,11 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
                 if (st.level === "soon") return <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">{st.days} {t("hr.daysLeft")}</span>;
                 return <span className="text-slate-500">{fmtDate(e.passportExpiry)}</span>;
               })()}
+            </td>
+            <td className="px-4 py-3">
+              {e.objectivkaFile
+                ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800"><Check size={12} /> {t("hr.fileAdded")}</span>
+                : <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">{t("hr.fileNotAdded")}</span>}
             </td>
             <td className="px-4 py-3">
               {canEdit ? (
@@ -234,7 +241,9 @@ function EmployeesTab({ canEdit }: { canEdit: boolean }) {
  * tizim hisobi) hali tayyorlanmaganini ko'rsatadi, shu yerdan bevosita yaratish
  * mumkin. Yangi xodim qo'shilgandan keyin avtomatik ochiladi.
  */
-function EmployeeDetailModal({ employee, canEdit, onClose }: { employee: Employee; canEdit: boolean; onClose: () => void }) {
+function EmployeeDetailModal({ employee: initialEmployee, canEdit, onClose }: { employee: Employee; canEdit: boolean; onClose: () => void }) {
+  // Rasm/obyektivka yuklanganda yoki o'chirilganda kartochka darhol yangilanadi
+  const [employee, setEmployee] = useState<Employee>(initialEmployee);
   const [action, setAction] = useState<null | { kind: "order"; type: string } | { kind: "contract"; type: string } | { kind: "link" }>(null);
 
   const hasOrder = !!employee._count?.orders;
@@ -259,6 +268,8 @@ function EmployeeDetailModal({ employee, canEdit, onClose }: { employee: Employe
         <div><span className="text-slate-400">Ishga kirgan sana:</span> <span className="text-slate-800">{fmtDate(employee.hireDate)}</span></div>
         <div><span className="text-slate-400">Telefon:</span> <span className="text-slate-800">{employee.phone ?? "—"}</span></div>
       </div>
+
+      <EmployeeFilesBlock employee={employee} canEdit={canEdit} onChange={(e) => setEmployee((cur) => ({ ...cur, ...e }))} />
 
       <div className="mt-5 space-y-2">
         <DocStatusRow
@@ -286,6 +297,90 @@ function EmployeeDetailModal({ employee, canEdit, onClose }: { employee: Employe
         <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm">Yopish</button>
       </div>
     </Modal>
+  );
+}
+
+/** Xodim rasmi (blob sifatida olinadi - fayl ommaviy emas); rasm bo'lmasa - bosh harflar. */
+function EmployeeAvatar({ employee, size }: { employee: Pick<Employee, "id" | "fullName" | "photoFile">; size: number }) {
+  const { data: url } = useQuery({
+    queryKey: ["hr", "photo", employee.id, employee.photoFile],
+    queryFn: async () => URL.createObjectURL(await fetchEmployeeFile(employee.id, "photo")),
+    enabled: !!employee.photoFile,
+    staleTime: Infinity,
+    gcTime: 5 * 60_000,
+    retry: false,
+  });
+  const initials = employee.fullName.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+  const style = { width: size, height: size, fontSize: Math.max(10, size / 2.6) };
+  return url
+    ? <img src={url} alt="" style={style} className="shrink-0 rounded-full object-cover" />
+    : <span style={style} className="flex shrink-0 items-center justify-center rounded-full bg-slate-100 font-semibold text-slate-400">{initials || "?"}</span>;
+}
+
+/** Xodim kartasida rasm va obyektivka: qo'shilgan bo'lsa ko'rinadi, aks holda "Qo'shilmagan". */
+function EmployeeFilesBlock({ employee, canEdit, onChange }: { employee: Employee; canEdit: boolean; onChange: (e: Partial<Employee>) => void }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState<EmployeeFileKind | null>(null);
+  const apply = (e: Employee) => { onChange({ photoFile: e.photoFile ?? null, objectivkaFile: e.objectivkaFile ?? null, objectivkaName: e.objectivkaName ?? null }); queryClient.invalidateQueries({ queryKey: ["hr", "employees"] }); };
+
+  const upload = async (kind: EmployeeFileKind, file?: File | null) => {
+    if (!file) return;
+    setBusy(kind);
+    try { apply(await uploadEmployeeFile(employee.id, kind, file)); } catch (e) { alert(errorText(e)); } finally { setBusy(null); }
+  };
+  const remove = async (kind: EmployeeFileKind) => {
+    if (!confirm(kind === "photo" ? "Rasm o'chirilsinmi?" : "Obyektivka o'chirilsinmi?")) return;
+    setBusy(kind);
+    try { apply(await deleteEmployeeFile(employee.id, kind)); } catch (e) { alert(errorText(e)); } finally { setBusy(null); }
+  };
+  const download = async () => {
+    try {
+      const blob = await fetchEmployeeFile(employee.id, "objectivka");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = employee.objectivkaName || "obyektivka";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) { alert(e?.response?.status === 403 ? "Obyektivkani faqat rahbariyat ko'ra oladi." : "Faylni yuklab bo'lmadi."); }
+  };
+  const btn = "inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50";
+
+  return (
+    <div className="mt-5 grid grid-cols-2 gap-3">
+      <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3">
+        <EmployeeAvatar employee={employee} size={56} />
+        <div className="min-w-0 text-sm">
+          <div className="font-medium text-slate-800">Rasm</div>
+          <div className={employee.photoFile ? "text-xs text-emerald-700" : "text-xs text-slate-400"}>{employee.photoFile ? "Qo'shilgan" : "Qo'shilmagan"}</div>
+          {canEdit && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <label className={btn}><Upload size={12} /> {employee.photoFile ? "Almashtirish" : "Yuklash"}
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" className="hidden" disabled={busy === "photo"} onChange={(e) => { upload("photo", e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+              {employee.photoFile && <button onClick={() => remove("photo")} disabled={busy === "photo"} className={`${btn} text-rose-600`}><Trash2 size={12} /></button>}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3">
+        <FileText size={28} className={employee.objectivkaFile ? "shrink-0 text-emerald-600" : "shrink-0 text-slate-300"} />
+        <div className="min-w-0 text-sm">
+          <div className="font-medium text-slate-800">Obyektivka</div>
+          <div className={employee.objectivkaFile ? "truncate text-xs text-emerald-700" : "text-xs text-slate-400"} title={employee.objectivkaName ?? undefined}>
+            {employee.objectivkaFile ? (employee.objectivkaName || "Qo'shilgan") : "Qo'shilmagan"}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {employee.objectivkaFile && <button onClick={download} className={btn}><Download size={12} /> Yuklab olish</button>}
+            {canEdit && (
+              <label className={btn}><Upload size={12} /> {employee.objectivkaFile ? "Almashtirish" : "Yuklash"}
+                <input type="file" accept=".pdf,.doc,.docx" className="hidden" disabled={busy === "objectivka"} onChange={(e) => { upload("objectivka", e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+            )}
+            {canEdit && employee.objectivkaFile && <button onClick={() => remove("objectivka")} disabled={busy === "objectivka"} className={`${btn} text-rose-600`}><Trash2 size={12} /></button>}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -458,9 +553,19 @@ function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?
   });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const [error, setError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [objectivka, setObjectivka] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!photo) { setPhotoPreview(null); return; }
+    const url = URL.createObjectURL(photo);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
 
   const mutation = useMutation({
-    mutationFn: () => createEmployee({
+    mutationFn: async () => {
+      let employee = await createEmployee({
       ...form,
       department: form.department || undefined,
       birthDate: form.birthDate || undefined,
@@ -474,7 +579,14 @@ function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?
       pinfl: form.pinfl || undefined,
       address: form.address || undefined,
       notes: form.notes || undefined,
-    }),
+      });
+      // Rasm va obyektivka ixtiyoriy. Xodim allaqachon yaratilgan, shuning uchun fayl yuklanmasa ham davom etamiz.
+      const failed: string[] = [];
+      if (photo) { try { employee = await uploadEmployeeFile(employee.id, "photo", photo); } catch (e) { failed.push(`Rasm: ${errorText(e)}`); } }
+      if (objectivka) { try { employee = await uploadEmployeeFile(employee.id, "objectivka", objectivka); } catch (e) { failed.push(`Obyektivka: ${errorText(e)}`); } }
+      if (failed.length) alert(`Xodim qo'shildi, lekin fayl yuklanmadi - xodim kartasidan qayta yuklang.\n${failed.join("\n")}`);
+      return employee;
+    },
     onSuccess: (employee: any) => {
       queryClient.invalidateQueries({ queryKey: ["hr"] });
       if (onCreated) onCreated({ ...employee, fullName: employee.fullName ?? form.fullName });
@@ -502,6 +614,19 @@ function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?
         <Field label="Manzil"><input value={form.address} onChange={(e) => set("address", e.target.value)} className="input" /></Field>
       </div>
       <div className="mt-4"><Field label="Izoh"><textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} className="input" /></Field></div>
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <Field label="Xodim rasmi (ixtiyoriy)">
+          <div className="flex items-center gap-3">
+            {photoPreview ? <img src={photoPreview} alt="" className="h-14 w-14 rounded-full object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-400">rasm</div>}
+            <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium" />
+          </div>
+          {!photo && <span className="mt-1 block text-xs text-slate-400">Qo'shilmagan</span>}
+        </Field>
+        <Field label="Obyektivka (ixtiyoriy, fayl)">
+          <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setObjectivka(e.target.files?.[0] ?? null)} className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium" />
+          {!objectivka && <span className="mt-1 block text-xs text-slate-400">Qo'shilmagan</span>}
+        </Field>
+      </div>
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
       <Actions onClose={onClose} disabled={mutation.isPending || !form.fullName || !form.position} onSave={() => mutation.mutate()} />
     </Modal>

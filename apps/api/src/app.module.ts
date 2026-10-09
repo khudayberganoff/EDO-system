@@ -31,6 +31,9 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
       {
         rootPath: join(__dirname, "..", "uploads"),
         serveRoot: "/uploads",
+        // Nuqta bilan boshlanadigan papkalar (uploads/.private - xodim rasmi va obyektivkasi)
+        // ommaviy berilmaydi, ular faqat avtorizatsiyalangan API orqali yuklab olinadi.
+        serveStaticOptions: { dotfiles: "ignore" },
       },
       {
         // Frontend build (apps/web/dist) - bitta xizmat sifatida deploy qilinganda
