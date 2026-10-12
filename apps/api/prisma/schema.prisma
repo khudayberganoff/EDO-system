@@ -383,6 +383,11 @@ model EmploymentContract {
   endDate    DateTime?
   salary     Float?
   fileUrl    String?
+  /// Imzolangan shartnoma fayli (ixtiyoriy): uploads/.private/employees da saqlanadi,
+  /// /hr/contracts/:id/file orqali avtorizatsiya bilan beriladi. Bo'sh = "qo'shilmagan".
+  fileStored String?
+  /// Faylning asl nomi (yuklab olishda ko'rsatiladi)
+  fileName   String?
   notes      String?
 
   createdAt DateTime @default(now())

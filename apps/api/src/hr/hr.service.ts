@@ -21,6 +21,8 @@ const EMPLOYEE_FILE_KINDS = {
   objectivka: { exts: [".pdf", ".doc", ".docx"], label: "Obyektivka (PDF yoki Word)" },
 } as const;
 export type EmployeeFileKind = keyof typeof EMPLOYEE_FILE_KINDS;
+/** Mehnat shartnomasi fayli: skan (rasm) yoki PDF/Word. */
+const CONTRACT_FILE = { exts: [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png"], label: "Shartnoma fayli (PDF, Word yoki skan: JPG/PNG)" };
 const MIME_BY_EXT: Record<string, string> = {
   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
   ".pdf": "application/pdf", ".doc": "application/msword",
@@ -226,6 +228,7 @@ export class HrService {
     await this.prisma.employee.delete({ where: { id } });
     this.removeStoredFile(existing.photoFile);
     this.removeStoredFile(existing.objectivkaFile);
+    for (const c of existing.contracts) this.removeStoredFile(c.fileStored);
     await this.auditLog.record({ userId: user.id, action: AuditAction.DELETE, metadata: { kind: "employee", employeeId: id } });
     return { deleted: true };
   }
@@ -463,8 +466,9 @@ export class HrService {
     });
   }
 
-  async createContract(dto: CreateContractDto, user: { id: string; role: string }) {
+  async createContract(dto: CreateContractDto, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    if (user.organizationId) await this.getEmployee(dto.employeeId, user.organizationId);
     const contract = await this.prisma.employmentContract.create({
       data: {
         employeeId: dto.employeeId,
@@ -481,9 +485,64 @@ export class HrService {
     return contract;
   }
 
-  async removeContract(id: string, user: { id: string; role: string }) {
+  /** Shartnomani topadi; `organizationId` berilsa - boshqa tashkilot xodimining shartnomasi "topilmadi" bo'ladi. */
+  private async getContract(id: string, organizationId?: string) {
+    const contract = await this.prisma.employmentContract.findUnique({ where: { id }, include: { employee: { select: { organizationId: true, fullName: true } } } });
+    if (!contract || (organizationId && contract.employee.organizationId !== organizationId)) {
+      throw new NotFoundException("Shartnoma topilmadi.");
+    }
+    return contract;
+  }
+
+  async saveContractFile(id: string, file: { originalname: string; buffer: Buffer } | undefined, user: { id: string; role: string; organizationId: string }) {
     this.ensureHrAccess(user.role);
+    const contract = await this.getContract(id, user.organizationId);
+    if (!file?.buffer?.length) throw new BadRequestException("Fayl tanlanmagan.");
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!CONTRACT_FILE.exts.includes(ext) || !matchesSignature(ext, file.buffer)) {
+      throw new BadRequestException(`Noto'g'ri fayl. Ruxsat etilgan: ${CONTRACT_FILE.label}.`);
+    }
+    fs.mkdirSync(EMPLOYEE_FILES_DIR, { recursive: true });
+    const stored = `contract-${id}-${Date.now()}${ext}`;
+    fs.writeFileSync(this.employeeFilePath(stored), file.buffer);
+    const updated = await this.prisma.employmentContract.update({
+      where: { id },
+      data: { fileStored: stored, fileName: path.basename(file.originalname).slice(0, 200) },
+      include: { employee: { select: { id: true, fullName: true, position: true } } },
+    });
+    this.removeStoredFile(contract.fileStored);
+    await this.auditLog.record({ userId: user.id, action: AuditAction.UPDATE, metadata: { kind: "employmentContract-file", contractId: id } });
+    return updated;
+  }
+
+  async removeContractFile(id: string, user: { id: string; role: string; organizationId: string }) {
+    this.ensureHrAccess(user.role);
+    const contract = await this.getContract(id, user.organizationId);
+    const updated = await this.prisma.employmentContract.update({
+      where: { id },
+      data: { fileStored: null, fileName: null },
+      include: { employee: { select: { id: true, fullName: true, position: true } } },
+    });
+    this.removeStoredFile(contract.fileStored);
+    await this.auditLog.record({ userId: user.id, action: AuditAction.UPDATE, metadata: { kind: "employmentContract-file-removed", contractId: id } });
+    return updated;
+  }
+
+  /** Shartnoma faylini yuklab olish - faqat rahbariyat (maosh va shaxsiy ma'lumotlar bor). */
+  async getContractFile(id: string, user: { role: string; organizationId: string }) {
+    this.ensureHrAccess(user.role);
+    const contract = await this.getContract(id, user.organizationId);
+    const full = contract.fileStored ? this.employeeFilePath(contract.fileStored) : null;
+    if (!full || !fs.existsSync(full)) throw new NotFoundException("Shartnoma fayli qo'shilmagan.");
+    const ext = path.extname(contract.fileStored!).toLowerCase();
+    return { full, mime: MIME_BY_EXT[ext] ?? "application/octet-stream", downloadName: contract.fileName || `shartnoma-${contract.number}${ext}` };
+  }
+
+  async removeContract(id: string, user: { id: string; role: string; organizationId?: string }) {
+    this.ensureHrAccess(user.role);
+    const existing = await this.getContract(id, user.organizationId);
     await this.prisma.employmentContract.delete({ where: { id } });
+    this.removeStoredFile(existing.fileStored);
     await this.auditLog.record({ userId: user.id, action: AuditAction.DELETE, metadata: { kind: "employmentContract", contractId: id } });
     return { deleted: true };
   }
