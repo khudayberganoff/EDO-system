@@ -15,6 +15,7 @@ import {
   fetchGratitudes, createGratitude, deleteGratitude,
   linkEmployeeUser, createEmployeeSystemAccount,
   uploadEmployeeFile, deleteEmployeeFile, fetchEmployeeFile, type EmployeeFileKind,
+  uploadContractFile, deleteContractFile, fetchContractFile,
 } from "../api/hr";
 import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
@@ -852,9 +853,9 @@ function ContractsTab({ canEdit }: { canEdit: boolean }) {
   return (
     <>
       {canEdit && <div className="mb-4 flex justify-end"><NewButton onClick={() => setShowCreate(true)}>{t("hr.newContract")}</NewButton></div>}
-      <Table head={[t("hr.colNumber"), t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colSalary"), t("letters.colActions")]}>
-        {isLoading && <Empty colSpan={7}>{t("hr.loading")}</Empty>}
-        {!isLoading && data?.length === 0 && <Empty colSpan={7}>{t("hr.noContracts")}</Empty>}
+      <Table head={[t("hr.colNumber"), t("hr.colEmployee"), t("hr.colType"), t("hr.colStart"), t("hr.colEnd"), t("hr.colSalary"), t("hr.colContractFile"), t("letters.colActions")]}>
+        {isLoading && <Empty colSpan={8}>{t("hr.loading")}</Empty>}
+        {!isLoading && data?.length === 0 && <Empty colSpan={8}>{t("hr.noContracts")}</Empty>}
         {data?.map((c: any) => (
           <tr key={c.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">№ {c.number}</td>
@@ -863,6 +864,7 @@ function ContractsTab({ canEdit }: { canEdit: boolean }) {
             <td className="px-4 py-3 text-slate-500">{fmtDate(c.startDate)}</td>
             <td className="px-4 py-3 text-slate-500">{c.endDate ? fmtDate(c.endDate) : t("hr.permanent")}</td>
             <td className="px-4 py-3 text-slate-600">{c.salary ? `${formatMoney(String(c.salary))} so'm` : "—"}</td>
+            <td className="px-4 py-3"><ContractFileCell contract={c} canEdit={canEdit} /></td>
             <td className="px-4 py-3">{canEdit && <button onClick={() => remove.mutate(c.id)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16} /></button>}</td>
           </tr>
         ))}
@@ -872,18 +874,67 @@ function ContractsTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+/** Shartnoma ro'yxatida fayl ustuni: yuklab olish / yuklash / almashtirish / o'chirish yoki "Qo'shilmagan". */
+function ContractFileCell({ contract, canEdit }: { contract: any; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["hr", "contracts"] });
+  const upload = async (file?: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    try { await uploadContractFile(contract.id, file); refresh(); } catch (e) { alert(errorText(e)); } finally { setBusy(false); }
+  };
+  const remove = async () => {
+    if (!confirm("Shartnoma fayli o'chirilsinmi?")) return;
+    setBusy(true);
+    try { await deleteContractFile(contract.id); refresh(); } catch (e) { alert(errorText(e)); } finally { setBusy(false); }
+  };
+  const download = async () => {
+    try {
+      const url = URL.createObjectURL(await fetchContractFile(contract.id));
+      const a = document.createElement("a");
+      a.href = url; a.download = contract.fileName || `shartnoma-${contract.number}`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) { alert(e?.response?.status === 403 ? "Shartnoma faylini faqat rahbariyat ko'ra oladi." : "Faylni yuklab bo'lmadi."); }
+  };
+  const btn = "inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50";
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {contract.fileStored
+        ? <button onClick={download} title={contract.fileName ?? undefined} className="inline-flex max-w-[160px] items-center gap-1 truncate rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-200"><Download size={12} className="shrink-0" /><span className="truncate">{contract.fileName || "Fayl"}</span></button>
+        : <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">Qo'shilmagan</span>}
+      {canEdit && (
+        <label className={btn} title={contract.fileStored ? "Almashtirish" : "Fayl yuklash"}><Upload size={12} />
+          <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="hidden" disabled={busy} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+        </label>
+      )}
+      {canEdit && contract.fileStored && <button onClick={remove} disabled={busy} className={`${btn} text-rose-600`} title="Faylni o'chirish"><Trash2 size={12} /></button>}
+    </div>
+  );
+}
+
 function ContractModal({ onClose, initialEmployeeId, initialType }: { onClose: () => void; initialEmployeeId?: string; initialType?: string }) {
   const t = useT();
   const queryClient = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["hr", "employees", ""], queryFn: () => fetchEmployees() });
   const [form, setForm] = useState({ employeeId: initialEmployeeId ?? "", number: "", type: initialType ?? "PERMANENT", startDate: new Date().toISOString().slice(0, 10), endDate: "", salary: "", notes: "" });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [file, setFile] = useState<File | null>(null);
   const mutation = useMutation({
-    mutationFn: () => createContract({
-      employeeId: form.employeeId, number: form.number, type: form.type,
-      startDate: form.startDate, endDate: form.endDate || undefined,
-      salary: parseMoney(form.salary), notes: form.notes || undefined,
-    }),
+    mutationFn: async () => {
+      const contract = await createContract({
+        employeeId: form.employeeId, number: form.number, type: form.type,
+        startDate: form.startDate, endDate: form.endDate || undefined,
+        salary: parseMoney(form.salary), notes: form.notes || undefined,
+      });
+      // Fayl ixtiyoriy. Shartnoma yaratilgan, shuning uchun fayl yuklanmasa ham davom etamiz.
+      if (file) {
+        try { await uploadContractFile(contract.id, file); }
+        catch (e) { alert(`Shartnoma qo'shildi, lekin fayl yuklanmadi - ro'yxatdan qayta yuklang.\n${errorText(e)}`); }
+      }
+      return contract;
+    },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["hr"] }); onClose(); },
   });
 
@@ -907,6 +958,13 @@ function ContractModal({ onClose, initialEmployeeId, initialType }: { onClose: (
         <Field label="Tugash sanasi"><input type="date" value={form.endDate} onChange={(e) => set("endDate", e.target.value)} className="input" /></Field>
       </div>
       <div className="mt-4"><Field label="Izoh"><textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} className="input" /></Field></div>
+      <div className="mt-4">
+        <Field label="Shartnoma fayli (ixtiyoriy: PDF, Word yoki skan)">
+          <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium" />
+          {!file && <span className="mt-1 block text-xs text-slate-400">Qo'shilmagan</span>}
+        </Field>
+      </div>
+      {mutation.isError && <p className="mt-2 text-xs text-rose-600">{errorText(mutation.error)}</p>}
       <Actions onClose={onClose} disabled={mutation.isPending || !form.employeeId || !form.number} onSave={() => mutation.mutate()} />
     </Modal>
   );

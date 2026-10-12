@@ -100,6 +100,20 @@ export async function createContract(payload: Record<string, unknown>) {
   const { data } = await apiClient.post("/hr/contracts", payload);
   return data;
 }
+export async function uploadContractFile(id: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await apiClient.post(`/hr/contracts/${id}/file`, form, { headers: { "Content-Type": "multipart/form-data" } });
+  return data;
+}
+export async function deleteContractFile(id: string) {
+  const { data } = await apiClient.delete(`/hr/contracts/${id}/file`);
+  return data;
+}
+export async function fetchContractFile(id: string) {
+  const { data } = await apiClient.get<Blob>(`/hr/contracts/${id}/file`, { responseType: "blob" });
+  return data;
+}
 export async function deleteContract(id: string) {
   const { data } = await apiClient.delete(`/hr/contracts/${id}`);
   return data;

@@ -143,6 +143,32 @@ export class HrController {
     return this.hrService.createContract(dto, user);
   }
 
+  // Shartnoma fayli (ixtiyoriy) - imzolangan nusxa yoki skan
+  @Post("contracts/:id/file")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Mehnat shartnomasiga fayl biriktirish" })
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
+  uploadContractFile(@Param("id") id: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.saveContractFile(id, file, user);
+  }
+
+  @Delete("contracts/:id/file")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  removeContractFile(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.removeContractFile(id, user);
+  }
+
+  @Get("contracts/:id/file")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Shartnoma faylini yuklab olish (faqat avtorizatsiya bilan)" })
+  async getContractFile(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const f = await this.hrService.getContractFile(id, user);
+    res.setHeader("Content-Type", f.mime);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(f.downloadName)}`);
+    res.sendFile(f.full);
+  }
+
   @Delete("contracts/:id")
   @Roles(Role.ADMIN, Role.MANAGER)
   removeContract(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
