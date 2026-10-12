@@ -45,6 +45,9 @@ const LEAVE_TYPES = [
   { value: "STUDY", label: "O'quv ta'tili" },
 ];
 
+/** Bo'lim/lavozim ro'yxatida "Boshqa (qo'lda yozish)" tanlovining belgisi. */
+const CUSTOM = "__custom__";
+
 const label = (list: { value: string; label: string }[], v: string) => list.find((x) => x.value === v)?.label ?? v;
 
 /** Server xatosini doim matn ko'rinishiga keltiradi (massiv bo'lsa - birlashtiradi). */
@@ -553,6 +556,14 @@ function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?
   });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const [error, setError] = useState<string | null>(null);
+  // Oldin yaratilgan bo'lim va lavozimlardan tanlash (yo'q bo'lsa yoki "Boshqa" tanlansa - qo'lda yoziladi)
+  const { data: departments } = useQuery({ queryKey: ["hr", "departments"], queryFn: fetchDepartments });
+  const { data: positions } = useQuery({ queryKey: ["hr", "positions"], queryFn: fetchPositions });
+  const [deptCustom, setDeptCustom] = useState(false);
+  const [posCustom, setPosCustom] = useState(false);
+  const pickedDept = departments?.find((d: any) => d.name === form.department);
+  // Bo'lim tanlangan bo'lsa - shu bo'limning va bo'limga biriktirilmagan lavozimlar ko'rsatiladi
+  const positionOptions = (positions ?? []).filter((p: any) => !pickedDept || !p.departmentId || p.departmentId === pickedDept.id);
   const [photo, setPhoto] = useState<File | null>(null);
   const [objectivka, setObjectivka] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -599,8 +610,54 @@ function EmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?
     <Modal title="Yangi xodim" onClose={onClose}>
       <div className="grid grid-cols-2 gap-4">
         <Field label="F.I.Sh. *"><input value={form.fullName} onChange={(e) => set("fullName", e.target.value)} className="input" /></Field>
-        <Field label="Lavozimi *"><input value={form.position} onChange={(e) => set("position", e.target.value)} className="input" /></Field>
-        <Field label="Bo'limi"><input value={form.department} onChange={(e) => set("department", e.target.value)} className="input" /></Field>
+        <Field label="Lavozimi *">
+          {positionOptions.length > 0 && !posCustom ? (
+            <select
+              value={positionOptions.some((p: any) => p.title === form.position) ? form.position : ""}
+              onChange={(e) => {
+                if (e.target.value === CUSTOM) { setPosCustom(true); set("position", ""); return; }
+                const picked = positions?.find((p: any) => p.title === e.target.value && (!pickedDept || !p.departmentId || p.departmentId === pickedDept.id));
+                setForm((f) => ({ ...f, position: e.target.value, department: f.department || picked?.department?.name || "" }));
+              }}
+              className="input"
+            >
+              <option value="">Ro'yxatdan tanlang...</option>
+              {positionOptions.map((p: any) => <option key={p.id} value={p.title}>{p.title}</option>)}
+              <option value={CUSTOM}>Boshqa (qo'lda yozish)</option>
+            </select>
+          ) : (
+            <div className="flex gap-2">
+              <input value={form.position} onChange={(e) => set("position", e.target.value)} className="input" />
+              {posCustom && positionOptions.length > 0 && <button type="button" onClick={() => { setPosCustom(false); set("position", ""); }} className="shrink-0 rounded-lg border border-slate-200 px-3 text-xs text-slate-600 hover:bg-slate-50">Ro'yxat</button>}
+            </div>
+          )}
+        </Field>
+        <Field label="Bo'limi">
+          {(departments?.length ?? 0) > 0 && !deptCustom ? (
+            <select
+              value={departments?.some((d: any) => d.name === form.department) ? form.department : ""}
+              onChange={(e) => {
+                if (e.target.value === CUSTOM) { setDeptCustom(true); set("department", ""); return; }
+                // Bo'lim almashganda, tanlangan lavozim yangi bo'limga mos kelmasa - tozalanadi
+                const d = departments?.find((x: any) => x.name === e.target.value);
+                setForm((f) => {
+                  const keep = posCustom || !f.position || (positions ?? []).some((p: any) => p.title === f.position && (!d || !p.departmentId || p.departmentId === d.id));
+                  return { ...f, department: e.target.value, position: keep ? f.position : "" };
+                });
+              }}
+              className="input"
+            >
+              <option value="">Bo'limsiz / tanlanmagan</option>
+              {departments?.map((d: any) => <option key={d.id} value={d.name}>{d.name}</option>)}
+              <option value={CUSTOM}>Boshqa (qo'lda yozish)</option>
+            </select>
+          ) : (
+            <div className="flex gap-2">
+              <input value={form.department} onChange={(e) => set("department", e.target.value)} className="input" />
+              {deptCustom && (departments?.length ?? 0) > 0 && <button type="button" onClick={() => { setDeptCustom(false); set("department", ""); }} className="shrink-0 rounded-lg border border-slate-200 px-3 text-xs text-slate-600 hover:bg-slate-50">Ro'yxat</button>}
+            </div>
+          )}
+        </Field>
         <Field label="Ishga kirgan sana *"><input type="date" value={form.hireDate} onChange={(e) => set("hireDate", e.target.value)} className="input" /></Field>
         <Field label="Tug'ilgan sana"><input type="date" value={form.birthDate} onChange={(e) => set("birthDate", e.target.value)} className="input" /></Field>
         <Field label="Telefon"><input value={form.phone} onChange={(e) => set("phone", formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67" className="input" /></Field>
