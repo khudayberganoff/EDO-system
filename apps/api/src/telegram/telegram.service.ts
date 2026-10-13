@@ -140,6 +140,16 @@ export class TelegramService implements OnApplicationBootstrap {
       allowed_updates: ["message", "callback_query"],
     });
     this.logger.log(`Telegram bot @${this.botUsername} webhook'i ulandi.`);
+    // "/" bosilganda chiqadigan buyruqlar menyusi
+    await this.call("setMyCommands", {
+      commands: [
+        { command: "vazifa", description: "Yangi vazifa (kimga ekanini tanlab)" },
+        { command: "mening", description: "Mening vazifalarim" },
+        { command: "vafo", description: "VAFO MOLIYA doskasiga vazifa" },
+        { command: "yordam", description: "Yordam" },
+        { command: "uzish", description: "Telegram'ni EDO'dan uzish" },
+      ],
+    }).catch(() => undefined);
   }
 
   async webhookInfo() {
