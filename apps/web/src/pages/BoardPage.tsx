@@ -508,6 +508,7 @@ function TelegramModal({ onClose }: { onClose: () => void }) {
             <li><b>Guruhda</b> (botni guruhga qo'shing): {code("/vazifa matn")} yoki biror xabarga javob (reply) qilib {code("/vazifa")}.</li>
             <li>Matn ichida: {code("!yuqori")} {code("!o'rta")} {code("!past")} — muhimlik; {code("#ertaga")} {code("#bugun")} {code("#2026-10-20")} — muddat; {code("@Familiya")} — mas'ul.</li>
             <li>Birinchi qator — sarlavha, qolgan qatorlar — tavsif.</li>
+            <li>Vazifa qo'shilgach, bot xabari ostidagi tugmalar (🔴 Yuqori · 🟡 O'rta · ⚪ Past) bilan muhimlikni o'zgartirish mumkin.</li>
             <li>{code("/mening")} — sizga biriktirilgan ochiq vazifalar; {code("/vafo")} — VAFO MOLIYA doskasiga qo'shish.</li>
             <li>Sizga vazifa biriktirilsa, bot Telegram'da xabar yuboradi.</li>
           </ul>
