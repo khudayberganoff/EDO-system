@@ -25,6 +25,7 @@ import {
   Plug,
   Settings,
   Inbox,
+  KanbanSquare,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ import { LANGUAGES } from "../i18n/translations";
 const TOP_NAV_ITEMS = [
   { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { to: "/my-hr", labelKey: "nav.myHr", icon: UserCircle2 },
+  { to: "/board", labelKey: "nav.board", icon: KanbanSquare },
   { to: "/documents?status=PENDING_SIGNATURE", labelKey: "nav.needApproval", icon: ClipboardList },
 ] as const;
 
@@ -65,6 +67,7 @@ const HR_SUB_ITEMS = [
 const PAGE_TITLES: { test: (path: string) => boolean; labelKey: string }[] = [
   { test: (p) => p === "/", labelKey: "nav.dashboard" },
   { test: (p) => p === "/my-hr", labelKey: "nav.myHr" },
+  { test: (p) => p === "/board", labelKey: "nav.board" },
   { test: (p) => p.startsWith("/documents"), labelKey: "nav.needApproval" },
   { test: (p) => p.startsWith("/letters/incoming"), labelKey: "nav.incoming" },
   { test: (p) => p.startsWith("/letters/outgoing"), labelKey: "nav.letter" },
@@ -259,7 +262,7 @@ export function AppLayout() {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Asosiy</div>
-          {TOP_NAV_ITEMS.filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : "approvals"))
+          {TOP_NAV_ITEMS.filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : x.to === "/board" ? "board" : "approvals"))
             .map((x) => (
               <Item
                 key={x.to}
