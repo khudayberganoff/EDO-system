@@ -1,105 +1,149 @@
 # EDO — Elektron Hujjat Aylanishi tizimi (WAFA GROUP)
 
-EDO — WAFA GROUP учун электрон ҳужжат айланиши тизими. Лойиҳа Docker талаб қилмайди: frontend React/Vite, backend NestJS ва маълумотлар базаси SQLite орқали локал компьютерда ишлайди.
+EDO — **WAFA LEASING MCHJ** va **VAFO MOLIYA MCHJ MMT** uchun elektron hujjat aylanishi tizimi: hujjatlar va xatlar, ogohlantirish xatlari (CRM bilan bog'langan), kadrlar bo'limi, vazifalar doskasi va tashqi pochta bitta saytda.
 
-## ⚡ Windows — битта яширин launcher
+Ishlab turgan tizim: <https://edo.wafaleasing.uz>
 
-**Талаб:** Node.js LTS 20+ ўрнатилган бўлиши керак. Docker ва PostgreSQL талаб қилинмайди.
+## Imkoniyatlar
 
-1. Архивни исталган папкага чиқаринг.
-2. **`EDO-START.vbs`** файлини икки марта босинг.
-3. Биринчи ишга туширишда `npm install`, Prisma ва SQLite база автоматик тайёрланади.
-4. Backend `4000` портда, frontend `5173` портда фон режимида ишлайди.
-5. Браузер автоматик очилади.
+| Bo'lim | Nima qiladi |
+|---|---|
+| **Bosh sahifa** | Hujjatlar soni ("Jami", "Imzo kutilmoqda", "Imzolangan"), bugungi sana (hafta kuni va hijriy sana bilan), kundalik vazifalar rejalashtiruvchisi |
+| **Hujjatlar** | Hujjat yaratish, fayl versiyalari, ketma-ket tasdiqlash zanjiri (workflow), elektron imzo (hozircha MOCK provider), audit tarixi. "Ko'rib chiqilmoqda" va "Imzo kutilmoqda" bitta "Imzo kutilmoqda" holatiga birlashtirilgan |
+| **Xatlar** | Chiquvchi xat, ma'lumotnoma, kiruvchi xatlar. Raqam har bo'lim/yil bo'yicha ketma-ket (`X-`, `MA-`, `OG1-`, `OG2-`). Qoralama → rahbar tasdig'i → QR kodli imzolangan xat. QR kod orqali ochiladigan ommaviy tekshiruv sahifasi (`/verify/:id`). Word (DOCX) va PDF ko'rinishida yuklab olish (PDF — LibreOffice orqali). QR kod Word faylida "По контуру" (wrapTight) bilan joylashadi |
+| **Ogohlantirish xatlari** | 1-ogohlantirish va yakuniy ogohlantirish — kompaniya shablonlaridan avtomatik tuziladi (fuqaro / kompaniya + direktor F.I.Sh., Murobaha / Lizing matni, kechikkan oylar, asosiy qarz va xayriya to'lovi alohida). Mijoz, shartnoma va qarzdorlik **CRM'dan** tanlanadi |
+| **Kadrlar** | Xodimlar kartotekasi (rasm va obyektivka fayli ixtiyoriy), bo'lim va lavozimlar, davomat, ta'tillar, buyruqlar (ishga qabul buyrug'i Word shablonidan), mehnat shartnomalari (fayl biriktirish ixtiyoriy), bayram kunlari, minnatdorchiliklar. "Mening HR" sahifasi har bir xodim uchun |
+| **Doska** | Kanban kartochkalari (umumiy va shaxsiy doskalar) |
+| **Kiruvchi pochta** | Tashqi pochta qutilarini (IMAP) ulash, xatlar va ilovalarni EDO ichida ko'rish |
+| **Integratsiyalar** | API kalitlari va ommaviy API (`/api/public/v1`, `X-API-Key` bilan) |
+| **Sozlamalar** | Foydalanuvchilar (yaratish, bloklash, parolni tiklash), rollarga bo'limlar bo'yicha ruxsat |
+| **Boshqa** | Uch til (O'zbekcha, Ruscha, Inglizcha), ikki tashkilot (rahbariyat ular orasida almashadi), firma blankasi (Word) yuklash, o'chirilgan xatlar arxivi |
 
-### Кириш маълумотлари
+### Rollar va xavfsizlik
 
-- ADMIN: `admin@wafagroup.uz` / `Admin123!`
-- MANAGER: `manager@wafagroup.uz` / `Manager123!`
-- EMPLOYEE: `employee@wafagroup.uz` / `Employee123!`
+- Rollar: `ADMIN`, `MANAGER` (rahbariyat), `EMPLOYEE`. Bo'limlarga ruxsat Sozlamalar → "Ruxsatlar" bo'limida rol bo'yicha belgilanadi.
+- Autentifikatsiya: JWT. `ADMIN`/`MANAGER` ikkala tashkilotga kira oladi, kirishda tashkilot tanlanadi; qolganlar faqat WAFA LEASING.
+- Xodim rasmi, obyektivka va mehnat shartnomasi fayllari ommaviy `/uploads` da **emas**, yashirin `uploads/.private/` papkasida saqlanadi va faqat avtorizatsiya bilan beriladi (obyektivka va shartnoma — faqat rahbariyatga).
+- So'rovlar tezligi cheklangan (throttler), kiruvchi ma'lumotlar DTO bo'yicha qat'iy tekshiriladi (`whitelist`).
 
-`1-SOZLASH.bat` ва `2-ISHGA-TUSHIRISH.bat` backward compatibility учун қолдирилган; улар ҳам `EDO-START.vbs` ни яширин режимда ишга туширади.
+## Texnologiyalar
 
-## Архитектура
+| Qatlam | Texnologiya |
+|---|---|
+| Frontend | React 18, Vite 5, TypeScript, Tailwind CSS, TanStack Query |
+| Backend | NestJS 10, TypeScript, JWT (passport), Swagger |
+| Baza | **PostgreSQL** + Prisma ORM (sxema `prisma db push` bilan yangilanadi) |
+| Word / PDF | docxtemplater + PizZip (shablonlar), `docx` kutubxonasi, LibreOffice (DOCX → PDF) |
+| Pochta | IMAP (`imapflow`) |
+| Fayllar | Mahalliy `apps/api/uploads/` papkasi |
+| Deploy | Docker (`Dockerfile`), bitta konteynerda API + tayyor frontend |
+
+## Loyiha tuzilmasi
 
 ```text
-aedo-system/
-a├── apps/
-│   ├── api/          # NestJS backend + Prisma + SQLite
-│   └── web/          # React + Vite + TypeScript
+edo-system/
+├── apps/
+│   ├── api/             # NestJS backend + Prisma (prisma/schema.prisma)
+│   │   └── src/         # auth, users, documents, signatures, letters, hr, board,
+│   │                    # daily-tasks, mail, settings, public-api, crm, audit-log
+│   └── web/             # React + Vite frontend (src/pages, src/i18n, src/api)
 ├── packages/
-│   └── shared-types/ # Backend/frontend умумий типлари
-├── EDO-START.vbs     # Ягона яширин launcher
-├── launcher.cjs      # Setup ва server orchestration
-└── launcher.html     # WAFA loading интерфейси
+│   └── shared-types/    # Backend va frontend uchun umumiy tiplar va enum'lar
+├── templates/           # Word shablonlar (ogohlantirish, xat blanki, buyruq)
+├── docs/
+│   └── CRM-INTEGRATION.md   # CRM bilan integratsiya (o'qish roli, sozlash)
+├── Dockerfile           # Production image (LibreOffice bilan)
+├── .env.example         # Muhit o'zgaruvchilari namunasi
+└── render.yaml          # Eski (Render.com) deploy konfiguratsiyasi
 ```
 
-## Технологиялар
+## Mahalliy ishga tushirish (dasturchi uchun)
 
-| Қатлам | Технология |
-|---|---|
-| Frontend | React 18, Vite, TypeScript, Tailwind CSS |
-| Backend | NestJS 10, TypeScript, JWT |
-| База | SQLite + Prisma ORM |
-| Auth | JWT + RBAC |
-| Файллар | Локал `apps/api/uploads/` папкаси |
-
-## Docker ҳақида
-
-Ушбу версиядан Docker ва PostgreSQL конфигурацияси тўлиқ олиб ташланган. Лойиҳани ишга тушириш учун Docker Desktop, PostgreSQL server ёки `docker compose` керак эмас.
-
-SQLite база файли `apps/api/prisma/dev.db` сифатида локал сақланади.
-
-## Қўлда ишга тушириш
-
-Агар launcher ўрнига қўлда ишлатиш керак бўлса:
+**Talab:** Node.js 20+, PostgreSQL 14+ (xat/buyruqni PDF qilish uchun ixtiyoriy: LibreOffice).
 
 ```bash
+# 1. Bo'sh PostgreSQL bazasi yarating (masalan: createdb edo), so'ng muhitni sozlang
+cp .env.example apps/api/.env      # DATABASE_URL va JWT_SECRET ni tahrirlang
+
+# 2. Paketlarni o'rnating (Prisma client avtomatik generatsiya qilinadi)
 npm install
-npm run prisma:generate --workspace=apps/api
-npm run prisma:migrate --workspace=apps/api -- --name init
-npm run seed --workspace=apps/api
+
+# 3. Backend (4000-port) — birinchi ishga tushishda baza sxemasi va boshlang'ich
+#    foydalanuvchilar o'zi yaratiladi
 npm run dev:api
+
+# 4. Frontend (5173-port) — alohida terminalda
 npm run dev:web
 ```
 
-## API
+- Sayt: <http://localhost:5173> · API: <http://localhost:4000/api> · Swagger: <http://localhost:4000/api/docs>
+- Production build: `npm run build`, ishga tushirish: `npm start` (API tayyor frontendni ham beradi).
 
-- API: `http://localhost:4000`
-- Swagger: `http://localhost:4000/api/docs`
-- Web: `http://localhost:5173`
+### Boshlang'ich hisoblar
 
+Bo'sh bazada server ishga tushganda avtomatik yaratiladi:
 
-Launcher technical note: Frontend Vite and Backend NestJS are launched directly through node.exe and their CLI JavaScript entrypoints. npm.cmd is not used for long-running services.
+| Rol | Login | Parol |
+|---|---|---|
+| ADMIN | `admin@wafagroup.uz` | `Admin123!` |
+| MANAGER | `manager@wafagroup.uz` | `Manager123!` |
+| EMPLOYEE | `employee@wafagroup.uz` | `Employee123!` |
 
-## Render.com'да deploy qilish (bepul)
+> **Muhim:** haqiqiy tizimda birinchi kirishdan so'ng bu parollarni albatta almashtiring (Sozlamalar → Foydalanuvchilar).
 
-Loyihada tayyor `render.yaml` bor — Render buni avtomatik o'qib, API'ni ham,
-PostgreSQL bazasini ham o'zi sozlab beradi.
+Shuningdek ikkita tashkilot (WAFA LEASING MCHJ, VAFO MOLIYA MCHJ MMT) avtomatik yaratiladi.
 
-1. https://render.com — GitHub akkaunt bilan kiring.
-2. **New +** → **Blueprint** → shu repo'ni (`EDO-system`) tanlang.
-3. Render `render.yaml`'ni topib, "edo-system" (web) va "edo-db" (Postgres,
-   free tier) xizmatlarini avtomatik yaratadi. **Apply**'ni bosing.
-4. Birinchi build/deploy 5-10 daqiqa vaqt oladi (npm install + build).
-5. Deploy tugagach, `https://edo-system.onrender.com` manzilida sayt ochiladi.
-6. Birinchi kirish uchun (seed orqali avtomatik yaratiladi):
-   - Admin: `admin@wafagroup.uz` / `Admin123!`
-   - Menejer: `manager@wafagroup.uz` / `Manager123!`
-   - Xodim: `employee@wafagroup.uz` / `Employee123!`
+## Muhit o'zgaruvchilari
 
-   **Muhim:** birinchi kirishdan so'ng bu parollarni albatta almashtiring.
+| O'zgaruvchi | Majburiy | Tavsif |
+|---|---|---|
+| `DATABASE_URL` | ha | PostgreSQL ulanish manzili |
+| `JWT_SECRET` | ha | JWT imzo kaliti (uzun, tasodifiy qiymat) |
+| `JWT_EXPIRES_IN` | yo'q | Token muddati (standart `8h`) |
+| `PORT` | yo'q | API porti (standart `4000`; Docker image'da `10000`) |
+| `PUBLIC_APP_URL` | tavsiya | Saytning ommaviy manzili — xat QR kodlari shu manzilga ishora qiladi |
+| `CORS_ORIGIN` | yo'q | Ruxsat etilgan manzillar (vergul bilan) |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | yo'q | Oddiy xatlar uchun "AI bilan yozish" (kalit bo'lmasa mahalliy yordamchi ishlaydi) |
+| `CRM_DATABASE_URL` | yo'q | CRM bazasiga **faqat o'qish** ulanishi; berilmasa "CRM'dan tanlash" ko'rinmaydi |
+| `CRM_PHONES_URL` | yo'q | Mijoz telefonlari manbai (standart `https://wafaleasing.uz/crm.html`, `off` — o'chirish) |
+| `CRM_PHONES_FILE` | yo'q | Telefonlar JSON fayli (bo'sh bo'lmasa `CRM_PHONES_URL` dan ustun) |
+| `VITE_API_URL` | yo'q | Frontend uchun API manzili (dev'da `http://localhost:4000`; production'da bo'sh — bitta server) |
 
-### Bepul tarif haqida bilish kerak bo'lgan narsalar
-- Free web service 15 daqiqa harakatsizlikdan so'ng "uxlab qoladi" — keyingi
-  so'rov birinchi marta 30-60 soniya sekin ochiladi (keyin tez ishlaydi).
-- Yuklangan fayllar (`apps/api/uploads`) **doimiy saqlanmaydi** — har yangi
-  deploy'da tozalanadi (Render free tarifida persistent disk yo'q). Muhim
-  fayllar uchun keyinchalik S3/Cloudinary kabi tashqi saqlash ulash tavsiya
-  etiladi.
-- Free Postgres 90 kundan so'ng Render tomonidan o'chirilishi mumkin — vaqti
-  bilan yangilab turish kerak.
+## Word shablonlar (`templates/`)
 
-### Kelajakdagi yangilanishlar
-Kod GitHub repo'siga push qilinishi bilan Render **avtomatik** qayta build
-va deploy qiladi — qo'lda hech narsa qilish shart emas.
+| Fayl | Qayerda ishlatiladi |
+|---|---|
+| `1-OGOHLANTIRISH-NAMUNA.docx` | 1-ogohlantirish |
+| `YAKUNIY-OGOHLANTIRISH-NAMUNA.docx` | Yakuniy ogohlantirish |
+| `XAT-BLANK-NAMUNA.docx` | Xat va ma'lumotnoma (kompaniya o'z blankasini yuklamagan bo'lsa) |
+| `ISHGA-QABUL-BUYRUQ-NAMUNA.docx` | Kadrlar: ishga qabul buyrug'i |
+
+Shablonlardagi `{teg}` lar xat ma'lumotlari bilan almashtiriladi (`{kun} {oy} {yil}`, `{xat raqami}`, `{manzil}{manzil_son}`, `{kimga_old}{kimga}{kimga_son}`, `{telefon_raqam}`, `{shartnoma_turi}`, `{kechikkan_oy}`, `{oylik_to’lov}`, `{xayriya_summasi}`, `{qarzdorlik_summasi}`, `{%qr_kod}` va h.k.). Aniq ro'yxat `apps/api/src/letters/letters.service.ts` dagi `buildWarningDocx` / `buildDocxFromTemplate` izohlarida. Shablonni o'zgartirganda teglarni **bitta Word "run"** ichida yozing (formatni teg o'rtasida o'zgartirmang).
+
+## CRM bilan integratsiya
+
+Ogohlantirish xatlari uchun mijoz, shartnoma raqami/sanasi/turi (Murobaha / Lizing), qarzdorlik va kechikkan kunlar CRM (Supabase) bazasidan **faqat o'qish** huquqi bilan olinadi; qarz CRM'dagi Monitoring → Portfel bilan bir xil hisoblanadi. Batafsil: [`docs/CRM-INTEGRATION.md`](docs/CRM-INTEGRATION.md).
+
+## Deploy (Docker)
+
+```bash
+docker build -t edo .
+docker run -d --name edo -p 10000:10000 \
+  -e DATABASE_URL=postgresql://user:parol@host:5432/edo \
+  -e JWT_SECRET=<uzun-tasodifiy-qiymat> \
+  -e PUBLIC_APP_URL=https://edo.example.uz \
+  -v edo-uploads:/app/apps/api/uploads \
+  edo
+```
+
+- Image ichida LibreOffice va shriftlar bor (PDF uchun), frontend build qilingan va API tomonidan beriladi.
+- **`uploads` papkasini doimiy volume'ga ulang** — yuklangan fayllar, firma blankasi va xodim hujjatlari shu yerda; aks holda har yangilanishda yo'qoladi.
+- Baza sxemasi server ishga tushgandan keyin avtomatik yangilanadi (`prisma db push`), shuning uchun alohida migratsiya buyrug'i shart emas.
+- HTTPS va domen uchun oldiga reverse proxy (Caddy / nginx) qo'ying.
+- Bazani muntazam zaxiralang (`pg_dump`) va `uploads` papkasini ham nusxalang.
+
+Hozirgi ishlab turgan tizim o'z VPS serverida Docker'da ishlaydi (Caddy orqali HTTPS, kod `main` ga qo'shilganda server o'zi yangilanadi, kunlik zaxira). `render.yaml` — Render.com'dagi eski (bepul tarif) konfiguratsiya, hozir ishlatilmaydi.
+
+## Eski Windows launcher
+
+`EDO-START.vbs`, `launcher.cjs`, `launcher.html`, `1-SOZLASH.bat`, `2-ISHGA-TUSHIRISH.bat` — SQLite davridagi mahalliy ishga tushirish vositasi. Baza PostgreSQL'ga o'tgani uchun u **hozirgi sxema bilan ishlamaydi**; dasturchilar yuqoridagi "Mahalliy ishga tushirish" bo'limidan foydalansin.
