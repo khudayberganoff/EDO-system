@@ -20,8 +20,8 @@ const COLUMNS: { status: BoardStatus; key: TranslationKey; accent: string }[] = 
 
 const PRIORITIES: { value: BoardPriority; key: TranslationKey; badge: string }[] = [
   { value: "LOW", key: "board.low", badge: "bg-slate-100 text-slate-600" },
-  { value: "MEDIUM", key: "board.medium", badge: "bg-blue-50 text-blue-700" },
-  { value: "HIGH", key: "board.high", badge: "bg-red-50 text-red-700" },
+  { value: "MEDIUM", key: "board.medium", badge: "bg-sky-100 text-sky-800" },
+  { value: "HIGH", key: "board.high", badge: "bg-rose-100 text-rose-700" },
 ];
 
 function isOverdue(task: BoardTask) {
@@ -106,77 +106,80 @@ export function BoardPage() {
   };
 
   return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-slate-800">{t("board.title")}</h1>
+    <div className="p-8">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{t("board.title")}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t("board.desc")}</p>
+        </div>
         <button
           onClick={() => { setNewStatus("TODO"); setEditing("new"); }}
           disabled={!board}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
         >
-          <Plus size={16} /> {t("board.add")}
+          <Plus size={18} /> {t("board.add")}
         </button>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-1 border-b border-slate-200">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {boards.map((b) => (
           <button
             key={b.id}
             onClick={() => setBoardId(b.id)}
             className={clsx(
-              "-mb-px border-b-2 px-3 py-2 text-sm",
-              b.id === boardId ? "border-blue-600 font-semibold text-blue-700" : "border-transparent text-slate-600 hover:text-slate-900",
+              "rounded-full px-6 py-2.5 text-sm font-medium transition",
+              b.id === boardId ? "bg-brand-800 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800",
             )}
           >
-            {b.name}{b.ownerId && <span className="ml-1 text-xs text-slate-400">({t("board.personalTag")})</span>}
+            {b.name}{b.ownerId && <span className={clsx("ml-1.5 text-xs", b.id === boardId ? "text-white/70" : "text-slate-400")}>({t("board.personalTag")})</span>}
           </button>
         ))}
-        <button onClick={() => setBoardModal("new")} className="ml-1 flex items-center gap-1 px-2 py-2 text-sm text-slate-500 hover:text-blue-600">
+        <button onClick={() => setBoardModal("new")} className="flex items-center gap-1.5 rounded-full border border-dashed border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-500 transition hover:border-brand-500 hover:text-brand-800">
           <Plus size={14} /> {t("board.newBoard")}
         </button>
         {board && (
           <div className="ml-auto flex items-center gap-1">
-            <button onClick={() => setBoardModal("rename")} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={t("board.rename")}>
-              <Pencil size={14} />
+            <button onClick={() => setBoardModal("rename")} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-brand-800" title={t("board.rename")}>
+              <Pencil size={16} />
             </button>
             {boards.length > 1 && (
               <button
                 onClick={() => window.confirm(t("board.confirmDeleteBoard")) && removeBoard.mutate()}
-                className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t("board.deleteBoard")}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" title={t("board.deleteBoard")}
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </button>
             )}
           </div>
         )}
       </div>
-      {removeBoard.isError && <div className="mb-2 text-sm text-red-600">{(removeBoard.error as any)?.response?.data?.message ?? "Error"}</div>}
+      {removeBoard.isError && <div className="mb-2 text-sm text-rose-600">{(removeBoard.error as any)?.response?.data?.message ?? "Error"}</div>}
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
         <div className="relative">
-          <Search size={14} className="pointer-events-none absolute left-2.5 top-2.5 text-slate-400" />
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("board.search")}
-            className="w-48 rounded-lg border border-slate-300 py-2 pl-8 pr-3 focus:border-blue-500 focus:outline-none"
+            className="input w-56 !py-2 !pl-9"
           />
         </div>
-        <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
+        <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className="input !w-auto !py-2">
           <option value="">{t("board.allAssignees")}</option>
           {users.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
         </select>
-        <select value={fPriority} onChange={(e) => setFPriority(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2">
+        <select value={fPriority} onChange={(e) => setFPriority(e.target.value)} className="input !w-auto !py-2">
           <option value="">{t("board.allPriorities")}</option>
           {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{t(p.key)}</option>)}
         </select>
         <button
           onClick={() => setFAssignee(fAssignee === user?.id ? "" : user?.id ?? "")}
-          className={clsx("rounded-lg border px-3 py-2", fAssignee === user?.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 text-slate-600")}
+          className={clsx("rounded-lg border px-4 py-2 font-medium transition", fAssignee === user?.id ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-300 text-slate-600 hover:bg-slate-50")}
         >
           {t("board.mine")}
         </button>
         <button
           onClick={() => setFOverdue(!fOverdue)}
-          className={clsx("rounded-lg border px-3 py-2", fOverdue ? "border-red-500 bg-red-50 text-red-700" : "border-slate-300 text-slate-600")}
+          className={clsx("rounded-lg border px-4 py-2 font-medium transition", fOverdue ? "border-rose-500 bg-rose-50 text-rose-700" : "border-slate-300 text-slate-600 hover:bg-slate-50")}
         >
           {t("board.overdue")}
         </button>
@@ -192,24 +195,25 @@ export function BoardPage() {
               onDragOver={(e) => { e.preventDefault(); setOverCol(col.status); }}
               onDragLeave={() => setOverCol((c) => (c === col.status ? null : c))}
               onDrop={(e) => { e.preventDefault(); handleDrop(col.status, null); }}
-              className={clsx("flex min-h-[60vh] flex-col rounded-xl bg-slate-100/70 p-3 transition", overCol === col.status && "ring-2 ring-blue-300")}
+              className={clsx("flex min-h-[60vh] flex-col rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition", overCol === col.status && "border-brand-500 bg-brand-50/60 ring-2 ring-brand-300")}
             >
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={clsx("h-2.5 w-2.5 rounded-full", col.accent)} />
-                  <span className="text-sm font-semibold text-slate-700">{t(col.key)}</span>
-                  <span className="rounded-full bg-white px-2 text-xs text-slate-500">{items.length}</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">{t(col.key)}</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500 shadow-sm">{items.length}</span>
                 </div>
                 <button
                   onClick={() => { setNewStatus(col.status); setEditing("new"); }}
-                  className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white hover:text-brand-800"
                   aria-label={t("board.add")}
                 >
                   <Plus size={16} />
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {items.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400">{t("board.emptyColumn")}</div>}
                 {items.map((task) => {
                   const prio = PRIORITIES.find((p) => p.value === task.priority)!;
                   return (
@@ -222,16 +226,16 @@ export function BoardPage() {
                       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(col.status, task.id); }}
                       onClick={() => setEditing(task)}
                       className={clsx(
-                        "cursor-pointer rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:shadow",
+                        "cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md",
                         dragId === task.id && "opacity-40",
                       )}
                     >
-                      <div className="text-sm font-medium text-slate-800">{task.title}</div>
+                      <div className="text-sm font-semibold text-slate-900">{task.title}</div>
                       {task.description && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</div>}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span className={clsx("rounded px-1.5 py-0.5 font-medium", prio.badge)}>{t(prio.key)}</span>
+                        <span className={clsx("rounded-full px-2.5 py-0.5 font-medium", prio.badge)}>{t(prio.key)}</span>
                         {task.dueDate && (
-                          <span className={clsx("flex items-center gap-1", isOverdue(task) ? "text-red-600" : "text-slate-500")}>
+                          <span className={clsx("flex items-center gap-1", isOverdue(task) ? "font-medium text-rose-600" : "text-slate-500")}>
                             <CalendarDays size={12} /> {task.dueDate.slice(0, 10)}
                           </span>
                         )}
@@ -301,13 +305,13 @@ function TaskModal({ boardId, task, initialStatus, users, onClose, onSaved }: {
   });
   const remove = useMutation({ mutationFn: () => deleteBoardTask(task!.id), onSuccess: onSaved });
 
-  const field = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none";
+  const field = "input";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">{task ? t("board.edit") : t("board.add")}</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{task ? t("board.edit") : t("board.add")}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
         <div className="space-y-3">
@@ -329,17 +333,17 @@ function TaskModal({ boardId, task, initialStatus, users, onClose, onSaved }: {
           {task ? (
             <button
               onClick={() => window.confirm(t("board.confirmDelete")) && remove.mutate()}
-              className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
+              className="flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700"
             >
               <Trash2 size={14} /> {t("board.delete")}
             </button>
           ) : <span />}
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">{t("board.cancel")}</button>
+            <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("board.cancel")}</button>
             <button
               disabled={!title.trim() || save.isPending}
               onClick={() => save.mutate()}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
             >
               {t("board.save")}
             </button>
@@ -369,11 +373,11 @@ function Comments({ taskId }: { taskId: string }) {
       <div className="max-h-48 space-y-2 overflow-y-auto">
         {comments.length === 0 && <div className="text-xs text-slate-400">{t("board.noComments")}</div>}
         {comments.map((c) => (
-          <div key={c.id} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+          <div key={c.id} className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>{c.author.fullName} · {new Date(c.createdAt).toLocaleString()}</span>
               {c.author.id === user?.id && (
-                <button onClick={() => remove.mutate(c.id)} className="text-slate-400 hover:text-red-600"><X size={12} /></button>
+                <button onClick={() => remove.mutate(c.id)} className="text-slate-400 hover:text-rose-600"><X size={12} /></button>
               )}
             </div>
             <div className="mt-0.5 whitespace-pre-wrap text-slate-800">{c.text}</div>
@@ -385,9 +389,9 @@ function Comments({ taskId }: { taskId: string }) {
           value={text} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && text.trim() && !add.isPending && add.mutate()}
           placeholder={t("board.commentPlaceholder")}
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="input flex-1"
         />
-        <button disabled={!text.trim() || add.isPending} onClick={() => add.mutate()} className="rounded-lg bg-slate-700 px-3 py-2 text-sm text-white disabled:opacity-50">
+        <button disabled={!text.trim() || add.isPending} onClick={() => add.mutate()} className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50">
           {t("board.send")}
         </button>
       </div>
@@ -404,13 +408,13 @@ function BoardModal({ board, onClose, onSaved }: { board: Board | null; onClose:
     onSuccess: onSaved,
   });
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-3 text-lg font-semibold text-slate-800">{board ? t("board.rename") : t("board.newBoard")}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-4 text-lg font-semibold text-slate-900">{board ? t("board.rename") : t("board.newBoard")}</h2>
         <input
           autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t("board.boardName")}
           onKeyDown={(e) => e.key === "Enter" && name.trim() && save.mutate()}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="input"
         />
         {!board && (
           <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
@@ -418,8 +422,8 @@ function BoardModal({ board, onClose, onSaved }: { board: Board | null; onClose:
           </label>
         )}
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">{t("board.cancel")}</button>
-          <button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("board.cancel")}</button>
+          <button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50">
             {board ? t("board.save") : t("board.create")}
           </button>
         </div>
