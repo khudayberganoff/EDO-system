@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/commo
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthenticatedUser } from "../common/decorators/current-user.decorator";
 import { Role } from "../common/enums";
+import { TelegramService } from "../telegram/telegram.service";
 import { CreateBoardDto, CreateBoardTaskDto, MoveBoardTaskDto, UpdateBoardTaskDto } from "./dto/board.dto";
 
 const TASK_INCLUDE = {
@@ -16,7 +17,7 @@ const TASK_INCLUDE = {
  */
 @Injectable()
 export class BoardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private telegram: TelegramService) {}
 
   /** Foydalanuvchiga ko'rinadigan doskalar (umumiy + o'zining shaxsiylari). */
   async listBoards(user: AuthenticatedUser) {
@@ -95,7 +96,7 @@ export class BoardService {
     const status = dto.status ?? "TODO";
     // Yangi kartochka ustunning oxiriga qo'shiladi
     const last = await this.prisma.boardTask.aggregate({ where: { boardId: dto.boardId, status }, _max: { position: true } });
-    return this.prisma.boardTask.create({
+    const created = await this.prisma.boardTask.create({
       data: {
         organizationId: user.organizationId,
         boardId: dto.boardId,
@@ -110,11 +111,21 @@ export class BoardService {
       },
       include: TASK_INCLUDE,
     });
+    await this.notifyAssignee(created, null, user);
+    return created;
+  }
+
+  /** Mas'ul yangi tayinlansa (va o'zi emas bo'lsa) - unga Telegram orqali xabar (ulangan bo'lsa). */
+  private async notifyAssignee(task: { title: string; dueDate: Date | null; assignee: { id: string } | null }, previousAssigneeId: string | null, actor: AuthenticatedUser) {
+    const id = task.assignee?.id;
+    if (!id || id === previousAssigneeId || id === actor.id) return;
+    const actorRow = await this.prisma.user.findUnique({ where: { id: actor.id }, select: { fullName: true } });
+    void this.telegram.notifyAssigned(id, task, actorRow?.fullName ?? actor.email);
   }
 
   async update(id: string, dto: UpdateBoardTaskDto, user: AuthenticatedUser) {
-    await this.find(id, user);
-    return this.prisma.boardTask.update({
+    const before = await this.find(id, user);
+    const updated = await this.prisma.boardTask.update({
       where: { id },
       data: {
         title: dto.title,
@@ -125,6 +136,8 @@ export class BoardService {
       },
       include: TASK_INCLUDE,
     });
+    await this.notifyAssignee(updated, before.assigneeId, user);
+    return updated;
   }
 
   /** Kartochkani boshqa ustunga yoki ustun ichida boshqa o'ringa ko'chirish; ikkala ustun tartibi qayta yoziladi. */

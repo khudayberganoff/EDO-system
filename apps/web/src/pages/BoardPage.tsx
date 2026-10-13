@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, MessageSquare, Pencil, Plus, Search, Trash2, User as UserIcon, X } from "lucide-react";
+import { CalendarDays, MessageSquare, Pencil, Plus, Search, Send, Trash2, User as UserIcon, X } from "lucide-react";
 import clsx from "clsx";
 import {
   addBoardComment, createBoard, createBoardTask, deleteBoard, deleteBoardComment, deleteBoardTask, fetchBoardComments,
@@ -8,6 +8,7 @@ import {
   type Board, type BoardPriority, type BoardStatus, type BoardTask,
 } from "../api/board";
 import { useAuth } from "../context/AuthContext";
+import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from "../api/telegram";
 import { useLanguage } from "../i18n/LanguageContext";
 import type { TranslationKey } from "../i18n/translations";
 
@@ -62,6 +63,8 @@ export function BoardPage() {
   }, [allTasks, search, fAssignee, fPriority, fOverdue]);
   const clearFilters = () => { setSearch(""); setFAssignee(""); setFPriority(""); setFOverdue(false); };
   const [boardModal, setBoardModal] = useState<"new" | "rename" | null>(null);
+  const [showTelegram, setShowTelegram] = useState(false);
+  const { data: tgStatus } = useQuery({ queryKey: ["telegram", "status"], queryFn: fetchTelegramStatus, staleTime: 60_000 });
   const [editing, setEditing] = useState<BoardTask | "new" | null>(null);
   const [newStatus, setNewStatus] = useState<BoardStatus>("TODO");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -112,13 +115,24 @@ export function BoardPage() {
           <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{t("board.title")}</h1>
           <p className="mt-1 text-sm text-slate-500">{t("board.desc")}</p>
         </div>
-        <button
-          onClick={() => { setNewStatus("TODO"); setEditing("new"); }}
-          disabled={!board}
-          className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
-        >
-          <Plus size={18} /> {t("board.add")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {tgStatus?.enabled && (
+            <button
+              onClick={() => setShowTelegram(true)}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-3 text-base font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              <Send size={18} className={tgStatus.linked ? "text-emerald-600" : "text-sky-600"} /> Telegram
+              {tgStatus.linked && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+            </button>
+          )}
+          <button
+            onClick={() => { setNewStatus("TODO"); setEditing("new"); }}
+            disabled={!board}
+            className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+          >
+            <Plus size={18} /> {t("board.add")}
+          </button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -256,6 +270,8 @@ export function BoardPage() {
           );
         })}
       </div>
+
+      {showTelegram && <TelegramModal onClose={() => setShowTelegram(false)} />}
 
       {boardModal && (
         <BoardModal
@@ -426,6 +442,76 @@ function BoardModal({ board, onClose, onSaved }: { board: Board | null; onClose:
           <button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()} className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50">
             {board ? t("board.save") : t("board.create")}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Telegram'ni EDO hisobiga ulash va bot buyruqlari bo'yicha qo'llanma. */
+function TelegramModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const { data: status } = useQuery({
+    queryKey: ["telegram", "status"],
+    queryFn: fetchTelegramStatus,
+    // Havola ochilgandan keyin ulanish tugashini kutamiz
+    refetchInterval: (q) => (q.state.data?.linked ? false : 3000),
+  });
+  const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const makeLink = useMutation({
+    mutationFn: createTelegramLink,
+    onSuccess: (d) => { setLink(d); setError(null); window.open(d.url, "_blank", "noopener"); },
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Havola yaratib bo'lmadi."),
+  });
+  const unlink = useMutation({
+    mutationFn: unlinkTelegram,
+    onSuccess: () => { setLink(null); qc.invalidateQueries({ queryKey: ["telegram", "status"] }); },
+  });
+  const code = (c: string) => <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{c}</code>;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><Send size={18} className="text-sky-600" /> Telegram orqali vazifa qo'shish</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+        </div>
+
+        {status?.linked ? (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <div className="text-sm text-emerald-900">✅ Ulangan{status.username ? <> · <b>@{status.username}</b></> : null}</div>
+            <button onClick={() => window.confirm("Telegram uzilsinmi?") && unlink.mutate()} className="text-xs font-medium text-rose-600 hover:text-rose-700">Uzish</button>
+          </div>
+        ) : (
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <p className="mb-3 text-sm text-slate-600">
+              Telegram hisobingizni EDO bilan ulang: tugmani bosing, Telegram ochilganda <b>Start</b> (Boshlash) ni bosing. Havola 15 daqiqa amal qiladi.
+            </p>
+            <button
+              onClick={() => makeLink.mutate()}
+              disabled={makeLink.isPending}
+              className="flex items-center gap-2 rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+            >
+              <Send size={15} /> {link ? "Havolani qayta ochish" : "Telegram'ni ulash"}
+            </button>
+            {link && <p className="mt-3 break-all text-xs text-slate-500">Telegram ochilmasa: <a href={link.url} target="_blank" rel="noreferrer" className="text-brand-800 underline">{link.url}</a></p>}
+            {link && <p className="mt-1 text-xs text-slate-400">Ulanish kutilmoqda...</p>}
+            {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+          </div>
+        )}
+
+        <div className="space-y-3 text-sm text-slate-700">
+          <div className="font-semibold text-slate-900">Qanday ishlaydi</div>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>Botga <b>shaxsiy chatda</b> vazifa matnini yozing — u "Umumiy doska"ga "Rejada" holatida qo'shiladi.</li>
+            <li><b>Guruhda</b> (botni guruhga qo'shing): {code("/vazifa matn")} yoki biror xabarga javob (reply) qilib {code("/vazifa")}.</li>
+            <li>Matn ichida: {code("!yuqori")} {code("!o'rta")} {code("!past")} — muhimlik; {code("#ertaga")} {code("#bugun")} {code("#2026-10-20")} — muddat; {code("@Familiya")} — mas'ul.</li>
+            <li>Birinchi qator — sarlavha, qolgan qatorlar — tavsif.</li>
+            <li>{code("/mening")} — sizga biriktirilgan ochiq vazifalar; {code("/vafo")} — VAFO MOLIYA doskasiga qo'shish.</li>
+            <li>Sizga vazifa biriktirilsa, bot Telegram'da xabar yuboradi.</li>
+          </ul>
+          {status?.botUsername && <p className="text-xs text-slate-400">Bot: @{status.botUsername}</p>}
         </div>
       </div>
     </div>
