@@ -19,10 +19,11 @@ const COLUMNS: { status: BoardStatus; key: TranslationKey; accent: string }[] = 
   { status: "DONE", key: "board.done", accent: "bg-emerald-500" },
 ];
 
-const PRIORITIES: { value: BoardPriority; key: TranslationKey; badge: string }[] = [
-  { value: "LOW", key: "board.low", badge: "bg-slate-100 text-slate-600" },
-  { value: "MEDIUM", key: "board.medium", badge: "bg-sky-100 text-sky-800" },
-  { value: "HIGH", key: "board.high", badge: "bg-rose-100 text-rose-700" },
+// Ranglar Telegram botdagi tugmalar bilan bir xil: 🔴 Yuqori, 🟡 O'rta, ⚪ Past
+const PRIORITIES: { value: BoardPriority; key: TranslationKey; badge: string; dot: string; stripe: string; emoji: string }[] = [
+  { value: "LOW", key: "board.low", badge: "bg-slate-100 text-slate-600", dot: "bg-slate-300 ring-1 ring-slate-400", stripe: "border-l-slate-300", emoji: "⚪" },
+  { value: "MEDIUM", key: "board.medium", badge: "bg-amber-100 text-amber-800", dot: "bg-amber-400", stripe: "border-l-amber-400", emoji: "🟡" },
+  { value: "HIGH", key: "board.high", badge: "bg-rose-100 text-rose-700", dot: "bg-rose-500", stripe: "border-l-rose-500", emoji: "🔴" },
 ];
 
 function isOverdue(task: BoardTask) {
@@ -183,7 +184,7 @@ export function BoardPage() {
         </select>
         <select value={fPriority} onChange={(e) => setFPriority(e.target.value)} className="input !w-auto !py-2">
           <option value="">{t("board.allPriorities")}</option>
-          {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{t(p.key)}</option>)}
+          {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.emoji} {t(p.key)}</option>)}
         </select>
         <button
           onClick={() => setFAssignee(fAssignee === user?.id ? "" : user?.id ?? "")}
@@ -240,14 +241,15 @@ export function BoardPage() {
                       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(col.status, task.id); }}
                       onClick={() => setEditing(task)}
                       className={clsx(
-                        "cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md",
+                        "cursor-pointer rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+                        prio.stripe,
                         dragId === task.id && "opacity-40",
                       )}
                     >
                       <div className="text-sm font-semibold text-slate-900">{task.title}</div>
                       {task.description && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</div>}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span className={clsx("rounded-full px-2.5 py-0.5 font-medium", prio.badge)}>{t(prio.key)}</span>
+                        <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium", prio.badge)}><span className={clsx("h-2 w-2 rounded-full", prio.dot)} />{t(prio.key)}</span>
                         {task.dueDate && (
                           <span className={clsx("flex items-center gap-1", isOverdue(task) ? "font-medium text-rose-600" : "text-slate-500")}>
                             <CalendarDays size={12} /> {task.dueDate.slice(0, 10)}
@@ -335,7 +337,7 @@ function TaskModal({ boardId, task, initialStatus, users, onClose, onSaved }: {
           <textarea className={field} rows={3} placeholder={t("board.description")} value={description} onChange={(e) => setDescription(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
             <select className={field} value={priority} onChange={(e) => setPriority(e.target.value as BoardPriority)}>
-              {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{t(p.key)}</option>)}
+              {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.emoji} {t(p.key)}</option>)}
             </select>
             <input type="date" className={field} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
