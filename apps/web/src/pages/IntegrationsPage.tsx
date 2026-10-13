@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus, Trash2, Ban, Copy, Check, X } from "lucide-react";
+import { KeyRound, Plus, Trash2, Ban, Copy, Check, X, Send } from "lucide-react";
 import { fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, type ApiKeyItem } from "../api/api-keys";
+import { fetchTelegramConfig, saveTelegramToken, removeTelegramToken } from "../api/telegram";
+import { useAuth } from "../context/AuthContext";
 
 const SCOPES = [
   { value: "hr", label: "Kadrlar (xodimlar, buyruqlar, davomat...)" },
@@ -41,6 +43,8 @@ export function IntegrationsPage() {
           <Plus size={18} /> Yangi kalit
         </button>
       </div>
+
+      <TelegramBotCard />
 
       {/* Qisqacha qo'llanma */}
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
@@ -212,6 +216,81 @@ function CreateKeyModal({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Telegram bot sozlamasi (faqat administrator): BotFather bergan tokenni kiritish.
+ * Token tekshiriladi, bazada shifrlangan holda saqlanadi va hech qachon qayta ko'rsatilmaydi.
+ */
+function TelegramBotCard() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const isAdmin = user?.role === "ADMIN";
+  const [token, setToken] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const { data } = useQuery({ queryKey: ["telegram", "config"], queryFn: fetchTelegramConfig, enabled: isAdmin });
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["telegram"] }); };
+  const save = useMutation({
+    mutationFn: () => saveTelegramToken(token.trim()),
+    onSuccess: () => { setToken(""); setError(null); refresh(); },
+    onError: (e: any) => {
+      const m = e?.response?.data?.message;
+      setError(Array.isArray(m) ? m.join(". ") : typeof m === "string" ? m : "Saqlab bo'lmadi.");
+    },
+  });
+  const remove = useMutation({ mutationFn: removeTelegramToken, onSuccess: refresh });
+  if (!isAdmin) return null;
+
+  return (
+    <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><Send size={16} className="text-sky-600" /> Telegram bot (vazifalar doskasi)</h2>
+        {data?.configured && (
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+            Ulangan{data.botUsername ? ` · @${data.botUsername}` : ""}
+          </span>
+        )}
+      </div>
+
+      {data?.configured ? (
+        <div className="space-y-2 text-sm text-slate-600">
+          <p>Xodimlar Telegram orqali vazifa qo'sha oladi: <b>Vazifalar doskasi → Telegram</b> tugmasi orqali hisobini ulaydi. Ulangan xodimlar: <b>{data.linkedUsers}</b>.</p>
+          <p className="text-xs text-slate-500">
+            Webhook: {data.webhook?.url ? <code className="rounded bg-slate-100 px-1.5 py-0.5">{data.webhook.url}</code> : <span className="text-amber-700">ulanmagan (PUBLIC_APP_URL https:// bilan boshlanishi kerak: {data.publicUrl})</span>}
+            {data.webhook && data.webhook.pending > 0 && <> · kutilayotgan: {data.webhook.pending}</>}
+          </p>
+          {data.webhook?.lastError && <p className="text-xs text-rose-600">Telegram xatosi: {data.webhook.lastError}</p>}
+          {data.source === "db" ? (
+            <button onClick={() => window.confirm("Telegram bot uzilsinmi? Token o'chiriladi.") && remove.mutate()} className="text-xs font-medium text-rose-600 hover:text-rose-700">Botni uzish (tokenni o'chirish)</button>
+          ) : (
+            <p className="text-xs text-slate-400">Token server sozlamasida (TELEGRAM_BOT_TOKEN) berilgan.</p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3 text-sm text-slate-600">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>Telegram'da <b>@BotFather</b> ni oching → <code className="rounded bg-slate-100 px-1">/newbot</code> → bot nomini kiriting.</li>
+            <li>BotFather bergan <b>tokenni</b> pastga qo'ying va "Ulash"ni bosing.</li>
+            <li>(Guruhda ishlatmoqchi bo'lsangiz) botni guruhga qo'shing.</li>
+          </ol>
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)}
+              placeholder="123456789:AAH..." className="input max-w-md flex-1"
+            />
+            <button
+              onClick={() => save.mutate()} disabled={!token.trim() || save.isPending}
+              className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+            >
+              {save.isPending ? "Tekshirilmoqda..." : "Ulash"}
+            </button>
+          </div>
+          {error && <p className="text-xs text-rose-600">{error}</p>}
+          <p className="text-xs text-slate-400">Token maxfiy: u shifrlanib saqlanadi va qayta ko'rsatilmaydi. Tokenni boshqalarga yubormang.</p>
+        </div>
+      )}
     </div>
   );
 }

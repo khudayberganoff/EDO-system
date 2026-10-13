@@ -13,7 +13,7 @@ Ishlab turgan tizim: <https://edo.wafaleasing.uz>
 | **Xatlar** | Chiquvchi xat, ma'lumotnoma, kiruvchi xatlar. Raqam har bo'lim/yil bo'yicha ketma-ket (`X-`, `MA-`, `OG1-`, `OG2-`). Qoralama → rahbar tasdig'i → QR kodli imzolangan xat. QR kod orqali ochiladigan ommaviy tekshiruv sahifasi (`/verify/:id`). Word (DOCX) va PDF ko'rinishida yuklab olish (PDF — LibreOffice orqali). QR kod Word faylida "По контуру" (wrapTight) bilan joylashadi |
 | **Ogohlantirish xatlari** | 1-ogohlantirish va yakuniy ogohlantirish — kompaniya shablonlaridan avtomatik tuziladi (fuqaro / kompaniya + direktor F.I.Sh., Murobaha / Lizing matni, kechikkan oylar, asosiy qarz va xayriya to'lovi alohida). Mijoz, shartnoma va qarzdorlik **CRM'dan** tanlanadi |
 | **Kadrlar** | Xodimlar kartotekasi (rasm va obyektivka fayli ixtiyoriy), bo'lim va lavozimlar, davomat, ta'tillar, buyruqlar (ishga qabul buyrug'i Word shablonidan), mehnat shartnomalari (fayl biriktirish ixtiyoriy), bayram kunlari, minnatdorchiliklar. "Mening HR" sahifasi har bir xodim uchun |
-| **Doska** | Kanban kartochkalari (umumiy va shaxsiy doskalar) |
+| **Doska** | Kanban kartochkalari (umumiy va shaxsiy doskalar). **Telegram bot** orqali vazifa qo'shish (shaxsiy chat, guruh, reply), `/mening`, mas'ulga bildirishnoma |
 | **Kiruvchi pochta** | Tashqi pochta qutilarini (IMAP) ulash, xatlar va ilovalarni EDO ichida ko'rish |
 | **Integratsiyalar** | API kalitlari va ommaviy API (`/api/public/v1`, `X-API-Key` bilan) |
 | **Sozlamalar** | Foydalanuvchilar (yaratish, bloklash, parolni tiklash), rollarga bo'limlar bo'yicha ruxsat |
@@ -104,6 +104,8 @@ Shuningdek ikkita tashkilot (WAFA LEASING MCHJ, VAFO MOLIYA MCHJ MMT) avtomatik 
 | `PUBLIC_APP_URL` | tavsiya | Saytning ommaviy manzili — xat QR kodlari shu manzilga ishora qiladi |
 | `CORS_ORIGIN` | yo'q | Ruxsat etilgan manzillar (vergul bilan) |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | yo'q | Oddiy xatlar uchun "AI bilan yozish" (kalit bo'lmasa mahalliy yordamchi ishlaydi) |
+| `TELEGRAM_BOT_TOKEN` | yo'q | Telegram bot tokeni (BotFather). Berilmasa, administrator tokenni saytdan kiritadi (Integratsiyalar → Telegram bot) — baza ichida shifrlanib saqlanadi |
+| `TELEGRAM_API_BASE` | yo'q | Telegram API manzili (standart `https://api.telegram.org`; sinov yoki mahalliy Bot API serveri uchun) |
 | `CRM_DATABASE_URL` | yo'q | CRM bazasiga **faqat o'qish** ulanishi; berilmasa "CRM'dan tanlash" ko'rinmaydi |
 | `CRM_PHONES_URL` | yo'q | Mijoz telefonlari manbai (standart `https://wafaleasing.uz/crm.html`, `off` — o'chirish) |
 | `CRM_PHONES_FILE` | yo'q | Telefonlar JSON fayli (bo'sh bo'lmasa `CRM_PHONES_URL` dan ustun) |
@@ -119,6 +121,13 @@ Shuningdek ikkita tashkilot (WAFA LEASING MCHJ, VAFO MOLIYA MCHJ MMT) avtomatik 
 | `ISHGA-QABUL-BUYRUQ-NAMUNA.docx` | Kadrlar: ishga qabul buyrug'i |
 
 Shablonlardagi `{teg}` lar xat ma'lumotlari bilan almashtiriladi (`{kun} {oy} {yil}`, `{xat raqami}`, `{manzil}{manzil_son}`, `{kimga_old}{kimga}{kimga_son}`, `{telefon_raqam}`, `{shartnoma_turi}`, `{kechikkan_oy}`, `{oylik_to’lov}`, `{xayriya_summasi}`, `{qarzdorlik_summasi}`, `{%qr_kod}` va h.k.). Aniq ro'yxat `apps/api/src/letters/letters.service.ts` dagi `buildWarningDocx` / `buildDocxFromTemplate` izohlarida. Shablonni o'zgartirganda teglarni **bitta Word "run"** ichida yozing (formatni teg o'rtasida o'zgartirmang).
+
+## Telegram bot (vazifalar doskasi)
+
+1. Telegram'da **@BotFather** → `/newbot` → token oling.
+2. Administrator tokenni **Integratsiyalar → Telegram bot** kartasiga kiritadi (yoki serverda `TELEGRAM_BOT_TOKEN`). Token tekshiriladi va webhook (`<PUBLIC_APP_URL>/api/telegram/webhook`, maxfiy sarlavha bilan) avtomatik ulanadi — `PUBLIC_APP_URL` **https://** bilan boshlanishi shart.
+3. Har bir xodim **Vazifalar doskasi → Telegram** tugmasi orqali hisobini ulaydi (bir martalik 15 daqiqalik havola).
+4. Botga shaxsiy chatda vazifa matnini yozing, yoki guruhda `/vazifa matn` (yoki xabarga javob qilib `/vazifa`). Matn ichida: `!yuqori` `!o'rta` `!past`, `#ertaga` `#bugun` `#2026-10-20`, `@Familiya` (mas'ul). `/mening` — mening vazifalarim, `/vafo` — VAFO MOLIYA doskasi, `/uzish` — uzish.
 
 ## CRM bilan integratsiya
 

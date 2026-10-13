@@ -18,6 +18,7 @@ import { SettingsModule } from "./settings/settings.module";
 import { MailModule } from "./mail/mail.module";
 import { DailyTasksModule } from "./daily-tasks/daily-tasks.module";
 import { BoardModule } from "./board/board.module";
+import { TelegramModule } from "./telegram/telegram.module";
 import { CrmModule } from "./crm/crm.module";
 
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
@@ -56,6 +57,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     MailModule,
     DailyTasksModule,
     BoardModule,
+    TelegramModule,
     CrmModule,
   ],
   providers: [
