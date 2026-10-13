@@ -150,12 +150,14 @@ export class TelegramService implements OnApplicationBootstrap {
     } catch { return null; }
   }
 
-  async sendMessage(chatId: number | string, html: string, extra: Record<string, unknown> = {}) {
-    if (!this.token) return;
+  /** Xabar yuboradi; muvaffaqiyatli bo'lsa Telegram qaytargan xabar (message_id bilan) qaytariladi. */
+  async sendMessage(chatId: number | string, html: string, extra: Record<string, unknown> = {}): Promise<{ message_id: number } | undefined> {
+    if (!this.token) return undefined;
     try {
-      await this.call("sendMessage", { chat_id: chatId, text: html.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true, ...extra });
+      return await this.call("sendMessage", { chat_id: chatId, text: html.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true, ...extra });
     } catch (err: any) {
       this.logger.warn(`Xabar yuborilmadi (${chatId}): ${err?.message ?? err}`);
+      return undefined;
     }
   }
 
