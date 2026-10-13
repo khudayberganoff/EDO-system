@@ -506,8 +506,8 @@ function TelegramModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-3 text-sm text-slate-700">
           <div className="font-semibold text-slate-900">Qanday ishlaydi</div>
           <ul className="list-disc space-y-1.5 pl-5">
-            <li>{code("/vazifa")} — bot avval <b>kimga</b> ekanini so'raydi (xodimlar ro'yxati), keyin vazifa matnini yozasiz.</li>
-            <li>Yoki <b>shaxsiy chatda</b> to'g'ridan-to'g'ri vazifa matnini yozing — u "Umumiy doska"ga "Rejada" holatida qo'shiladi.</li>
+            <li>{code("/vazifa")} yoki <b>➕ Yangi vazifa</b> tugmasi — bot avval <b>kimga</b> ekanini so'raydi (xodimlar ro'yxati), keyin vazifa matnini yozasiz.</li>
+            <li>Vazifa matnini to'g'ridan-to'g'ri yozsangiz ham, bot avval <b>kimga</b> ekanini so'raydi; tanlangach vazifa "Umumiy doska"ga "Rejada" holatida qo'shiladi. Matnda {code("@Familiya")} bo'lsa, ro'yxat so'ralmaydi.</li>
             <li><b>Guruhda</b> (botni guruhga qo'shing): {code("/vazifa matn")} yoki biror xabarga javob (reply) qilib {code("/vazifa")}.</li>
             <li>Matn ichida: {code("!yuqori")} {code("!o'rta")} {code("!past")} — muhimlik; {code("#ertaga")} {code("#bugun")} {code("#2026-10-20")} — muddat; {code("@Familiya")} — mas'ul.</li>
             <li>Birinchi qator — sarlavha, qolgan qatorlar — tavsif.</li>
