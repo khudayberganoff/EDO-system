@@ -16,6 +16,7 @@ import { HrPage } from "./pages/HrPage";
 import { MyHrPage } from "./pages/MyHrPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { BoardPage } from "./pages/BoardPage";
 import { IncomingMailPage } from "./pages/IncomingMailPage";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ export default function App() {
                 <Route path="/letters/:kind" element={<LettersPage />} />
                 <Route path="/letters/archive" element={<LetterArchivePage />} />
                 <Route path="/my-hr" element={<MyHrPage />} />
+                <Route path="/board" element={<BoardPage />} />
                 <Route path="/integrations" element={<IntegrationsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/hr" element={<HrPage />} />
