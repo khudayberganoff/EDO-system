@@ -34,6 +34,7 @@ model Organization {
   documents  Document[]
   employees  Employee[]
   boardTasks BoardTask[]
+  boards     Board[]
 }
 
 /// Foydalanuvchining qaysi tashkilot(lar)ga kirish huquqi borligi.
@@ -69,6 +70,8 @@ model User {
   dailyTasks       DailyTask[]       @relation("DailyTaskOwner")
   boardCreated     BoardTask[]       @relation("BoardTaskCreator")
   boardAssigned    BoardTask[]       @relation("BoardTaskAssignee")
+  boardComments    BoardComment[]    @relation("BoardCommentAuthor")
+  boards           Board[]           @relation("BoardOwner")
   documents        Document[]        @relation("DocumentOwner")
   workflowSteps    WorkflowStep[]    @relation("StepApprover")
   documentVersions DocumentVersion[] @relation("VersionAuthor")
@@ -651,6 +654,10 @@ model BoardTask {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
+  /// Qaysi doskaga tegishli (null - eski kartochka, birinchi ochilganda umumiy doskaga o'tkaziladi)
+  board   Board?  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  boardId String?
+
   title       String
   description String?
   /// TODO | IN_PROGRESS | REVIEW | DONE
@@ -669,5 +676,37 @@ model BoardTask {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  comments BoardComment[]
+
   @@index([organizationId, status, position])
+  @@index([boardId])
+}
+
+/// Vazifalar doskasi. ownerId bo'sh bo'lsa - tashkilot bo'yicha umumiy doska,
+/// to'ldirilgan bo'lsa - faqat shu foydalanuvchiga ko'rinadigan shaxsiy doska.
+model Board {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  name           String
+  owner          User?        @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId        String?
+  createdAt      DateTime     @default(now())
+
+  tasks BoardTask[]
+
+  @@index([organizationId])
+}
+
+/// Kartochkaga yozilgan izoh
+model BoardComment {
+  id       String    @id @default(cuid())
+  task     BoardTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId   String
+  author   User      @relation("BoardCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  text     String
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }

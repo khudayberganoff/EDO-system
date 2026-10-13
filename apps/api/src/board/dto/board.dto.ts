@@ -1,10 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsIn, IsInt, IsOptional, IsString, Min, MaxLength, MinLength, IsDateString, ValidateIf } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min, MaxLength, MinLength, IsDateString, ValidateIf } from "class-validator";
 
 export const BOARD_STATUSES = ["TODO", "IN_PROGRESS", "REVIEW", "DONE"] as const;
 export const BOARD_PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
 
 export class CreateBoardTaskDto {
+  @ApiProperty({ description: "Doska ID" })
+  @IsString()
+  boardId!: string;
+
   @ApiProperty({ example: "Shartnoma loyihasini tayyorlash" })
   @IsString() @MinLength(1) @MaxLength(300)
   title!: string;
@@ -50,4 +54,23 @@ export class MoveBoardTaskDto {
 
   @ApiProperty({ description: "Ustun ichidagi yangi o'rni (0 dan boshlanadi)" }) @IsInt() @Min(0)
   position!: number;
+}
+
+export class CreateBoardDto {
+  @ApiProperty({ example: "Marketing" })
+  @IsString() @MinLength(1) @MaxLength(100)
+  name!: string;
+
+  @ApiPropertyOptional({ description: "true - faqat o'zingizga ko'rinadigan shaxsiy doska" }) @IsOptional() @IsBoolean()
+  personal?: boolean;
+}
+
+export class RenameBoardDto {
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(100)
+  name!: string;
+}
+
+export class CreateBoardCommentDto {
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(2000)
+  text!: string;
 }
