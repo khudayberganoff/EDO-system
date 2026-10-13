@@ -137,7 +137,7 @@ export class TelegramService implements OnApplicationBootstrap {
     await this.call("setWebhook", {
       url: `${base}/api/telegram/webhook`,
       secret_token: this.webhookSecret(),
-      allowed_updates: ["message"],
+      allowed_updates: ["message", "callback_query"],
     });
     this.logger.log(`Telegram bot @${this.botUsername} webhook'i ulandi.`);
   }
@@ -157,6 +157,17 @@ export class TelegramService implements OnApplicationBootstrap {
     } catch (err: any) {
       this.logger.warn(`Xabar yuborilmadi (${chatId}): ${err?.message ?? err}`);
     }
+  }
+
+  async answerCallback(callbackQueryId: string, text?: string) {
+    if (!this.token) return;
+    await this.call("answerCallbackQuery", { callback_query_id: callbackQueryId, ...(text ? { text } : {}) }).catch(() => undefined);
+  }
+
+  /** Mavjud xabarni yangilash ("o'zgarmadi" xatosi e'tiborsiz qoldiriladi). */
+  async editMessage(chatId: number | string, messageId: number, html: string, extra: Record<string, unknown> = {}) {
+    if (!this.token) return;
+    await this.call("editMessageText", { chat_id: chatId, message_id: messageId, text: html.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true, ...extra }).catch(() => undefined);
   }
 
   /** Mas'ul qilib tayinlangan xodimga (agar Telegram ulangan bo'lsa) shaxsiy xabar. */
