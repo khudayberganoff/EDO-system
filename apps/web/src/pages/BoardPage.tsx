@@ -506,11 +506,12 @@ function TelegramModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-3 text-sm text-slate-700">
           <div className="font-semibold text-slate-900">Qanday ishlaydi</div>
           <ul className="list-disc space-y-1.5 pl-5">
-            <li>Botga <b>shaxsiy chatda</b> vazifa matnini yozing — u "Umumiy doska"ga "Rejada" holatida qo'shiladi.</li>
+            <li>{code("/vazifa")} — bot avval <b>kimga</b> ekanini so'raydi (xodimlar ro'yxati), keyin vazifa matnini yozasiz.</li>
+            <li>Yoki <b>shaxsiy chatda</b> to'g'ridan-to'g'ri vazifa matnini yozing — u "Umumiy doska"ga "Rejada" holatida qo'shiladi.</li>
             <li><b>Guruhda</b> (botni guruhga qo'shing): {code("/vazifa matn")} yoki biror xabarga javob (reply) qilib {code("/vazifa")}.</li>
             <li>Matn ichida: {code("!yuqori")} {code("!o'rta")} {code("!past")} — muhimlik; {code("#ertaga")} {code("#bugun")} {code("#2026-10-20")} — muddat; {code("@Familiya")} — mas'ul.</li>
             <li>Birinchi qator — sarlavha, qolgan qatorlar — tavsif.</li>
-            <li>Vazifa qo'shilgach, bot xabari ostidagi tugmalar (🔴 Yuqori · 🟡 O'rta · ⚪ Past) bilan muhimlikni o'zgartirish mumkin.</li>
+            <li>Vazifa qo'shilgach, bot xabari ostidagi tugmalar bilan muhimlikni (🔴 🟡 ⚪) va muddatni (Bugun, Ertaga, 3 kun, Hafta yoki <b>📅 Kalendar</b>) tanlash mumkin.</li>
             <li>{code("/mening")} — sizga biriktirilgan ochiq vazifalar; {code("/vafo")} — VAFO MOLIYA doskasiga qo'shish.</li>
             <li>Sizga vazifa biriktirilsa, bot Telegram'da xabar yuboradi.</li>
           </ul>

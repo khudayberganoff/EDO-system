@@ -127,7 +127,7 @@ Shablonlardagi `{teg}` lar xat ma'lumotlari bilan almashtiriladi (`{kun} {oy} {y
 1. Telegram'da **@BotFather** → `/newbot` → token oling.
 2. Administrator tokenni **Integratsiyalar → Telegram bot** kartasiga kiritadi (yoki serverda `TELEGRAM_BOT_TOKEN`). Token tekshiriladi va webhook (`<PUBLIC_APP_URL>/api/telegram/webhook`, maxfiy sarlavha bilan) avtomatik ulanadi — `PUBLIC_APP_URL` **https://** bilan boshlanishi shart.
 3. Har bir xodim **Vazifalar doskasi → Telegram** tugmasi orqali hisobini ulaydi (bir martalik 15 daqiqalik havola).
-4. Botga shaxsiy chatda vazifa matnini yozing, yoki guruhda `/vazifa matn` (yoki xabarga javob qilib `/vazifa`). Matn ichida: `!yuqori` `!o'rta` `!past`, `#ertaga` `#bugun` `#2026-10-20`, `@Familiya` (mas'ul); muhimlikni vazifa xabari ostidagi tugmalar bilan ham o'zgartirish mumkin. `/mening` — mening vazifalarim, `/vafo` — VAFO MOLIYA doskasi, `/uzish` — uzish.
+4. Botga shaxsiy chatda vazifa matnini yozing, yoki guruhda `/vazifa matn` (yoki xabarga javob qilib `/vazifa`). Matn ichida: `!yuqori` `!o'rta` `!past`, `#ertaga` `#bugun` `#2026-10-20`, `@Familiya` (mas'ul); `/vazifa` (matnsiz) — avval kimga ekanini tanlash, keyin matn yozish; muhimlik va muddat (Bugun/Ertaga/Kalendar) vazifa xabari ostidagi tugmalar bilan ham o'zgartiriladi. `/mening` — mening vazifalarim, `/vafo` — VAFO MOLIYA doskasi, `/uzish` — uzish.
 
 ## CRM bilan integratsiya
 
