@@ -40,6 +40,12 @@ export class BoardController {
     return this.service.list(boardId, user);
   }
 
+  @Get("other-org-tasks")
+  @ApiOperation({ summary: "Boshqa korxonaning umumiy doskalaridagi vazifalar (faqat ko'rish)" })
+  otherOrgTasks(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.otherOrgTasks(user);
+  }
+
   @Get("my-tasks")
   @ApiOperation({ summary: "Menga biriktirilgan Rejada / Jarayonda vazifalar (bosh sahifa uchun)" })
   myTasks(@CurrentUser() user: AuthenticatedUser) {

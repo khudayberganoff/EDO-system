@@ -19,6 +19,7 @@ export interface BoardComment {
 
 export interface BoardTask {
   id: string;
+  organizationId?: string;
   boardId: string;
   _count: { comments: number };
   title: string;
@@ -60,7 +61,14 @@ export async function deleteBoard(id: string) {
   return data;
 }
 
-export type MyBoardTask = BoardTask & { board: { id: string; name: string } | null };
+/** Boshqa tashkilot vazifalarida `organization` to'ldirilgan (xira, faqat ko'rish uchun ko'rsatiladi). */
+export type MyBoardTask = BoardTask & { board: { id: string; name: string } | null; organization?: { id: string; name: string } };
+
+/** Boshqa korxonaning umumiy doskalaridagi vazifalar - doskada xira ko'rsatish uchun. */
+export async function fetchOtherOrgTasks() {
+  const { data } = await apiClient.get<MyBoardTask[]>("/board/other-org-tasks");
+  return data;
+}
 
 /** Bosh sahifa: menga biriktirilgan Rejada va Jarayonda vazifalar. */
 export async function fetchMyBoardTasks() {

@@ -4,8 +4,8 @@ import { Building2, CalendarDays, MessageSquare, Pencil, Plus, Search, Send, Tra
 import clsx from "clsx";
 import {
   addBoardComment, createBoard, createBoardTask, deleteBoard, deleteBoardComment, deleteBoardTask, fetchBoardComments,
-  fetchBoards, fetchBoardTasks, fetchBoardUsers, moveBoardTask, renameBoard, updateBoardTask,
-  type Board, type BoardPriority, type BoardStatus, type BoardTask,
+  fetchBoards, fetchBoardTasks, fetchBoardUsers, fetchOtherOrgTasks, moveBoardTask, renameBoard, updateBoardTask,
+  type Board, type BoardPriority, type BoardStatus, type BoardTask, type MyBoardTask,
 } from "../api/board";
 import { useAuth } from "../context/AuthContext";
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from "../api/telegram";
@@ -51,6 +51,19 @@ export function BoardPage() {
       (!fOverdue || isOverdue(x)),
     );
   }, [allTasks, search, fAssignee, fPriority, fOverdue]);
+  // Boshqa korxonaning vazifalari: faqat asosiy umumiy doskada, xira va faqat ko'rish uchun
+  const isMainSharedBoard = !!board && board.ownerId === null && boards.find((b) => b.ownerId === null)?.id === board.id;
+  const { data: otherAll = [] } = useQuery({ queryKey: ["board", "other-org"], queryFn: fetchOtherOrgTasks, enabled: isMainSharedBoard });
+  const otherTasks = useMemo(() => {
+    if (!isMainSharedBoard) return [];
+    const q = search.trim().toLowerCase();
+    return otherAll.filter((x) =>
+      (!q || x.title.toLowerCase().includes(q) || (x.description ?? "").toLowerCase().includes(q)) &&
+      (!fAssignee || x.assignee?.id === fAssignee) &&
+      (!fPriority || x.priority === fPriority) &&
+      (!fOverdue || isOverdue(x)),
+    );
+  }, [otherAll, isMainSharedBoard, search, fAssignee, fPriority, fOverdue]);
   const clearFilters = () => { setSearch(""); setFAssignee(""); setFPriority(""); setFOverdue(false); };
   const [boardModal, setBoardModal] = useState<"new" | "rename" | null>(null);
   const [showTelegram, setShowTelegram] = useState(false);
@@ -197,7 +210,9 @@ export function BoardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {COLUMNS.map((col) => {
-          const items = tasks.filter((x) => x.status === col.status).sort((a, b) => a.position - b.position);
+          const own = tasks.filter((x) => x.status === col.status).sort((a, b) => a.position - b.position);
+          const foreign = otherTasks.filter((x) => x.status === col.status).sort((a, b) => a.position - b.position);
+          const items = [...own, ...foreign];
           return (
             <div
               key={col.status}
@@ -225,17 +240,21 @@ export function BoardPage() {
                 {items.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400">{t("board.emptyColumn")}</div>}
                 {items.map((task) => {
                   const prio = PRIORITIES.find((p) => p.value === task.priority)!;
+                  const other = (task as MyBoardTask).organization; // boshqa korxona vazifasi
+                  const orgName = other?.name ?? user?.organizationName;
                   return (
                     <div
                       key={task.id}
-                      draggable
-                      onDragStart={() => setDragId(task.id)}
+                      draggable={!other}
+                      onDragStart={() => !other && setDragId(task.id)}
                       onDragEnd={() => { setDragId(null); setOverCol(null); }}
                       onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(col.status, task.id); }}
-                      onClick={() => setEditing(task)}
+                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (!other) handleDrop(col.status, task.id); }}
+                      onClick={() => !other && setEditing(task)}
+                      title={other ? `${other.name} — ${t("board.otherOrgHint")}` : undefined}
                       className={clsx(
-                        "cursor-pointer rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+                        "rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm transition",
+                        other ? "cursor-default opacity-50" : "cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
                         prio.stripe,
                         dragId === task.id && "opacity-40",
                       )}
@@ -243,7 +262,7 @@ export function BoardPage() {
                       <div className="text-sm font-semibold text-slate-900">{task.title}</div>
                       {task.description && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</div>}
                       {task.creator && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400"><UserIcon size={11} /> {t("dashboard.createdBy")}: {task.creator.fullName}</div>}
-                      {user?.organizationName && <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400"><Building2 size={11} /> {user.organizationName}</div>}
+                      {orgName && <div className={clsx("mt-0.5 flex items-center gap-1 text-[11px]", other ? "font-medium text-slate-600" : "text-slate-400")}><Building2 size={11} /> {orgName}</div>}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium", prio.badge)}><span className={clsx("h-2 w-2 rounded-full", prio.dot)} />{t(prio.key)}</span>
                         {task.dueDate && (
