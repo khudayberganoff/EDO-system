@@ -8,6 +8,15 @@ export const PRIORITIES: { value: BoardPriority; key: TranslationKey; badge: str
   { value: "HIGH", key: "board.high", badge: "bg-rose-100 text-rose-700", dot: "bg-rose-500", stripe: "border-l-rose-500", emoji: "🔴" },
 ];
 
+/** Muddatgacha qolgan kunlar (bugun = 0, o'tib ketgan < 0); muddat yo'q bo'lsa null. */
+export function daysUntilDue(task: Pick<BoardTask, "dueDate">): number | null {
+  if (!task.dueDate) return null;
+  const [y, m, d] = task.dueDate.slice(0, 10).split("-").map(Number);
+  const due = new Date(y, m - 1, d).getTime();
+  const today = new Date().setHours(0, 0, 0, 0);
+  return Math.round((due - today) / 86_400_000);
+}
+
 export function isOverdue(task: Pick<BoardTask, "dueDate" | "status">) {
   if (!task.dueDate || task.status === "DONE") return false;
   return new Date(task.dueDate).getTime() < new Date().setHours(0, 0, 0, 0);
