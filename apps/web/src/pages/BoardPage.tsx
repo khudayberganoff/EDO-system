@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, MessageSquare, Pencil, Plus, Search, Send, Trash2, User as UserIcon, X } from "lucide-react";
+import { Building2, CalendarDays, MessageSquare, Pencil, Plus, Search, Send, Trash2, User as UserIcon, X } from "lucide-react";
 import clsx from "clsx";
 import {
   addBoardComment, createBoard, createBoardTask, deleteBoard, deleteBoardComment, deleteBoardTask, fetchBoardComments,
@@ -104,6 +104,11 @@ export function BoardPage() {
         <div>
           <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{t("board.title")}</h1>
           <p className="mt-1 text-sm text-slate-500">{t("board.desc")}</p>
+          {user?.organizationName && (
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800">
+              <Building2 size={13} /> {user.organizationName}
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tgStatus?.enabled && (
@@ -238,6 +243,7 @@ export function BoardPage() {
                       <div className="text-sm font-semibold text-slate-900">{task.title}</div>
                       {task.description && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</div>}
                       {task.creator && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400"><UserIcon size={11} /> {t("dashboard.createdBy")}: {task.creator.fullName}</div>}
+                      {user?.organizationName && <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400"><Building2 size={11} /> {user.organizationName}</div>}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium", prio.badge)}><span className={clsx("h-2 w-2 rounded-full", prio.dot)} />{t(prio.key)}</span>
                         {task.dueDate && (

@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowRight, CalendarDays, Check, Play, UserRound } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, Check, Play, UserRound } from "lucide-react";
 import clsx from "clsx";
 import { fetchMyBoardTasks, moveBoardTask, type BoardStatus, type MyBoardTask } from "../api/board";
 import { useLanguage } from "../i18n/LanguageContext";
+import { useAuth } from "../context/AuthContext";
 import type { TranslationKey } from "../i18n/translations";
 import { PRIORITIES, daysUntilDue, isOverdue } from "../utils/boardMeta";
 
@@ -67,6 +68,7 @@ export function MyTasksPanel() {
 
 function TaskCard({ task, col, busy, onNext }: { task: MyBoardTask; col: (typeof COLUMNS)[number]; busy: boolean; onNext: () => void }) {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const prio = PRIORITIES.find((p) => p.value === task.priority) ?? PRIORITIES[1];
   const NextIcon = col.nextIcon;
   const left = daysUntilDue(task);
@@ -98,6 +100,12 @@ function TaskCard({ task, col, busy, onNext }: { task: MyBoardTask; col: (typeof
           <UserRound size={13} className="shrink-0 text-slate-400" />
           <span>{t("dashboard.createdBy")}: <b className="font-semibold">{task.creator?.fullName ?? "—"}</b></span>
         </div>
+        {user?.organizationName && (
+          <div className="flex items-center gap-1.5 text-slate-600">
+            <Building2 size={13} className="shrink-0 text-slate-400" />
+            <span>{user.organizationName}</span>
+          </div>
+        )}
       </div>
       <button
         onClick={onNext}

@@ -27,6 +27,8 @@ interface TgMessage {
 interface PendingTask {
   orgId: string;
   orgName: string;
+  /** Foydalanuvchi kira oladigan barcha tashkilotlar (bittadan ko'p bo'lsa - ro'yxatda tanlash tugmalari chiqadi) */
+  orgs: { id: string; name: string }[];
   assigneeId: string | null;
   assigneeName: string | null;
   /** Oldindan yozilgan vazifa matni (bo'lsa - xodim tanlangach vazifa darhol yaratiladi) */
@@ -171,12 +173,12 @@ export class TelegramBotService {
     // Matnsiz /vazifa (yoki /vafo): avval kimga ekanini tanlash
     if (cmd && !body) {
       if (!org) return this.tg.sendMessage(chatId, wantVafo ? "Sizda VAFO MOLIYA tashkilotiga kirish huquqi yo'q." : "Sizga tashkilot biriktirilmagan.");
-      return this.startGuided(msg, org);
+      return this.startGuided(msg, org, orgs);
     }
     if (!org) return this.tg.sendMessage(chatId, wantVafo ? "Sizda VAFO MOLIYA tashkilotiga kirish huquqi yo'q." : "Sizga tashkilot biriktirilmagan.");
     // Matnda @Familiya bilan mas'ul ko'rsatilgan bo'lsa - darhol yaratiladi, aks holda avval "Kimga?" so'raladi
     if (parseTaskText(body, { botUsername: this.tg.getBotUsername() ?? undefined }).assigneeToken) return this.createTask(msg, user, org, body);
-    return this.startGuided(msg, org, body);
+    return this.startGuided(msg, org, orgs, body);
   }
 
   /** Vazifani matndan yaratadi; `forcedAssignee` berilsa (Kimga? bosqichi), @belgi e'tiborga olinmaydi. */
@@ -219,11 +221,15 @@ export class TelegramBotService {
 
   // ---------- "Kimga?" - xodimni tanlab vazifa yozish ----------
 
-  private employeeKeyboard(users: { id: string; fullName: string }[], page: number) {
+  private employeeKeyboard(users: { id: string; fullName: string }[], page: number, orgs: { id: string; name: string }[] = [], currentOrgId = "") {
     const pages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
     const p = Math.min(Math.max(page, 0), pages - 1);
     const slice = users.slice(p * PAGE_SIZE, (p + 1) * PAGE_SIZE);
     const rows: { text: string; callback_data: string }[][] = [];
+    // Bir nechta tashkilot bo'lsa - qaysi korxona uchun ekani yuqorida tanlanadi
+    if (orgs.length > 1) {
+      for (const o of orgs) rows.push([{ text: `${o.id === currentOrgId ? "✓ " : ""}🏢 ${o.name}`, callback_data: `o:${o.id}` }]);
+    }
     for (let i = 0; i < slice.length; i += 2) {
       rows.push(slice.slice(i, i + 2).map((u) => ({ text: u.fullName.length > 28 ? `${u.fullName.slice(0, 27)}…` : u.fullName, callback_data: `a:${u.id}` })));
     }
@@ -240,17 +246,17 @@ export class TelegramBotService {
 
   private pickText(p: { orgName: string; text?: string }) {
     const preview = p.text ? `\n«${escapeHtml(p.text.replace(/\s+/g, " ").slice(0, 120))}${p.text.length > 120 ? "…" : ""}»` : "";
-    return `👥 <b>Vazifa kimga?</b>${preview}\n${escapeHtml(p.orgName)} — xodimni tanlang:`;
+    return `🏢 <b>${escapeHtml(p.orgName)}</b>\n👥 <b>Vazifa kimga?</b>${preview}\nXodimni tanlang:`;
   }
 
-  private async startGuided(msg: TgMessage, org: { id: string; name: string }, text?: string) {
+  private async startGuided(msg: TgMessage, org: { id: string; name: string }, orgs: { id: string; name: string }[], text?: string) {
     const users = await this.board.users(org.id);
-    const p: PendingTask = { orgId: org.id, orgName: org.name, assigneeId: null, assigneeName: null, text, step: "pick", expires: Date.now() + PENDING_TTL_MS };
+    const p: PendingTask = { orgId: org.id, orgName: org.name, orgs, assigneeId: null, assigneeName: null, text, step: "pick", expires: Date.now() + PENDING_TTL_MS };
     this.pending.set(this.pendingKey(msg.chat.id, msg.from!.id), p);
     await this.tg.sendMessage(
       msg.chat.id,
       this.pickText(p),
-      { reply_markup: this.employeeKeyboard(users, 0), ...(msg.chat.type === "private" ? {} : { reply_to_message_id: msg.message_id }) },
+      { reply_markup: this.employeeKeyboard(users, 0, p.orgs, p.orgId), ...(msg.chat.type === "private" ? {} : { reply_to_message_id: msg.message_id }) },
     );
   }
 
@@ -266,10 +272,21 @@ export class TelegramBotService {
       await this.tg.answerCallback(cb.id, "Bekor qilindi");
       return this.tg.editMessage(chatId, cb.message.message_id, "✖ Bekor qilindi.");
     }
+    // Korxonani almashtirish: xodimlar ro'yxati tanlangan korxonaniki bo'ladi
+    if (data.startsWith("o:")) {
+      const target = p.orgs.find((o) => o.id === data.slice(2));
+      if (!target) return this.tg.answerCallback(cb.id, "Korxona topilmadi.");
+      p.orgId = target.id;
+      p.orgName = target.name;
+      p.expires = Date.now() + PENDING_TTL_MS;
+      await this.tg.answerCallback(cb.id, target.name);
+      const orgUsers = await this.board.users(p.orgId);
+      return this.tg.editMessage(chatId, cb.message.message_id, this.pickText(p), { reply_markup: this.employeeKeyboard(orgUsers, 0, p.orgs, p.orgId) });
+    }
     const users = await this.board.users(p.orgId);
     if (data.startsWith("ap:")) {
       await this.tg.answerCallback(cb.id);
-      return this.tg.editMessage(chatId, cb.message.message_id, this.pickText(p), { reply_markup: this.employeeKeyboard(users, parseInt(data.slice(3), 10) || 0) });
+      return this.tg.editMessage(chatId, cb.message.message_id, this.pickText(p), { reply_markup: this.employeeKeyboard(users, parseInt(data.slice(3), 10) || 0, p.orgs, p.orgId) });
     }
     const id = data.slice(2);
     const chosen = id === "-" ? null : users.find((u) => u.id === id);
@@ -278,7 +295,7 @@ export class TelegramBotService {
     p.assigneeName = chosen?.fullName ?? null;
     p.expires = Date.now() + PENDING_TTL_MS;
     await this.tg.answerCallback(cb.id, chosen ? chosen.fullName : "Mas'ulsiz");
-    await this.tg.editMessage(chatId, cb.message.message_id, `👤 Mas'ul: <b>${chosen ? escapeHtml(chosen.fullName) : "belgilanmagan (umumiy)"}</b>`);
+    await this.tg.editMessage(chatId, cb.message.message_id, `🏢 <b>${escapeHtml(p.orgName)}</b>\n👤 Mas'ul: <b>${chosen ? escapeHtml(chosen.fullName) : "belgilanmagan (umumiy)"}</b>`);
 
     // Matn oldindan yozilgan bo'lsa - vazifa darhol yaratiladi
     if (p.text) {
@@ -295,7 +312,7 @@ export class TelegramBotService {
     // Guruhda faqat javob (reply) xabarlari yetib keladi, shuning uchun majburiy javob (force_reply) so'raladi
     const prompt = await this.tg.sendMessage(
       chatId,
-      `✍️ Endi vazifa matnini yozing.\n<i>Birinchi qator — sarlavha. Ixtiyoriy: !yuqori, #ertaga, #2026-10-20</i>`,
+      `✍️ Endi vazifa matnini yozing (🏢 <b>${escapeHtml(p.orgName)}</b>).\n<i>Birinchi qator — sarlavha. Ixtiyoriy: !yuqori, #ertaga, #2026-10-20</i>`,
       { reply_markup: { force_reply: true, selective: true, input_field_placeholder: "Vazifa matni..." }, reply_to_message_id: cb.message.message_id },
     );
     p.promptMessageId = prompt?.message_id;
@@ -311,7 +328,7 @@ export class TelegramBotService {
       task.assignee ? `Mas'ul: ${escapeHtml(task.assignee.fullName)}` : null,
       task.creator ? `Yozdi: ${escapeHtml(task.creator.fullName)}` : null,
     ].filter(Boolean).join(" · ");
-    return `✅ Vazifa qo'shildi\n<b>${escapeHtml(task.title)}</b>\n${escapeHtml(task.boardName)} · ${escapeHtml(task.orgName)}\n${details}${people ? "\n" + people : ""}${note}\n<a href="${this.tg.publicBaseUrl()}/board">Doskani ochish</a>`;
+    return `✅ Vazifa qo'shildi\n🏢 <b>${escapeHtml(task.orgName)}</b> · ${escapeHtml(task.boardName)}\n<b>${escapeHtml(task.title)}</b>\n${details}${people ? "\n" + people : ""}${note}\n<a href="${this.tg.publicBaseUrl()}/board">Doskani ochish</a>`;
   }
 
   /** Asosiy tugmalar: muhimlik, tez muddatlar (Bugun / Ertaga / 3 kun / Hafta) va kalendar. */
@@ -333,7 +350,7 @@ export class TelegramBotService {
     const data = cb.data ?? "";
     if (cb.from.is_bot) return;
     if (data === "n") return this.tg.answerCallback(cb.id);
-    if (/^(a:[0-9a-fA-F-]{1,36}|a:-|ap:\d{1,3}|ax)$/.test(data)) return this.handlePickCallback(cb, data);
+    if (/^(a:[0-9a-fA-F-]{1,36}|a:-|ap:\d{1,3}|ax|o:[A-Za-z0-9]{10,40})$/.test(data)) return this.handlePickCallback(cb, data);
 
     const m = data.match(/^([pqcdxk]):([A-Za-z0-9]{10,40})(?::([A-Za-z0-9-]{1,10}))?$/);
     if (!m) return this.tg.answerCallback(cb.id);
