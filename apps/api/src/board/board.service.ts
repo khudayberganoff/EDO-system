@@ -121,10 +121,18 @@ export class BoardService {
   /** Mas'ul sifatida tanlash mumkin bo'lgan, shu tashkilotga kira oladigan faol xodimlar. */
   users(organizationId: string) {
     return this.prisma.user.findMany({
-      where: { isActive: true, organizations: { some: { organizationId } } },
+      // Kuzatuvchiga vazifa yuklanmaydi (u vazifa yuklaydi va baholaydi), shuning uchun ro'yxatda yo'q
+      where: { isActive: true, role: { not: Role.OBSERVER }, organizations: { some: { organizationId } } },
       select: { id: true, fullName: true },
       orderBy: { fullName: "asc" },
     });
+  }
+
+  /** Mas'ul sifatida kuzatuvchi tanlanishi mumkin emas (u vazifa yuklaydi, unga yuklanmaydi). */
+  private async assertAssignable(assigneeId: string | null | undefined) {
+    if (!assigneeId) return;
+    const target = await this.prisma.user.findUnique({ where: { id: assigneeId }, select: { role: true } });
+    if (target?.role === Role.OBSERVER) throw new BadRequestException("Kuzatuvchiga vazifa yuklab bo'lmaydi: u vazifani yuklovchi tomon.");
   }
 
   /** Kartochkani topadi va doskasi foydalanuvchiga ko'rinishini tekshiradi. */
@@ -137,6 +145,7 @@ export class BoardService {
 
   async create(dto: CreateBoardTaskDto, user: AuthenticatedUser) {
     await this.findBoard(dto.boardId, user);
+    await this.assertAssignable(dto.assigneeId);
     const status = dto.status ?? "TODO";
     // Yangi kartochka ustunning oxiriga qo'shiladi
     const last = await this.prisma.boardTask.aggregate({ where: { boardId: dto.boardId, status }, _max: { position: true } });
@@ -170,6 +179,7 @@ export class BoardService {
   async update(id: string, dto: UpdateBoardTaskDto, user: AuthenticatedUser) {
     if (user.role === Role.OBSERVER) throw new ForbiddenException(OBSERVER_FORBIDDEN);
     const before = await this.find(id, user);
+    await this.assertAssignable(dto.assigneeId);
     const updated = await this.prisma.boardTask.update({
       where: { id },
       data: {
