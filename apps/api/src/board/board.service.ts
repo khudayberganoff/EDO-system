@@ -74,6 +74,20 @@ export class BoardService {
     });
   }
 
+  /** Bosh sahifa uchun: menga biriktirilgan "Rejada" va "Jarayonda" vazifalar (menga ko'rinadigan doskalardan). */
+  myTasks(user: AuthenticatedUser) {
+    return this.prisma.boardTask.findMany({
+      where: {
+        organizationId: user.organizationId,
+        assigneeId: user.id,
+        status: { in: ["TODO", "IN_PROGRESS"] },
+        board: { OR: [{ ownerId: null }, { ownerId: user.id }] },
+      },
+      include: { ...TASK_INCLUDE, board: { select: { id: true, name: true } } },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { position: "asc" }, { createdAt: "asc" }],
+    });
+  }
+
   /** Mas'ul sifatida tanlash mumkin bo'lgan, shu tashkilotga kira oladigan faol xodimlar. */
   users(organizationId: string) {
     return this.prisma.user.findMany({

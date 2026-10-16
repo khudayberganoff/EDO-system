@@ -7,7 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useT } from "../i18n/LanguageContext";
 import { FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { formatUzGregorian, formatHijri } from "../utils/hijriDate";
-import { DailyPlanner } from "../components/DailyPlanner";
+import { MyTasksPanel } from "../components/MyTasksPanel";
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -62,7 +62,7 @@ export function DashboardPage() {
         <StatCard icon={CheckCircle2} label={t("dashboard.signed")} value={signedTotal} accent="text-emerald-600 bg-emerald-50" onClick={() => navigate("/documents?status=SIGNED")} />
       </div>
 
-      <DailyPlanner />
+      <MyTasksPanel />
     </div>
   );
 }

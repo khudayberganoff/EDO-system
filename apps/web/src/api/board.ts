@@ -60,6 +60,14 @@ export async function deleteBoard(id: string) {
   return data;
 }
 
+export type MyBoardTask = BoardTask & { board: { id: string; name: string } | null };
+
+/** Bosh sahifa: menga biriktirilgan Rejada va Jarayonda vazifalar. */
+export async function fetchMyBoardTasks() {
+  const { data } = await apiClient.get<MyBoardTask[]>("/board/my-tasks");
+  return data;
+}
+
 export async function fetchBoardTasks(boardId: string) {
   const { data } = await apiClient.get<BoardTask[]>("/board/tasks", { params: { boardId } });
   return data;

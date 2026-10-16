@@ -11,6 +11,7 @@ import { useAuth } from "../context/AuthContext";
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from "../api/telegram";
 import { useLanguage } from "../i18n/LanguageContext";
 import type { TranslationKey } from "../i18n/translations";
+import { PRIORITIES, isOverdue } from "../utils/boardMeta";
 
 const COLUMNS: { status: BoardStatus; key: TranslationKey; accent: string }[] = [
   { status: "TODO", key: "board.todo", accent: "bg-slate-400" },
@@ -18,18 +19,6 @@ const COLUMNS: { status: BoardStatus; key: TranslationKey; accent: string }[] = 
   { status: "REVIEW", key: "board.review", accent: "bg-amber-500" },
   { status: "DONE", key: "board.done", accent: "bg-emerald-500" },
 ];
-
-// Ranglar Telegram botdagi tugmalar bilan bir xil: 🔴 Yuqori, 🟡 O'rta, ⚪ Past
-const PRIORITIES: { value: BoardPriority; key: TranslationKey; badge: string; dot: string; stripe: string; emoji: string }[] = [
-  { value: "LOW", key: "board.low", badge: "bg-slate-100 text-slate-600", dot: "bg-slate-300 ring-1 ring-slate-400", stripe: "border-l-slate-300", emoji: "⚪" },
-  { value: "MEDIUM", key: "board.medium", badge: "bg-amber-100 text-amber-800", dot: "bg-amber-400", stripe: "border-l-amber-400", emoji: "🟡" },
-  { value: "HIGH", key: "board.high", badge: "bg-rose-100 text-rose-700", dot: "bg-rose-500", stripe: "border-l-rose-500", emoji: "🔴" },
-];
-
-function isOverdue(task: BoardTask) {
-  if (!task.dueDate || task.status === "DONE") return false;
-  return new Date(task.dueDate).getTime() < new Date().setHours(0, 0, 0, 0);
-}
 
 export function BoardPage() {
   const { t } = useLanguage();
