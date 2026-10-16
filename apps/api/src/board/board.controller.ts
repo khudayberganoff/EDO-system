@@ -40,6 +40,12 @@ export class BoardController {
     return this.service.list(boardId, user);
   }
 
+  @Get("my-tasks")
+  @ApiOperation({ summary: "Menga biriktirilgan Rejada / Jarayonda vazifalar (bosh sahifa uchun)" })
+  myTasks(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.myTasks(user);
+  }
+
   @Get("users")
   @ApiOperation({ summary: "Mas'ul tanlash uchun xodimlar ro'yxati" })
   users(@CurrentUser() user: AuthenticatedUser) {

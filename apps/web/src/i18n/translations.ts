@@ -74,6 +74,11 @@ export const translations = {
     "dashboard.inReview": "Ko'rib chiqilmoqda",
     "dashboard.pendingSignature": "Imzo kutilmoqda",
     "dashboard.signed": "Imzolangan",
+    "dashboard.myTasksDesc": "Sizga biriktirilgan vazifalar: nima rejada va nima jarayonda",
+    "dashboard.startTask": "Boshlash",
+    "dashboard.finishTask": "Bajarildi",
+    "dashboard.openBoard": "Doskani ochish",
+    "dashboard.noMyTasks": "Vazifa yo'q",
 
     // --- Hujjatlar ---
     "documents.title": "Hujjatlar",
@@ -452,6 +457,11 @@ export const translations = {
     "dashboard.inReview": "На рассмотрении",
     "dashboard.pendingSignature": "Ожидает подписи",
     "dashboard.signed": "Подписано",
+    "dashboard.myTasksDesc": "Назначенные вам задачи: что в плане и что в работе",
+    "dashboard.startTask": "Начать",
+    "dashboard.finishTask": "Выполнено",
+    "dashboard.openBoard": "Открыть доску",
+    "dashboard.noMyTasks": "Нет задач",
 
     "documents.title": "Документы",
     "documents.new": "Новый документ",
@@ -823,6 +833,11 @@ export const translations = {
     "dashboard.inReview": "In review",
     "dashboard.pendingSignature": "Pending signature",
     "dashboard.signed": "Signed",
+    "dashboard.myTasksDesc": "Tasks assigned to you: planned and in progress",
+    "dashboard.startTask": "Start",
+    "dashboard.finishTask": "Done",
+    "dashboard.openBoard": "Open board",
+    "dashboard.noMyTasks": "No tasks",
 
     "documents.title": "Documents",
     "documents.new": "New document",
