@@ -72,13 +72,15 @@ export function DocumentsPage() {
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{t("documents.title")}</h1>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"
-        >
-          <Plus size={18} />
-          {t("documents.new")}
-        </button>
+        {user?.role !== "OBSERVER" && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"
+          >
+            <Plus size={18} />
+            {t("documents.new")}
+          </button>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">

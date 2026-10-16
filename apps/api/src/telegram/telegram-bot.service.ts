@@ -215,7 +215,11 @@ export class TelegramBotService {
     await this.tg.sendMessage(
       chatId,
       this.renderTask({ ...task, boardName: shared.name, orgName: org.name }, note),
-      { reply_markup: this.mainKeyboard(task.id, task.priority, task.dueDate), ...(msg.chat.type === "private" ? {} : { reply_to_message_id: msg.message_id }) },
+      {
+        // Kuzatuvchi mavjud vazifani o'zgartira olmaydi, shuning uchun unga tugmalar ko'rsatilmaydi
+        ...(user.role === "OBSERVER" ? {} : { reply_markup: this.mainKeyboard(task.id, task.priority, task.dueDate) }),
+        ...(msg.chat.type === "private" ? {} : { reply_to_message_id: msg.message_id }),
+      },
     );
   }
 
@@ -361,6 +365,7 @@ export class TelegramBotService {
       include: { organizations: { select: { organizationId: true } } },
     });
     if (!user || !user.isActive) return this.tg.answerCallback(cb.id, "Avval Telegram'ni EDO bilan ulang.");
+    if (user.role === "OBSERVER") return this.tg.answerCallback(cb.id, "Kuzatuvchi vazifani o'zgartira olmaydi.");
     const row = await this.prisma.boardTask.findUnique({ where: { id: taskId }, select: { organizationId: true } });
     if (!row || !user.organizations.some((o) => o.organizationId === row.organizationId)) return this.tg.answerCallback(cb.id, "Vazifa topilmadi.");
     const actor: AuthenticatedUser = { id: user.id, email: user.email, role: user.role, organizationId: row.organizationId };

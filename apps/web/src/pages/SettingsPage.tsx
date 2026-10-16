@@ -7,6 +7,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrator",
   MANAGER: "Rahbariyat",
   EMPLOYEE: "Xodim",
+  OBSERVER: "Kuzatuvchi",
 };
 
 export function SettingsPage() {
@@ -182,6 +183,12 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
               {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </label>
+          {form.role === "OBSERVER" && (
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+              <b>Kuzatuvchi</b> ikkala korxonaning barcha hujjat va xatlarini ko'radi (faqat ko'rish), vazifalar doskasiga vazifa kiritadi
+              va "Tekshiruvda" turgan vazifalarni 1 dan 5 gacha baholaydi. Hujjatlarni o'zgartira olmaydi; Kadrlar (shaxsiy ma'lumotlar) unga ochiq emas.
+            </p>
+          )}
         </div>
 
         {error && <p className="mt-3 text-xs text-rose-600">{error}</p>}

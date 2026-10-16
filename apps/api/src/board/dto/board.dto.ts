@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min, MaxLength, MinLength, IsDateString, ValidateIf } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min, MaxLength, MinLength, IsDateString, ValidateIf } from "class-validator";
 
 export const BOARD_STATUSES = ["TODO", "IN_PROGRESS", "REVIEW", "DONE"] as const;
 export const BOARD_PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -46,6 +46,11 @@ export class UpdateBoardTaskDto {
   /** null yuborilsa mas'ul olib tashlanadi */
   @ApiPropertyOptional() @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString()
   assigneeId?: string | null;
+}
+
+export class RateBoardTaskDto {
+  @ApiProperty({ minimum: 1, maximum: 5, description: "Ball (1-5)" }) @IsInt() @Min(1) @Max(5)
+  rating!: number;
 }
 
 export class MoveBoardTaskDto {

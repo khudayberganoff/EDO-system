@@ -86,6 +86,7 @@ export function LettersPage() {
     } catch { alert("PDF yuklab bo'lmadi."); }
   };
   const canApprove = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isObserver = user?.role === "OBSERVER"; // kuzatuvchi faqat ko'radi
 
   return <div className="p-8">
     <div className="mb-6 flex items-start justify-between">
@@ -97,7 +98,7 @@ export function LettersPage() {
         >
           <FileSpreadsheet size={18} /> Excel
         </button>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {(isWarningSection ? t("nav.warnings") : t(`letters.type.${selectedType}` as any)).toLowerCase()}</button>
+        {!isObserver && <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 rounded-lg bg-brand-800 px-6 py-3 text-base font-medium text-white shadow-sm transition hover:bg-brand-700"><Plus size={18}/> {t("letters.new")} {(isWarningSection ? t("nav.warnings") : t(`letters.type.${selectedType}` as any)).toLowerCase()}</button>}
       </div>
     </div>
 
@@ -121,13 +122,13 @@ export function LettersPage() {
           <td className="px-4 py-4 text-slate-600"><div className="max-w-[360px]">{letter.summary}</div></td>
           <td className="px-4 py-4"><div className="flex flex-wrap gap-1.5">
             <button title={t("letters.view")} onClick={() => setViewLetter(letter)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Eye size={16}/></button>
-            {letter.status === LetterStatus.DRAFT && <button title={t("letters.edit")} onClick={() => setEditTarget(letter)} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><PenLine size={16}/></button>}
+            {!isObserver && letter.status === LetterStatus.DRAFT && <button title={t("letters.edit")} onClick={() => setEditTarget(letter)} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><PenLine size={16}/></button>}
             {(letter.draftFileUrl || letter.finalFileUrl) && <button title={t("letters.download")} onClick={() => download(letter.id, letter.status === LetterStatus.ARCHIVED ? "final" : "draft", letter.documentNumber)} className="rounded-lg p-2 text-sky-600 hover:bg-sky-50"><FileText size={16}/></button>}
-            {letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => setSubmitTarget(letter)} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
+            {!isObserver && letter.status === LetterStatus.DRAFT && <button title="Rahbariyatga yuborish" onClick={() => setSubmitTarget(letter)} className="rounded-lg p-2 text-brand-700 hover:bg-brand-50"><SendHorizontal size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title="Tasdiqlash va arxivlash" onClick={() => approve.mutate(letter.id)} className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check size={16}/></button>}
             {letter.status === LetterStatus.PENDING_APPROVAL && canApprove && <button title={t("letters.reject")} onClick={() => setRejectTarget(letter)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><XCircle size={16}/></button>}
             {letter.status === LetterStatus.ARCHIVED && <button title="PDF" onClick={() => downloadPdf(letter.id, letter.documentNumber)} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><FileText size={16}/></button>}
-            {letter.status !== LetterStatus.ARCHIVED && <button title="O‘chirish" onClick={() => del.mutate(letter.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16}/></button>}
+            {!isObserver && letter.status !== LetterStatus.ARCHIVED && <button title="O‘chirish" onClick={() => del.mutate(letter.id)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><Trash2 size={16}/></button>}
           </div></td>
         </tr>)}
       </tbody></table>
