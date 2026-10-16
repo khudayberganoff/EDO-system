@@ -74,17 +74,44 @@ export class BoardService {
     });
   }
 
-  /** Bosh sahifa uchun: menga biriktirilgan "Rejada" va "Jarayonda" vazifalar (menga ko'rinadigan doskalardan). */
-  myTasks(user: AuthenticatedUser) {
+  /** Foydalanuvchi a'zo bo'lgan BOSHQA tashkilotlar (joriy sessiyadagidan tashqari). */
+  private async otherOrgIds(user: AuthenticatedUser): Promise<string[]> {
+    const rows = await this.prisma.userOrganization.findMany({
+      where: { userId: user.id, organizationId: { not: user.organizationId } },
+      select: { organizationId: true },
+    });
+    return rows.map((r) => r.organizationId);
+  }
+
+  /**
+   * Bosh sahifa uchun: menga biriktirilgan "Rejada" va "Jarayonda" vazifalar. Joriy tashkilotnikidan
+   * tashqari, men a'zo bo'lgan boshqa tashkilotlarning vazifalari ham qaytadi (interfeysda xira ko'rsatiladi).
+   */
+  async myTasks(user: AuthenticatedUser) {
+    const others = await this.otherOrgIds(user);
     return this.prisma.boardTask.findMany({
       where: {
-        organizationId: user.organizationId,
+        organizationId: { in: [user.organizationId, ...others] },
         assigneeId: user.id,
         status: { in: ["TODO", "IN_PROGRESS"] },
         board: { OR: [{ ownerId: null }, { ownerId: user.id }] },
       },
-      include: { ...TASK_INCLUDE, board: { select: { id: true, name: true } } },
+      include: { ...TASK_INCLUDE, board: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
       orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { position: "asc" }, { createdAt: "asc" }],
+    });
+  }
+
+  /**
+   * Boshqa korxonaning (men a'zo bo'lgan) umumiy doskalaridagi vazifalar - faqat ko'rish uchun:
+   * doskada xira ko'rsatiladi, tahrirlash uchun korxonani almashtirish kerak.
+   */
+  async otherOrgTasks(user: AuthenticatedUser) {
+    const others = await this.otherOrgIds(user);
+    if (!others.length) return [];
+    return this.prisma.boardTask.findMany({
+      where: { organizationId: { in: others }, board: { ownerId: null } },
+      include: { ...TASK_INCLUDE, board: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     });
   }
 

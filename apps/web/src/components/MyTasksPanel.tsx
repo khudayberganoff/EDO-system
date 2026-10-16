@@ -71,11 +71,16 @@ function TaskCard({ task, col, busy, onNext }: { task: MyBoardTask; col: (typeof
   const { user } = useAuth();
   const prio = PRIORITIES.find((p) => p.value === task.priority) ?? PRIORITIES[1];
   const NextIcon = col.nextIcon;
+  // Boshqa korxonaning vazifasi: xira va faqat ko'rish uchun (tahrirlash uchun korxonani almashtirish kerak)
+  const foreign = !!task.organization && task.organization.id !== user?.organizationId;
   const left = daysUntilDue(task);
   const late = isOverdue(task);
   const dueText = left === null ? "" : left < 0 ? t("dashboard.daysOverdue").replace("{n}", String(-left)) : left === 0 ? t("dashboard.dueToday") : left === 1 ? t("dashboard.dueTomorrow") : t("dashboard.daysLeft").replace("{n}", String(left));
   return (
-    <div className={clsx("rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm", prio.stripe)}>
+    <div
+      className={clsx("rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm", prio.stripe, foreign && "opacity-50")}
+      title={foreign ? `${task.organization?.name} — ${t("board.otherOrgHint")}` : undefined}
+    >
       <Link to="/board" className="text-sm font-semibold text-slate-900 hover:text-brand-800">{task.title}</Link>
       {task.description && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</div>}
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -100,20 +105,20 @@ function TaskCard({ task, col, busy, onNext }: { task: MyBoardTask; col: (typeof
           <UserRound size={13} className="shrink-0 text-slate-400" />
           <span>{t("dashboard.createdBy")}: <b className="font-semibold">{task.creator?.fullName ?? "—"}</b></span>
         </div>
-        {user?.organizationName && (
-          <div className="flex items-center gap-1.5 text-slate-600">
+        {(task.organization?.name ?? user?.organizationName) && (
+          <div className={clsx("flex items-center gap-1.5", foreign ? "font-medium text-slate-700" : "text-slate-600")}>
             <Building2 size={13} className="shrink-0 text-slate-400" />
-            <span>{user.organizationName}</span>
+            <span>{task.organization?.name ?? user?.organizationName}</span>
           </div>
         )}
       </div>
-      <button
+      {!foreign && <button
         onClick={onNext}
         disabled={busy}
         className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-800 disabled:opacity-50"
       >
         <NextIcon size={13} /> {t(col.nextKey)}
-      </button>
+      </button>}
     </div>
   );
 }
