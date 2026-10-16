@@ -237,6 +237,7 @@ export function BoardPage() {
                     >
                       <div className="text-sm font-semibold text-slate-900">{task.title}</div>
                       {task.description && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</div>}
+                      {task.creator && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400"><UserIcon size={11} /> {t("dashboard.createdBy")}: {task.creator.fullName}</div>}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium", prio.badge)}><span className={clsx("h-2 w-2 rounded-full", prio.dot)} />{t(prio.key)}</span>
                         {task.dueDate && (

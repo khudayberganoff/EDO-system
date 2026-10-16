@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowRight, CalendarDays, Check, Play } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Play, UserRound } from "lucide-react";
 import clsx from "clsx";
 import { fetchMyBoardTasks, moveBoardTask, type BoardStatus, type MyBoardTask } from "../api/board";
 import { useLanguage } from "../i18n/LanguageContext";
 import type { TranslationKey } from "../i18n/translations";
-import { PRIORITIES, isOverdue } from "../utils/boardMeta";
+import { PRIORITIES, daysUntilDue, isOverdue } from "../utils/boardMeta";
 
 const COLUMNS: { status: BoardStatus; key: TranslationKey; accent: string; next: BoardStatus; nextKey: TranslationKey; nextIcon: typeof Play }[] = [
   { status: "TODO", key: "board.todo", accent: "bg-slate-400", next: "IN_PROGRESS", nextKey: "dashboard.startTask", nextIcon: Play },
@@ -69,6 +69,9 @@ function TaskCard({ task, col, busy, onNext }: { task: MyBoardTask; col: (typeof
   const { t } = useLanguage();
   const prio = PRIORITIES.find((p) => p.value === task.priority) ?? PRIORITIES[1];
   const NextIcon = col.nextIcon;
+  const left = daysUntilDue(task);
+  const late = isOverdue(task);
+  const dueText = left === null ? "" : left < 0 ? t("dashboard.daysOverdue").replace("{n}", String(-left)) : left === 0 ? t("dashboard.dueToday") : left === 1 ? t("dashboard.dueTomorrow") : t("dashboard.daysLeft").replace("{n}", String(left));
   return (
     <div className={clsx("rounded-xl border border-l-4 border-slate-200 bg-white p-4 shadow-sm", prio.stripe)}>
       <Link to="/board" className="text-sm font-semibold text-slate-900 hover:text-brand-800">{task.title}</Link>
@@ -77,12 +80,24 @@ function TaskCard({ task, col, busy, onNext }: { task: MyBoardTask; col: (typeof
         <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium", prio.badge)}>
           <span className={clsx("h-2 w-2 rounded-full", prio.dot)} />{t(prio.key)}
         </span>
-        {task.dueDate && (
-          <span className={clsx("flex items-center gap-1", isOverdue(task) ? "font-medium text-rose-600" : "text-slate-500")}>
-            <CalendarDays size={12} /> {task.dueDate.slice(0, 10)}
-          </span>
-        )}
         {task.board && <span className="ml-auto text-slate-400">{task.board.name}</span>}
+      </div>
+      <div className="mt-2.5 space-y-1 text-xs">
+        <div className={clsx("flex items-center gap-1.5", late ? "font-medium text-rose-600" : "text-slate-600")}>
+          <CalendarDays size={13} className="shrink-0" />
+          {task.dueDate ? (
+            <span>
+              {t("dashboard.dueLabel")}: <b className="font-semibold">{task.dueDate.slice(0, 10)}</b>
+              <span className="ml-1.5 font-normal">({dueText})</span>
+            </span>
+          ) : (
+            <span className="text-slate-400">{t("dashboard.noDue")}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 text-slate-600">
+          <UserRound size={13} className="shrink-0 text-slate-400" />
+          <span>{t("dashboard.createdBy")}: <b className="font-semibold">{task.creator?.fullName ?? "—"}</b></span>
+        </div>
       </div>
       <button
         onClick={onNext}
