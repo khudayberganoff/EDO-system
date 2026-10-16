@@ -21,7 +21,7 @@ Ishlab turgan tizim: <https://edo.wafaleasing.uz>
 
 ### Rollar va xavfsizlik
 
-- Rollar: `ADMIN`, `MANAGER` (rahbariyat), `EMPLOYEE`. Bo'limlarga ruxsat Sozlamalar → "Ruxsatlar" bo'limida rol bo'yicha belgilanadi.
+- Rollar: `ADMIN`, `MANAGER` (rahbariyat), `EMPLOYEE`, `OBSERVER` (**Kuzatuvchi**: Sozlamalar → Foydalanuvchilar'da qo'shiladi; ikkala korxonaning barcha hujjat va xatlarini faqat ko'radi, vazifalar doskasiga vazifa kiritadi va "Tekshiruvda" turgan vazifalarni 1–5 yulduz bilan baholaydi; boshqa o'zgartirishlar server tomonida rad etiladi, Kadrlar bo'limi unga ochiq emas). Bo'limlarga ruxsat Sozlamalar → "Ruxsatlar" bo'limida rol bo'yicha belgilanadi.
 - Autentifikatsiya: JWT. `ADMIN`/`MANAGER` ikkala tashkilotga kira oladi, kirishda tashkilot tanlanadi; qolganlar faqat WAFA LEASING.
 - Xodim rasmi, obyektivka va mehnat shartnomasi fayllari ommaviy `/uploads` da **emas**, yashirin `uploads/.private/` papkasida saqlanadi va faqat avtorizatsiya bilan beriladi (obyektivka va shartnoma — faqat rahbariyatga).
 - So'rovlar tezligi cheklangan (throttler), kiruvchi ma'lumotlar DTO bo'yicha qat'iy tekshiriladi (`whitelist`).

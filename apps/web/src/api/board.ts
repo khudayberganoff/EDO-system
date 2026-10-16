@@ -20,6 +20,10 @@ export interface BoardComment {
 export interface BoardTask {
   id: string;
   organizationId?: string;
+  /** Kuzatuvchi bahosi (1-5), "Tekshiruvda" bosqichida qo'yiladi */
+  rating?: number | null;
+  ratedBy?: { id: string; fullName: string } | null;
+  ratedAt?: string | null;
   boardId: string;
   _count: { comments: number };
   title: string;
@@ -73,6 +77,16 @@ export async function fetchOtherOrgTasks() {
 /** Bosh sahifa: menga biriktirilgan Rejada va Jarayonda vazifalar. */
 export async function fetchMyBoardTasks() {
   const { data } = await apiClient.get<MyBoardTask[]>("/board/my-tasks");
+  return data;
+}
+
+export async function rateBoardTask(id: string, rating: number) {
+  const { data } = await apiClient.post<BoardTask>(`/board/tasks/${id}/rating`, { rating });
+  return data;
+}
+
+export async function clearBoardTaskRating(id: string) {
+  const { data } = await apiClient.delete<BoardTask>(`/board/tasks/${id}/rating`);
   return data;
 }
 

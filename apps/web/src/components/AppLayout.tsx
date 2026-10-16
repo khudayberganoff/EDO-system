@@ -327,7 +327,7 @@ export function AppLayout() {
           </div>
 
           {/* Yig'iladigan "Kadrlar" bo'limi */}
-          <div>
+          {user?.role !== "OBSERVER" && <div>
             <button
               onClick={() => setHrOpen((v) => !v)}
               className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${
@@ -348,7 +348,7 @@ export function AppLayout() {
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
           <div className="my-2 border-t border-slate-100" />
           {can("deleted") && <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />}
@@ -410,7 +410,7 @@ export function AppLayout() {
             )}
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium text-slate-800">{user?.fullName}</div>
-              <div className="text-xs text-slate-400">{user?.role}</div>
+              <div className="text-xs text-slate-400">{user?.role === "OBSERVER" ? "Kuzatuvchi" : user?.role}</div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
               {initials || <UserCircle2 size={20} />}

@@ -107,7 +107,7 @@ async function seedOrganizations(): Promise<void> {
     const vafoMoliyaId = orgs.find((o) => o.name === VAFO_MOLIYA)!.id;
 
     for (const user of users) {
-      const targetOrgIds = user.role === Role.ADMIN || user.role === Role.MANAGER
+      const targetOrgIds = user.role === Role.ADMIN || user.role === Role.MANAGER || user.role === Role.OBSERVER
         ? [wafaLeasingId, vafoMoliyaId]
         : [wafaLeasingId];
       for (const organizationId of targetOrgIds) {

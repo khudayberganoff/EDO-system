@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthenticatedUser } from "../common/decorators/current-user.decorator";
 import { Role } from "../common/enums";
@@ -8,8 +8,11 @@ import { CreateBoardDto, CreateBoardTaskDto, MoveBoardTaskDto, UpdateBoardTaskDt
 const TASK_INCLUDE = {
   assignee: { select: { id: true, fullName: true } },
   creator: { select: { id: true, fullName: true } },
+  ratedBy: { select: { id: true, fullName: true } },
   _count: { select: { comments: true } },
 } as const;
+
+const OBSERVER_FORBIDDEN = "Kuzatuvchi mavjud vazifani o'zgartira olmaydi: faqat yangi vazifa kiritadi, izoh yozadi va tekshiruvdagi vazifani baholaydi.";
 
 /**
  * Vazifalar doskalari (Kanban). Doska yo'q bo'lsa tashkilot uchun "Umumiy doska"
@@ -165,6 +168,7 @@ export class BoardService {
   }
 
   async update(id: string, dto: UpdateBoardTaskDto, user: AuthenticatedUser) {
+    if (user.role === Role.OBSERVER) throw new ForbiddenException(OBSERVER_FORBIDDEN);
     const before = await this.find(id, user);
     const updated = await this.prisma.boardTask.update({
       where: { id },
@@ -183,6 +187,7 @@ export class BoardService {
 
   /** Kartochkani boshqa ustunga yoki ustun ichida boshqa o'ringa ko'chirish; ikkala ustun tartibi qayta yoziladi. */
   async move(id: string, dto: MoveBoardTaskDto, user: AuthenticatedUser) {
+    if (user.role === Role.OBSERVER) throw new ForbiddenException(OBSERVER_FORBIDDEN);
     const task = await this.find(id, user);
     const boardId = task.boardId!;
     await this.prisma.$transaction(async (tx) => {
@@ -195,7 +200,9 @@ export class BoardService {
       const target = await column(dto.status, id);
       const ids = target.map((t) => t.id);
       ids.splice(Math.min(dto.position, ids.length), 0, id);
-      await tx.boardTask.update({ where: { id }, data: { status: dto.status } });
+      // Baho "Tekshiruvda" va "Bajarildi" bosqichlariga tegishli: Rejada/Jarayonda'ga qaytsa, qayta baholanadi
+      const keepRating = dto.status === "REVIEW" || dto.status === "DONE";
+      await tx.boardTask.update({ where: { id }, data: { status: dto.status, ...(keepRating ? {} : { rating: null, ratedById: null, ratedAt: null }) } });
       for (let i = 0; i < ids.length; i++) {
         await tx.boardTask.update({ where: { id: ids[i] }, data: { position: i } });
       }
@@ -210,9 +217,30 @@ export class BoardService {
   }
 
   async remove(id: string, user: AuthenticatedUser) {
+    if (user.role === Role.OBSERVER) throw new ForbiddenException(OBSERVER_FORBIDDEN);
     await this.find(id, user);
     await this.prisma.boardTask.delete({ where: { id } });
     return { success: true };
+  }
+
+  // --- Baholash (kuzatuvchi / administrator) ---
+
+  /** "Tekshiruvda" turgan vazifani 1-5 ball bilan baholash (qayta bosilsa - ball yangilanadi). */
+  async rate(id: string, rating: number, user: AuthenticatedUser) {
+    if (user.role !== Role.OBSERVER && user.role !== Role.ADMIN) throw new ForbiddenException("Vazifani faqat kuzatuvchi yoki administrator baholaydi.");
+    const task = await this.find(id, user);
+    if (task.status !== "REVIEW") throw new BadRequestException("Faqat \"Tekshiruvda\" turgan vazifani baholash mumkin.");
+    return this.prisma.boardTask.update({
+      where: { id },
+      data: { rating, ratedById: user.id, ratedAt: new Date() },
+      include: TASK_INCLUDE,
+    });
+  }
+
+  async clearRating(id: string, user: AuthenticatedUser) {
+    if (user.role !== Role.OBSERVER && user.role !== Role.ADMIN) throw new ForbiddenException("Bahoni faqat kuzatuvchi yoki administrator o'zgartiradi.");
+    await this.find(id, user);
+    return this.prisma.boardTask.update({ where: { id }, data: { rating: null, ratedById: null, ratedAt: null }, include: TASK_INCLUDE });
   }
 
   // --- Izohlar ---

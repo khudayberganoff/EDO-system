@@ -74,6 +74,7 @@ model User {
   dailyTasks       DailyTask[]       @relation("DailyTaskOwner")
   boardCreated     BoardTask[]       @relation("BoardTaskCreator")
   boardAssigned    BoardTask[]       @relation("BoardTaskAssignee")
+  boardRated       BoardTask[]       @relation("BoardTaskRater")
   boardComments    BoardComment[]    @relation("BoardCommentAuthor")
   boards           Board[]           @relation("BoardOwner")
   documents        Document[]        @relation("DocumentOwner")
@@ -676,6 +677,12 @@ model BoardTask {
   creatorId  String
   assignee   User?  @relation("BoardTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   assigneeId String?
+
+  /// Kuzatuvchi bahosi (1-5): faqat "Tekshiruvda" bosqichida qo'yiladi; vazifa Rejada/Jarayonda'ga qaytsa o'chadi
+  rating    Int?
+  ratedBy   User?     @relation("BoardTaskRater", fields: [ratedById], references: [id], onDelete: SetNull)
+  ratedById String?
+  ratedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

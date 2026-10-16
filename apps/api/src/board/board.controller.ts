@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestj
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { BoardService } from "./board.service";
 import {
-  CreateBoardCommentDto, CreateBoardDto, CreateBoardTaskDto, MoveBoardTaskDto, RenameBoardDto, UpdateBoardTaskDto,
+  CreateBoardCommentDto, CreateBoardDto, CreateBoardTaskDto, MoveBoardTaskDto, RateBoardTaskDto, RenameBoardDto, UpdateBoardTaskDto,
 } from "./dto/board.dto";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 
@@ -74,6 +74,18 @@ export class BoardController {
   @ApiOperation({ summary: "Kartochkani boshqa ustunga / o'ringa ko'chirish" })
   move(@Param("id") id: string, @Body() dto: MoveBoardTaskDto, @CurrentUser() user: AuthenticatedUser) {
     return this.service.move(id, dto, user);
+  }
+
+  @Post("tasks/:id/rating")
+  @ApiOperation({ summary: "Tekshiruvdagi vazifani 1-5 ball bilan baholash (kuzatuvchi / administrator)" })
+  rate(@Param("id") id: string, @Body() dto: RateBoardTaskDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.rate(id, dto.rating, user);
+  }
+
+  @Delete("tasks/:id/rating")
+  @ApiOperation({ summary: "Bahoni olib tashlash" })
+  clearRating(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.clearRating(id, user);
   }
 
   @Delete("tasks/:id")

@@ -23,6 +23,7 @@ import { CrmModule } from "./crm/crm.module";
 
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
+import { ObserverGuard } from "./common/guards/observer.guard";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 @Module({
@@ -65,6 +66,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ObserverGuard },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

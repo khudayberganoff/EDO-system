@@ -14,6 +14,8 @@ export enum Role {
   MANAGER = "MANAGER",
   EMPLOYEE = "EMPLOYEE",
   AUDITOR = "AUDITOR",
+  /** Kuzatuvchi: ikkala korxonaning hamma hujjatini ko'radi, vazifa kiritadi va tekshiruvdagi vazifalarni 1-5 baholaydi */
+  OBSERVER = "OBSERVER",
 }
 
 export enum DocumentStatus {

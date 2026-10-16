@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, CalendarDays, MessageSquare, Pencil, Plus, Search, Send, Trash2, User as UserIcon, X } from "lucide-react";
+import { Building2, CalendarDays, MessageSquare, Pencil, Plus, Search, Send, Star, Trash2, User as UserIcon, X } from "lucide-react";
 import clsx from "clsx";
 import {
   addBoardComment, createBoard, createBoardTask, deleteBoard, deleteBoardComment, deleteBoardTask, fetchBoardComments,
-  fetchBoards, fetchBoardTasks, fetchBoardUsers, fetchOtherOrgTasks, moveBoardTask, renameBoard, updateBoardTask,
+  clearBoardTaskRating, fetchBoards, fetchBoardTasks, fetchBoardUsers, fetchOtherOrgTasks, moveBoardTask, rateBoardTask, renameBoard, updateBoardTask,
   type Board, type BoardPriority, type BoardStatus, type BoardTask, type MyBoardTask,
 } from "../api/board";
 import { useAuth } from "../context/AuthContext";
@@ -25,6 +25,8 @@ export function BoardPage() {
   const { t } = useLanguage();
   const qc = useQueryClient();
   const { user } = useAuth();
+  const isObserver = user?.role === "OBSERVER";
+  const canRate = user?.role === "OBSERVER" || user?.role === "ADMIN";
   const { data: boards = [] } = useQuery({ queryKey: ["board", "boards"], queryFn: fetchBoards });
   const [boardId, setBoardId] = useState<string | null>(null);
   // Birinchi yuklanganda yoki tanlangan doska o'chirilganda birinchi doskaga o'tamiz
@@ -242,11 +244,11 @@ export function BoardPage() {
                   return (
                     <div
                       key={task.id}
-                      draggable={!other}
-                      onDragStart={() => !other && setDragId(task.id)}
+                      draggable={!other && !isObserver}
+                      onDragStart={() => !other && !isObserver && setDragId(task.id)}
                       onDragEnd={() => { setDragId(null); setOverCol(null); }}
                       onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (!other) handleDrop(col.status, task.id); }}
+                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (!other && !isObserver) handleDrop(col.status, task.id); }}
                       onClick={() => !other && setEditing(task)}
                       title={other ? `${other.name} — ${t("board.otherOrgHint")}` : undefined}
                       className={clsx(
@@ -260,6 +262,9 @@ export function BoardPage() {
                       {task.description && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</div>}
                       {task.creator && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400"><UserIcon size={11} /> {t("dashboard.createdBy")}: {task.creator.fullName}</div>}
                       {orgName && <div className={clsx("mt-0.5 flex items-center gap-1 text-[11px]", other ? "font-medium text-slate-600" : "text-slate-400")}><Building2 size={11} /> {orgName}</div>}
+                      {(task.status === "REVIEW" || task.rating != null) && (
+                        <RatingRow task={task} canRate={canRate && task.status === "REVIEW" && !other} onChanged={refresh} />
+                      )}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <span className={clsx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium", prio.badge)}><span className={clsx("h-2 w-2 rounded-full", prio.dot)} />{t(prio.key)}</span>
                         {task.dueDate && (
@@ -318,6 +323,9 @@ function TaskModal({ boardId, task, initialStatus, users, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  // Kuzatuvchi mavjud vazifani o'zgartira olmaydi (faqat izoh yozadi va baholaydi)
+  const readOnly = user?.role === "OBSERVER" && !!task;
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [priority, setPriority] = useState<BoardPriority>(task?.priority ?? "MEDIUM");
@@ -345,22 +353,23 @@ function TaskModal({ boardId, task, initialStatus, users, onClose, onSaved }: {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
         <div className="space-y-3">
-          <input className={field} placeholder={t("board.titlePlaceholder")} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
-          <textarea className={field} rows={3} placeholder={t("board.description")} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <input className={field} placeholder={t("board.titlePlaceholder")} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus={!readOnly} disabled={readOnly} />
+          <textarea className={field} rows={3} placeholder={t("board.description")} value={description} onChange={(e) => setDescription(e.target.value)} disabled={readOnly} />
           <div className="grid grid-cols-2 gap-3">
-            <select className={field} value={priority} onChange={(e) => setPriority(e.target.value as BoardPriority)}>
+            <select className={field} value={priority} onChange={(e) => setPriority(e.target.value as BoardPriority)} disabled={readOnly}>
               {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.emoji} {t(p.key)}</option>)}
             </select>
-            <input type="date" className={field} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <input type="date" className={field} value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly} />
           </div>
-          <select className={field} value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
+          <select className={field} value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} disabled={readOnly}>
             <option value="">{t("board.noAssignee")}</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
           </select>
         </div>
+        {readOnly && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">{t("board.observerHint")}</p>}
         {task && <Comments taskId={task.id} />}
         <div className="mt-5 flex items-center justify-between">
-          {task ? (
+          {task && !readOnly ? (
             <button
               onClick={() => window.confirm(t("board.confirmDelete")) && remove.mutate()}
               className="flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700"
@@ -370,13 +379,13 @@ function TaskModal({ boardId, task, initialStatus, users, onClose, onSaved }: {
           ) : <span />}
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("board.cancel")}</button>
-            <button
+            {!readOnly && <button
               disabled={!title.trim() || save.isPending}
               onClick={() => save.mutate()}
               className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
             >
               {t("board.save")}
-            </button>
+            </button>}
           </div>
         </div>
       </div>
@@ -587,6 +596,49 @@ function OrgSwitcher() {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Kuzatuvchi bahosi (1-5 yulduz). "Tekshiruvda" turgan vazifani kuzatuvchi/administrator baholaydi
+ * (yulduzni bosish; qayta bosilsa - ball o'zgaradi, ✕ - bahoni olib tashlash). Boshqalar faqat ko'radi.
+ */
+function RatingRow({ task, canRate, onChanged }: { task: BoardTask; canRate: boolean; onChanged: () => void }) {
+  const { t } = useLanguage();
+  const [hover, setHover] = useState(0);
+  const rate = useMutation({ mutationFn: (n: number) => rateBoardTask(task.id, n), onSuccess: onChanged });
+  const clear = useMutation({ mutationFn: () => clearBoardTaskRating(task.id), onSuccess: onChanged });
+  const value = task.rating ?? 0;
+  const shown = hover || value;
+  if (!canRate && !value) return <div className="mt-2 text-[11px] text-slate-400">{t("board.notRated")}</div>;
+
+  return (
+    <div
+      className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50/70 px-2 py-1.5"
+      onClick={(e) => e.stopPropagation()}
+      title={task.ratedBy ? `${t("board.ratedBy")}: ${task.ratedBy.fullName}` : canRate ? t("board.rateHint") : undefined}
+    >
+      <span className="text-[11px] font-medium text-amber-800">{t("board.rating")}:</span>
+      <div className="flex" onMouseLeave={() => setHover(0)}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            disabled={!canRate || rate.isPending}
+            onMouseEnter={() => canRate && setHover(n)}
+            onClick={() => rate.mutate(n)}
+            className={clsx("p-0.5", canRate ? "cursor-pointer" : "cursor-default")}
+            aria-label={`${n}`}
+          >
+            <Star size={16} className={n <= shown ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+          </button>
+        ))}
+      </div>
+      {value > 0 && <span className="text-xs font-semibold text-amber-800">{value}/5</span>}
+      {canRate && value > 0 && (
+        <button type="button" onClick={() => clear.mutate()} className="ml-auto text-slate-400 hover:text-rose-600" title={t("board.clearRating")}><X size={13} /></button>
+      )}
     </div>
   );
 }
