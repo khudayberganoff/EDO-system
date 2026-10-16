@@ -9,6 +9,7 @@ import {
 } from "../api/board";
 import { useAuth } from "../context/AuthContext";
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from "../api/telegram";
+import { fetchMyOrganizations } from "../api/auth";
 import { useLanguage } from "../i18n/LanguageContext";
 import type { TranslationKey } from "../i18n/translations";
 import { PRIORITIES, isOverdue } from "../utils/boardMeta";
@@ -117,11 +118,7 @@ export function BoardPage() {
         <div>
           <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">{t("board.title")}</h1>
           <p className="mt-1 text-sm text-slate-500">{t("board.desc")}</p>
-          {user?.organizationName && (
-            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800">
-              <Building2 size={13} /> {user.organizationName}
-            </span>
-          )}
+          <OrgSwitcher />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tgStatus?.enabled && (
@@ -533,6 +530,63 @@ function TelegramModal({ onClose }: { onClose: () => void }) {
           {status?.botUsername && <p className="text-xs text-slate-400">Bot: @{status.botUsername}</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Korxonalar tanlovi: foydalanuvchi kira oladigan har bir korxona bosiladigan belgi sifatida chiqadi.
+ * Tanlangan korxona vazifalari to'liq ko'rinadi (tahrirlash mumkin), boshqa korxonaniki 50% xira
+ * (faqat ko'rish) - shuning uchun belgini bosish sessiyani shu korxonaga o'tkazadi.
+ */
+function OrgSwitcher() {
+  const { user, switchOrganization } = useAuth();
+  const qc = useQueryClient();
+  const { data: orgs = [] } = useQuery({ queryKey: ["auth", "my-organizations"], queryFn: fetchMyOrganizations });
+  const [switching, setSwitching] = useState<string | null>(null);
+
+  const base = orgs.length ? orgs : user?.organizationId ? [{ id: user.organizationId, name: user.organizationName ?? "" }] : [];
+  // Tartib doim bir xil: WAFA LEASING, keyin boshqalar
+  const list = [...base].sort((x, y) => Number(/^wafa/i.test(y.name)) - Number(/^wafa/i.test(x.name)) || x.name.localeCompare(y.name));
+  if (!list.length) return null;
+
+  const choose = async (id: string) => {
+    if (id === user?.organizationId || switching) return;
+    setSwitching(id);
+    try {
+      await switchOrganization(id);
+      // Doskalar, vazifalar va hisoblagichlar yangi korxona bo'yicha qayta yuklanadi
+      await qc.invalidateQueries();
+    } finally {
+      setSwitching(null);
+    }
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      {list.map((o) => {
+        const active = o.id === user?.organizationId;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => choose(o.id)}
+            disabled={switching !== null}
+            aria-pressed={active}
+            title={active ? undefined : o.name}
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition",
+              active
+                ? "border-brand-800 bg-brand-800 text-white shadow-sm"
+                : "border-slate-200 bg-white text-slate-500 hover:border-brand-500 hover:text-brand-800",
+              list.length === 1 && "cursor-default",
+              switching === o.id && "opacity-60",
+            )}
+          >
+            <Building2 size={13} /> {o.name}
+          </button>
+        );
+      })}
     </div>
   );
 }
