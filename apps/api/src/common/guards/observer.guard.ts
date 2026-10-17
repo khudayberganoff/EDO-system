@@ -13,8 +13,8 @@ const ALLOWED_WRITES: { method: string; pattern: RegExp }[] = [
   { method: "DELETE", pattern: /^\/api\/telegram\/link$/ },
 ];
 
-/** Kuzatuvchiga umuman yopiq bo'limlar (shaxsiy ma'lumotlar, pochta, tashqi tizimlar). "Mening HR" ochiq. */
-const BLOCKED_READS = [/^\/api\/hr(?!\/my(\/|$))(\/|$)/, /^\/api\/mail(\/|$)/, /^\/api\/api-keys(\/|$)/];
+/** Kuzatuvchiga yopiq bo'limlar (pochta, tashqi tizimlar). Kadrlar (xodimlar hujjatlari) o'qish uchun ochiq. */
+const BLOCKED_READS = [/^\/api\/mail(\/|$)/, /^\/api\/api-keys(\/|$)/];
 
 /**
  * Kuzatuvchi: ikkala korxonaning barcha hujjat va xatlarini FAQAT ko'ra oladi, vazifa kiritadi va
