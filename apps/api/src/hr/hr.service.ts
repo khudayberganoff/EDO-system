@@ -59,6 +59,13 @@ export class HrService {
     private pdfService: LetterPdfService,
   ) {}
 
+  /** Kadrlar hujjatlarini (obyektivka, shartnoma fayli) ko'rish: rahbariyat va kuzatuvchi. */
+  private ensureHrRead(role: string) {
+    if (![Role.ADMIN, Role.MANAGER, Role.OBSERVER].includes(role as Role)) {
+      throw new ForbiddenException("Kadrlar bo'limiga faqat rahbariyat kirishi mumkin.");
+    }
+  }
+
   private ensureHrAccess(role: string) {
     if (![Role.ADMIN, Role.MANAGER].includes(role as Role)) {
       throw new ForbiddenException("Kadrlar bo'limiga faqat rahbariyat kirishi mumkin.");
@@ -208,7 +215,7 @@ export class HrService {
 
   /** Yuklab olish uchun fayl: rasm - tashkilotdagi har bir foydalanuvchiga, obyektivka - faqat rahbariyatga. */
   async getEmployeeFile(id: string, kind: EmployeeFileKind, user: { role: string; organizationId: string }) {
-    if (kind === "objectivka") this.ensureHrAccess(user.role);
+    if (kind === "objectivka") this.ensureHrRead(user.role);
     const employee = await this.getEmployee(id, user.organizationId);
     const stored = kind === "photo" ? employee.photoFile : employee.objectivkaFile;
     const full = stored ? this.employeeFilePath(stored) : null;
@@ -530,7 +537,7 @@ export class HrService {
 
   /** Shartnoma faylini yuklab olish - faqat rahbariyat (maosh va shaxsiy ma'lumotlar bor). */
   async getContractFile(id: string, user: { role: string; organizationId: string }) {
-    this.ensureHrAccess(user.role);
+    this.ensureHrRead(user.role);
     const contract = await this.getContract(id, user.organizationId);
     const full = contract.fileStored ? this.employeeFilePath(contract.fileStored) : null;
     if (!full || !fs.existsSync(full)) throw new NotFoundException("Shartnoma fayli qo'shilmagan.");

@@ -327,7 +327,7 @@ export function AppLayout() {
           </div>
 
           {/* Yig'iladigan "Kadrlar" bo'limi */}
-          {user?.role !== "OBSERVER" && <div>
+          <div>
             <button
               onClick={() => setHrOpen((v) => !v)}
               className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${
@@ -348,7 +348,7 @@ export function AppLayout() {
                 ))}
               </div>
             )}
-          </div>}
+          </div>
 
           <div className="my-2 border-t border-slate-100" />
           {can("deleted") && <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />}

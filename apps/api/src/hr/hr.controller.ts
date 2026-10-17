@@ -159,7 +159,7 @@ export class HrController {
   }
 
   @Get("contracts/:id/file")
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.OBSERVER)
   @ApiOperation({ summary: "Shartnoma faylini yuklab olish (faqat avtorizatsiya bilan)" })
   async getContractFile(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
     const f = await this.hrService.getContractFile(id, user);
