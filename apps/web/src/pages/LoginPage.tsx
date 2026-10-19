@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check, ShieldCheck, RefreshCw, X } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check, ShieldCheck, RefreshCw, X, KanbanSquare } from "lucide-react";
 import { useAuth, OrganizationSelectionRequiredError } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
@@ -153,6 +153,7 @@ export function LoginPage() {
   const modules = [
     { icon: Mail, titleKey: "login.modLetters" },
     { icon: Users, titleKey: "login.modHr" },
+    { icon: KanbanSquare, titleKey: "login.modTasks" },
     { icon: QrCode, titleKey: "login.modQr" },
   ] as const;
 
