@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus, Trash2, Ban, Copy, Check, X, Send } from "lucide-react";
+import { KeyRound, Plus, Trash2, Ban, Copy, Check, X, Send, ShieldCheck } from "lucide-react";
 import { fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, type ApiKeyItem } from "../api/api-keys";
 import { fetchTelegramConfig, saveTelegramToken, removeTelegramToken } from "../api/telegram";
+import { fetchEimzoSettings, saveEimzoSettings, removeEimzoSettings } from "../api/auth";
 import { useAuth } from "../context/AuthContext";
 
 const SCOPES = [
@@ -45,6 +46,7 @@ export function IntegrationsPage() {
       </div>
 
       <TelegramBotCard />
+      <EimzoCard />
 
       {/* Qisqacha qo'llanma */}
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
@@ -289,6 +291,72 @@ function TelegramBotCard() {
           </div>
           {error && <p className="text-xs text-rose-600">{error}</p>}
           <p className="text-xs text-slate-400">Token maxfiy: u shifrlanib saqlanadi va qayta ko'rsatilmaydi. Tokenni boshqalarga yubormang.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ERI (E-IMZO) orqali kirish sozlamasi (faqat administrator). Server manzili, sayt domeni va NIC NT bergan API-KEY.
+ * Saqlashdan oldin e-imzo-server javob berishi tekshiriladi.
+ */
+function EimzoCard() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const isAdmin = user?.role === "ADMIN";
+  const { data } = useQuery({ queryKey: ["eimzo", "settings"], queryFn: fetchEimzoSettings, enabled: isAdmin });
+  const [form, setForm] = useState({ serverUrl: "", domain: window.location.hostname, apiKey: "" });
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["eimzo"] }); };
+  const save = useMutation({
+    mutationFn: () => saveEimzoSettings({ serverUrl: form.serverUrl.trim(), domain: form.domain.trim(), apiKey: form.apiKey.trim() }),
+    onSuccess: () => { setError(null); setForm((f) => ({ ...f, apiKey: "" })); refresh(); },
+    onError: (e: any) => {
+      const m = e?.response?.data?.message;
+      setError(Array.isArray(m) ? m.join(". ") : typeof m === "string" ? m : "Saqlab bo'lmadi.");
+    },
+  });
+  const remove = useMutation({ mutationFn: removeEimzoSettings, onSuccess: refresh });
+  if (!isAdmin) return null;
+
+  return (
+    <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><ShieldCheck size={16} className="text-brand-700" /> ERI (E-IMZO) orqali kirish</h2>
+        {data?.configured && <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">Yoqilgan</span>}
+      </div>
+
+      {data?.configured ? (
+        <div className="space-y-2 text-sm text-slate-600">
+          <p>Kirish sahifasida <b>«ERI (E-IMZO) orqali kirish»</b> tugmasi ko'rinadi. Foydalanuvchi ERI kaliti JSHSHIR'i bo'yicha topiladi: <b>Sozlamalar → Foydalanuvchilar</b> jadvalidagi «JSHSHIR (ERI)» ustuniga kiriting (yoki kadrlar kartochkasidagi JSHSHIR ishlatiladi).</p>
+          <p className="text-xs text-slate-500">Server: <code className="rounded bg-slate-100 px-1.5 py-0.5">{data.serverUrl}</code> · Domen: <code className="rounded bg-slate-100 px-1.5 py-0.5">{data.domain}</code></p>
+          {data.source === "db" ? (
+            <button onClick={() => window.confirm("ERI orqali kirish o'chirilsinmi?") && remove.mutate()} className="text-xs font-medium text-rose-600 hover:text-rose-700">O'chirish</button>
+          ) : (
+            <p className="text-xs text-slate-400">Sozlama server o'zgaruvchilarida (EIMZO_*) berilgan.</p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3 text-sm text-slate-600">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>Sayt domeni uchun <b>API-KEY</b> oling (E-IMZO / NIC NT, domen: <b>{window.location.hostname}</b>).</li>
+            <li><b>e-imzo-server</b> ni o'rnating (VPN orqali sertifikat holatini tekshiradi) va manzilini kiriting.</li>
+            <li>Foydalanuvchilarga JSHSHIR kiriting, ular kompyuterida <b>E-IMZO</b> dasturi o'rnatilgan bo'lsin.</li>
+          </ol>
+          <div className="grid gap-2 md:grid-cols-3">
+            <input value={form.serverUrl} onChange={(e) => set("serverUrl", e.target.value)} placeholder="e-imzo-server: http://127.0.0.1:8080" className="input" />
+            <input value={form.domain} onChange={(e) => set("domain", e.target.value)} placeholder="Domen: edo.wafaleasing.uz" className="input" />
+            <input value={form.apiKey} onChange={(e) => set("apiKey", e.target.value)} placeholder="API-KEY" className="input font-mono" />
+          </div>
+          <button
+            onClick={() => save.mutate()} disabled={!form.serverUrl.trim() || !form.domain.trim() || !form.apiKey.trim() || save.isPending}
+            className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+          >
+            {save.isPending ? "Tekshirilmoqda..." : "Tekshirib yoqish"}
+          </button>
+          {error && <p className="text-xs text-rose-600">{error}</p>}
         </div>
       )}
     </div>

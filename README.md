@@ -105,6 +105,7 @@ Shuningdek ikkita tashkilot (WAFA LEASING MCHJ, VAFO MOLIYA MCHJ MMT) avtomatik 
 | `CORS_ORIGIN` | yo'q | Ruxsat etilgan manzillar (vergul bilan) |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | yo'q | Oddiy xatlar uchun "AI bilan yozish" (kalit bo'lmasa mahalliy yordamchi ishlaydi) |
 | `TELEGRAM_BOT_TOKEN` | yo'q | Telegram bot tokeni (BotFather). Berilmasa, administrator tokenni saytdan kiritadi (Integratsiyalar → Telegram bot) — baza ichida shifrlanib saqlanadi |
+| `EIMZO_SERVER_URL`, `EIMZO_DOMAIN`, `EIMZO_API_KEY` | yo'q | ERI (E-IMZO) orqali kirish: e-imzo-server manzili, sayt domeni, NIC NT bergan API-KEY. Uchalasi ham berilmasa, administrator saytdan kiritadi (Tashqi tizimlar → ERI) |
 | `TELEGRAM_API_BASE` | yo'q | Telegram API manzili (standart `https://api.telegram.org`; sinov yoki mahalliy Bot API serveri uchun) |
 | `CRM_DATABASE_URL` | yo'q | CRM bazasiga **faqat o'qish** ulanishi; berilmasa "CRM'dan tanlash" ko'rinmaydi |
 | `CRM_PHONES_URL` | yo'q | Mijoz telefonlari manbai (standart `https://wafaleasing.uz/crm.html`, `off` — o'chirish) |
@@ -121,6 +122,19 @@ Shuningdek ikkita tashkilot (WAFA LEASING MCHJ, VAFO MOLIYA MCHJ MMT) avtomatik 
 | `ISHGA-QABUL-BUYRUQ-NAMUNA.docx` | Kadrlar: ishga qabul buyrug'i |
 
 Shablonlardagi `{teg}` lar xat ma'lumotlari bilan almashtiriladi (`{kun} {oy} {yil}`, `{xat raqami}`, `{manzil}{manzil_son}`, `{kimga_old}{kimga}{kimga_son}`, `{telefon_raqam}`, `{shartnoma_turi}`, `{kechikkan_oy}`, `{oylik_to’lov}`, `{xayriya_summasi}`, `{qarzdorlik_summasi}`, `{%qr_kod}` va h.k.). Aniq ro'yxat `apps/api/src/letters/letters.service.ts` dagi `buildWarningDocx` / `buildDocxFromTemplate` izohlarida. Shablonni o'zgartirganda teglarni **bitta Word "run"** ichida yozing (formatni teg o'rtasida o'zgartirmang).
+
+## ERI (E-IMZO) orqali kirish
+
+Kirish sahifasida login/parol bilan bir qatorda **«ERI (E-IMZO) orqali kirish»** tugmasi paydo bo'ladi (sozlangandan keyin).
+
+Oqim: brauzer e-imzo-server'dan bir martalik *challenge* oladi → kompyuterdagi **E-IMZO** dasturi uni ERI kaliti bilan imzolaydi (PKCS#7) → EDO imzoni e-imzo-server (`POST /backend/auth`) orqali tekshiradi → sertifikatdagi **JSHSHIR** bo'yicha foydalanuvchi topiladi va odatdagidek sessiya ochiladi (ko'p tashkilotli foydalanuvchi tashkilot tanlaydi).
+
+Yoqish uchun:
+1. Sayt domeni uchun **API-KEY** oling (E-IMZO / NIC NT).
+2. **e-imzo-server** ni o'rnating (sertifikat holatini tekshirish uchun VPN/OCSP ulanishi kerak).
+3. **Tashqi tizimlar → ERI (E-IMZO)** kartasiga server manzili, domen va API-KEY ni kiriting ("Tekshirib yoqish" server javobini sinaydi).
+4. **Sozlamalar → Foydalanuvchilar** jadvalida har bir foydalanuvchiga 14 xonali **JSHSHIR** kiriting (yoki kadrlar kartochkasidagi JSHSHIR ishlatiladi; bitta JSHSHIR — bitta foydalanuvchi).
+5. Foydalanuvchi kompyuterida **E-IMZO** dasturi o'rnatilgan va ishlab turishi kerak.
 
 ## Telegram bot (vazifalar doskasi)
 
