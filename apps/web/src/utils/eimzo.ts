@@ -71,7 +71,9 @@ function parseDate(v?: string): Date | null {
 
 /** API-KEY ni E-IMZO ga o'rnatadi ([domen, kalit, ...]). */
 export async function eimzoSetApiKeys(keys: string[]) {
-  await call({ name: "apikey", arguments: keys });
+  // E-IMZO 6 kalitni domen bo'yicha o'zi yuklaydi, «Developer mode» da esa kalit shart emas -
+  // shuning uchun xato bo'lsa to'xtamaymiz: keyingi chaqiruv aniq sababni qaytaradi.
+  try { await call({ name: "apikey", arguments: keys }); } catch { /* keyingi chaqiruvlar xatoni ko'rsatadi */ }
 }
 
 /** Kompyuterdagi ERI kalitlari (PFX) ro'yxati. */

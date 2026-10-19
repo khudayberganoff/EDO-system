@@ -129,10 +129,12 @@ Kirish sahifasida login/parol bilan bir qatorda **«ERI (E-IMZO) orqali kirish»
 
 Oqim: brauzer e-imzo-server'dan bir martalik *challenge* oladi → kompyuterdagi **E-IMZO** dasturi uni ERI kaliti bilan imzolaydi (PKCS#7) → EDO imzoni e-imzo-server (`POST /backend/auth`) orqali tekshiradi → sertifikatdagi **JSHSHIR** bo'yicha foydalanuvchi topiladi va odatdagidek sessiya ochiladi (ko'p tashkilotli foydalanuvchi tashkilot tanlaydi).
 
+Batafsil o'rnatish: [docs/ERI-E-IMZO.md](docs/ERI-E-IMZO.md).
+
 Yoqish uchun:
-1. Sayt domeni uchun **API-KEY** oling (E-IMZO / NIC NT).
-2. **e-imzo-server** ni o'rnating (sertifikat holatini tekshirish uchun VPN/OCSP ulanishi kerak).
-3. **Tashqi tizimlar → ERI (E-IMZO)** kartasiga server manzili, domen va API-KEY ni kiriting ("Tekshirib yoqish" server javobini sinaydi).
+1. **e-imzo-server** ni oling va o'rnating (E-IMZO bilan shartnoma asosida beriladi; sertifikat holatini tekshirish uchun VPN ulanishi kerak).
+2. Sayt domeni uchun **API-KEY** oling (E-IMZO 6 da yoki «Developer mode» da shart emas).
+3. **Tashqi tizimlar → ERI (E-IMZO)** kartasiga server manzili, domen va (bo'lsa) API-KEY ni kiriting ("Tekshirib yoqish" server javobini sinaydi).
 4. **Sozlamalar → Foydalanuvchilar** jadvalida har bir foydalanuvchiga 14 xonali **JSHSHIR** kiriting (yoki kadrlar kartochkasidagi JSHSHIR ishlatiladi; bitta JSHSHIR — bitta foydalanuvchi).
 5. Foydalanuvchi kompyuterida **E-IMZO** dasturi o'rnatilgan va ishlab turishi kerak.
 

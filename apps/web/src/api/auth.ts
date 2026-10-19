@@ -54,7 +54,7 @@ export async function fetchEimzoSettings() {
   const { data } = await apiClient.get<EimzoSettings>("/auth/eimzo/settings");
   return data;
 }
-export async function saveEimzoSettings(payload: { serverUrl: string; domain: string; apiKey: string }) {
+export async function saveEimzoSettings(payload: { serverUrl: string; domain: string; apiKey?: string }) {
   const { data } = await apiClient.put("/auth/eimzo/settings", payload);
   return data;
 }
