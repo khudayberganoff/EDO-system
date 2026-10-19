@@ -10,7 +10,7 @@ export interface EimzoConfig {
   serverUrl: string;
   /** Sayt domeni (E-IMZO API-KEY shu domen uchun beriladi) */
   domain: string;
-  /** NIC NT bergan API-KEY (brauzerga beriladi - maxfiy emas) */
+  /** E-IMZO bergan API-KEY (brauzerga beriladi - maxfiy emas). Bo'sh bo'lishi mumkin: E-IMZO 6 kalitni domen bo'yicha o'zi yuklaydi, sinovda esa «Developer mode» yoqiladi */
   apiKey: string;
 }
 
@@ -46,14 +46,14 @@ export class EimzoService {
 
   async getConfig(): Promise<{ config: EimzoConfig | null; source: "env" | "db" | null }> {
     const { EIMZO_SERVER_URL, EIMZO_DOMAIN, EIMZO_API_KEY } = process.env;
-    if (EIMZO_SERVER_URL && EIMZO_DOMAIN && EIMZO_API_KEY) {
-      return { config: { serverUrl: EIMZO_SERVER_URL, domain: EIMZO_DOMAIN, apiKey: EIMZO_API_KEY }, source: "env" };
+    if (EIMZO_SERVER_URL && EIMZO_DOMAIN) {
+      return { config: { serverUrl: EIMZO_SERVER_URL, domain: EIMZO_DOMAIN, apiKey: EIMZO_API_KEY ?? "" }, source: "env" };
     }
     const row = await this.prisma.appSetting.findUnique({ where: { key: SETTING_KEY } });
     if (row) {
       try {
         const c = JSON.parse(row.value) as EimzoConfig;
-        if (c.serverUrl && c.domain && c.apiKey) return { config: c, source: "db" };
+        if (c.serverUrl && c.domain) return { config: c, source: "db" };
       } catch { /* buzilgan yozuv - sozlanmagan deb hisoblanadi */ }
     }
     return { config: null, source: null };
@@ -65,7 +65,7 @@ export class EimzoService {
     const apiKey = (input.apiKey ?? "").trim();
     if (!/^https?:\/\/[^\s]+$/i.test(serverUrl)) throw new BadRequestException("E-IMZO server manzili noto'g'ri (masalan: http://127.0.0.1:8080).");
     if (!/^[a-z0-9.-]+(:\d+)?$/.test(domain)) throw new BadRequestException("Domen noto'g'ri (masalan: edo.wafaleasing.uz).");
-    if (apiKey.length < 16) throw new BadRequestException("API-KEY noto'g'ri: NIC NT bergan kalitni to'liq kiriting.");
+    if (apiKey && apiKey.length < 16) throw new BadRequestException("API-KEY noto'g'ri: E-IMZO bergan kalitni to'liq kiriting (yoki bo'sh qoldiring).");
     return { serverUrl, domain, apiKey };
   }
 
@@ -87,7 +87,7 @@ export class EimzoService {
 
   async publicConfig() {
     const { config } = await this.getConfig();
-    return { enabled: !!config, apiKeys: config ? [config.domain, config.apiKey] : [] };
+    return { enabled: !!config, apiKeys: config?.apiKey ? [config.domain, config.apiKey] : [] };
   }
 
   async challenge(): Promise<string> {
@@ -133,6 +133,10 @@ export class EimzoService {
       case -10: return "Imzo noto'g'ri.";
       case -11: case -12: return "ERI sertifikati yaroqsiz yoki muddati tugagan.";
       case -5: return "Imzolash vaqti ruxsat etilgan oraliqdan tashqarida. Kompyuter vaqtini tekshiring.";
+      case -21: return "Imzo yoki vaqt tamg'asi (timestamp) xeshi noto'g'ri.";
+      case -22: case -23: return "Vaqt tamg'asi sertifikati yaroqsiz.";
+      case -24: return "Sertifikat siyosati (policy) e-imzo-server da ruxsat etilmagan.";
+      case -25: return "Sertifikatni bergan CA e-imzo-server da ruxsat etilmagan.";
       case -1: return "Sertifikat holatini tekshirib bo'lmadi (E-IMZO serverining VPN/OCSP ulanishini tekshiring).";
       default: return message ? `ERI tekshiruvi rad etildi: ${message}` : "ERI tekshiruvi rad etildi.";
     }

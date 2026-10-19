@@ -17,5 +17,5 @@ export class EimzoSelectOrgDto {
 export class SaveEimzoConfigDto {
   @IsString() @MaxLength(300) serverUrl!: string;
   @IsString() @MaxLength(200) domain!: string;
-  @IsString() @MaxLength(500) apiKey!: string;
+  @IsOptional() @IsString() @MaxLength(500) apiKey?: string;
 }

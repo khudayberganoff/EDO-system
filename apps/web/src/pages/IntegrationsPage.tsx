@@ -341,17 +341,17 @@ function EimzoCard() {
       ) : (
         <div className="space-y-3 text-sm text-slate-600">
           <ol className="list-decimal space-y-1 pl-5">
-            <li>Sayt domeni uchun <b>API-KEY</b> oling (E-IMZO / NIC NT, domen: <b>{window.location.hostname}</b>).</li>
-            <li><b>e-imzo-server</b> ni o'rnating (VPN orqali sertifikat holatini tekshiradi) va manzilini kiriting.</li>
+            <li><b>e-imzo-server</b> ni o'rnating (E-IMZO bilan shartnoma asosida beriladi, VPN orqali sertifikat holatini tekshiradi) — <code className="rounded bg-slate-100 px-1">docs/ERI-E-IMZO.md</code>.</li>
+            <li>Sayt domeni (<b>{window.location.hostname}</b>) uchun <b>API-KEY</b> oling. E-IMZO 6 da yoki «Developer mode» da kalit shart emas — bo'sh qoldirish mumkin.</li>
             <li>Foydalanuvchilarga JSHSHIR kiriting, ular kompyuterida <b>E-IMZO</b> dasturi o'rnatilgan bo'lsin.</li>
           </ol>
           <div className="grid gap-2 md:grid-cols-3">
             <input value={form.serverUrl} onChange={(e) => set("serverUrl", e.target.value)} placeholder="e-imzo-server: http://127.0.0.1:8080" className="input" />
             <input value={form.domain} onChange={(e) => set("domain", e.target.value)} placeholder="Domen: edo.wafaleasing.uz" className="input" />
-            <input value={form.apiKey} onChange={(e) => set("apiKey", e.target.value)} placeholder="API-KEY" className="input font-mono" />
+            <input value={form.apiKey} onChange={(e) => set("apiKey", e.target.value)} placeholder="API-KEY (ixtiyoriy)" className="input font-mono" />
           </div>
           <button
-            onClick={() => save.mutate()} disabled={!form.serverUrl.trim() || !form.domain.trim() || !form.apiKey.trim() || save.isPending}
+            onClick={() => save.mutate()} disabled={!form.serverUrl.trim() || !form.domain.trim() || save.isPending}
             className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
           >
             {save.isPending ? "Tekshirilmoqda..." : "Tekshirib yoqish"}
