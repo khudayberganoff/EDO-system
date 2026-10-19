@@ -63,6 +63,8 @@ model User {
   /// Telegram hisobi (bot orqali vazifa qo'shish uchun) - EDO'da "Telegram'ni ulash" orqali bog'lanadi
   telegramId       String?  @unique
   telegramUsername String?
+  /// ERI (E-IMZO) orqali kirish uchun JSHSHIR (14 raqam) - kalit sertifikatidagi JSHSHIR bilan solishtiriladi
+  pinfl            String?  @unique
   /// Keyingi kirishda parolni majburiy almashtirish kerakmi - avtomatik yaratilgan
   /// hisob yoki administrator tomonidan tiklangan parolda TRUE bo'ladi.
   mustChangePassword Boolean @default(false)

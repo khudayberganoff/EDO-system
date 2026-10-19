@@ -101,8 +101,14 @@ export class SettingsService {
   async listUsers() {
     return this.prisma.user.findMany({
       orderBy: { fullName: "asc" },
-      select: { id: true, fullName: true, email: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, fullName: true, email: true, role: true, isActive: true, createdAt: true, pinfl: true },
     });
+  }
+
+  /** JSHSHIR band emasligini tekshiradi (ERI orqali kirishda bitta kalit - bitta foydalanuvchi). */
+  private async assertPinflFree(pinfl: string, exceptUserId?: string) {
+    const other = await this.prisma.user.findUnique({ where: { pinfl }, select: { id: true, fullName: true } });
+    if (other && other.id !== exceptUserId) throw new BadRequestException(`Bu JSHSHIR boshqa foydalanuvchiga biriktirilgan: ${other.fullName}.`);
   }
 
   /**
@@ -143,7 +149,7 @@ export class SettingsService {
     };
   }
 
-  async createUser(data: { fullName: string; email: string; password: string; role: string }, actorId: string, organizationId: string) {
+  async createUser(data: { fullName: string; email: string; password: string; role: string; pinfl?: string }, actorId: string, organizationId: string) {
     const email = data.email.trim().toLowerCase();
     const exists = await this.prisma.user.findUnique({ where: { email } });
     if (exists) throw new BadRequestException("Bu email allaqachon ro'yxatdan o'tgan.");
@@ -151,10 +157,14 @@ export class SettingsService {
       throw new BadRequestException("Parol kamida 8 ta belgidan iborat bo'lishi kerak.");
     }
 
+    const pinfl = data.pinfl?.trim() || null;
+    if (pinfl) await this.assertPinflFree(pinfl);
+
     const user = await this.prisma.user.create({
       data: {
         fullName: data.fullName.trim(),
         email,
+        pinfl,
         passwordHash: await bcrypt.hash(data.password, 10),
         role: data.role,
         // Kuzatuvchi ikkala korxonaning hujjatlarini ko'radi - hamma tashkilotga a'zo qilinadi
@@ -207,7 +217,7 @@ export class SettingsService {
     return `${pick(upper, 1)}${pick(letters, 5)}${pick(digits, 3)}!`;
   }
 
-  async updateUser(id: string, data: { fullName?: string; role?: string; isActive?: boolean; password?: string }, actorId: string) {
+  async updateUser(id: string, data: { fullName?: string; role?: string; isActive?: boolean; password?: string; pinfl?: string }, actorId: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException("Foydalanuvchi topilmadi.");
 
@@ -231,15 +241,19 @@ export class SettingsService {
       }
     }
 
+    const pinfl = data.pinfl === undefined ? undefined : data.pinfl.trim() || null;
+    if (pinfl) await this.assertPinflFree(pinfl, id);
+
     const updated = await this.prisma.user.update({
       where: { id },
       data: {
+        pinfl,
         fullName: data.fullName?.trim(),
         role: data.role,
         isActive: data.isActive,
         ...(data.password ? { passwordHash: await bcrypt.hash(data.password, 10) } : {}),
       },
-      select: { id: true, fullName: true, email: true, role: true, isActive: true },
+      select: { id: true, fullName: true, email: true, role: true, isActive: true, pinfl: true },
     });
     await this.auditLog.record({ userId: actorId, action: AuditAction.UPDATE, metadata: { kind: "user", userId: id } });
     return updated;

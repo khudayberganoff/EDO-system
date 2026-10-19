@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 import { Role } from "../../common/enums";
 
 export class CreateUserDto {
@@ -18,6 +18,10 @@ export class CreateUserDto {
   @ApiProperty({ enum: Role, example: Role.EMPLOYEE })
   @IsEnum(Role, { message: "Rol noto'g'ri tanlangan." })
   role!: Role;
+
+  @ApiPropertyOptional({ example: "31234567890123", description: "ERI orqali kirish uchun JSHSHIR (14 raqam)" })
+  @IsOptional() @Matches(/^(\d{14})?$/, { message: "JSHSHIR 14 ta raqamdan iborat bo'lishi kerak." })
+  pinfl?: string;
 }
 
 export class UpdateUserDto {
@@ -36,6 +40,10 @@ export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MinLength(8) @MaxLength(100)
   password?: string;
+
+  @ApiPropertyOptional({ description: "JSHSHIR (14 raqam); bo'sh qator - ERI bog'lanishini olib tashlaydi" })
+  @IsOptional() @Matches(/^(\d{14})?$/, { message: "JSHSHIR 14 ta raqamdan iborat bo'lishi kerak." })
+  pinfl?: string;
 }
 
 export class SetPermissionDto {

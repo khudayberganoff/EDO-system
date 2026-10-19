@@ -1,10 +1,13 @@
 import { FormEvent, useCallback, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check, ShieldCheck, RefreshCw, X } from "lucide-react";
 import { useAuth, OrganizationSelectionRequiredError } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 import type { OrganizationDto } from "@edo/shared-types";
+import { fetchEimzoConfig, fetchEimzoChallenge } from "../api/auth";
+import { eimzoSetApiKeys, eimzoListKeys, eimzoSign, type EimzoKey } from "../utils/eimzo";
 
 /** Sakkiz burchakli yulduz - islom geometriyasidagi asosiy motiv. */
 function StarMark({ className = "" }: { className?: string }) {
@@ -19,7 +22,7 @@ function StarMark({ className = "" }: { className?: string }) {
 }
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithEri, completeEriLogin } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -33,6 +36,62 @@ export function LoginPage() {
   // shu ro'yxat bilan alohida oyna (modal) ochiladi, kirish shu bilan yakunlanadi.
   const [orgChoices, setOrgChoices] = useState<OrganizationDto[] | null>(null);
   const [selectingOrg, setSelectingOrg] = useState(false);
+
+  // ERI (E-IMZO) orqali kirish
+  const { data: eimzoConfig } = useQuery({ queryKey: ["eimzo", "config"], queryFn: fetchEimzoConfig, staleTime: 60_000, retry: false });
+  const [eriOpen, setEriOpen] = useState(false);
+  const [eriKeys, setEriKeys] = useState<EimzoKey[] | null>(null);
+  const [eriSelected, setEriSelected] = useState(0);
+  const [eriBusy, setEriBusy] = useState(false);
+  const [eriError, setEriError] = useState<string | null>(null);
+  const [eriSelectionToken, setEriSelectionToken] = useState<string | null>(null);
+
+  async function loadEriKeys() {
+    setEriBusy(true);
+    setEriError(null);
+    try {
+      if (eimzoConfig?.apiKeys?.length) await eimzoSetApiKeys(eimzoConfig.apiKeys);
+      const keys = await eimzoListKeys();
+      setEriKeys(keys);
+      setEriSelected(Math.max(0, keys.findIndex((k) => !k.expired)));
+    } catch (err: any) {
+      setEriKeys(null);
+      setEriError(err?.message ?? "E-IMZO xatosi.");
+    } finally {
+      setEriBusy(false);
+    }
+  }
+
+  function openEri() {
+    setEriOpen(true);
+    setError(null);
+    setEriKeys(null);
+    void loadEriKeys();
+  }
+
+  async function submitEri() {
+    const key = eriKeys?.[eriSelected];
+    if (!key) return;
+    setEriBusy(true);
+    setEriError(null);
+    try {
+      const challenge = await fetchEimzoChallenge();
+      const pkcs7 = await eimzoSign(key, challenge);
+      await loginWithEri(pkcs7, remember);
+      navigate("/");
+    } catch (err: any) {
+      if (err instanceof OrganizationSelectionRequiredError) {
+        setEriSelectionToken(err.selectionToken ?? null);
+        setEriOpen(false);
+        setOrgChoices(err.organizations);
+      } else {
+        const msg = err?.response?.data?.message;
+        setEriError(typeof msg === "string" ? msg : Array.isArray(msg) ? msg.join(". ") : err?.message ?? t("login.error"));
+      }
+    } finally {
+      setEriBusy(false);
+    }
+  }
 
   // Sichqoncha harakati - yulduzlar kursor atrofida yonib turishi uchun
   const glowRef = useRef<HTMLDivElement>(null);
@@ -79,7 +138,8 @@ export function LoginPage() {
     setSelectingOrg(true);
     setError(null);
     try {
-      await login({ email, password, organizationId }, remember);
+      if (eriSelectionToken) await completeEriLogin(eriSelectionToken, organizationId, remember);
+      else await login({ email, password, organizationId }, remember);
       navigate("/");
     } catch {
       setOrgChoices(null);
@@ -223,6 +283,21 @@ export function LoginPage() {
                   {t("login.submit")}
                 </button>
               </form>
+
+              {eimzoConfig?.enabled && (
+                <>
+                  <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-slate-300">
+                    <span className="h-px flex-1 bg-slate-200" />{t("login.eriOr")}<span className="h-px flex-1 bg-slate-200" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openEri}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-700/30 bg-white py-3.5 text-sm font-semibold text-brand-800 transition hover:border-brand-600 hover:bg-brand-50"
+                  >
+                    <ShieldCheck size={17} /> {t("login.eriButton")}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -239,6 +314,62 @@ export function LoginPage() {
         <span className="mx-2">·</span>
         {t("login.footer")}
       </footer>
+
+      {/* ERI kalitini tanlash oynasi */}
+      {eriOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-1 flex items-center justify-between text-brand-950">
+              <div className="flex items-center gap-2"><ShieldCheck size={18} /><h3 className="text-base font-semibold">{t("login.eriTitle")}</h3></div>
+              <button type="button" onClick={() => setEriOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <p className="mb-4 text-sm text-slate-500">{t("login.eriHint")}</p>
+
+            {eriBusy && !eriKeys && <p className="flex items-center gap-2 py-6 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" /> E-IMZO...</p>}
+
+            {eriKeys && eriKeys.length === 0 && <p className="rounded-lg bg-slate-50 px-3 py-3 text-sm text-slate-500">{t("login.eriNoKeys")}</p>}
+
+            {eriKeys && eriKeys.length > 0 && (
+              <div className="max-h-64 space-y-2 overflow-y-auto">
+                {eriKeys.map((k, i) => (
+                  <button
+                    key={`${k.disk}${k.path}${k.name}${k.alias}`}
+                    type="button"
+                    disabled={k.expired}
+                    onClick={() => setEriSelected(i)}
+                    className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition disabled:opacity-50 ${
+                      eriSelected === i ? "border-brand-600 bg-brand-50" : "border-slate-200 hover:border-brand-400"
+                    }`}
+                  >
+                    <div className="font-medium text-slate-800">{k.cn}</div>
+                    <div className="mt-0.5 text-xs text-slate-500">
+                      {k.pinfl && <>JSHSHIR {k.pinfl}</>}{k.tin && <> · STIR {k.tin}</>}
+                      {k.validTo && <> · {k.validTo.toLocaleDateString("uz-UZ")}</>}
+                      {k.expired && <span className="ml-1 text-rose-600">({t("login.eriExpired")})</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {eriError && <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{eriError}</p>}
+
+            <div className="mt-5 flex items-center justify-between gap-2">
+              <button type="button" onClick={() => void loadEriKeys()} disabled={eriBusy} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-50">
+                <RefreshCw size={13} /> {t("login.eriRefresh")}
+              </button>
+              <button
+                type="button"
+                disabled={eriBusy || !eriKeys?.length || eriKeys[eriSelected]?.expired}
+                onClick={() => void submitEri()}
+                className="flex items-center gap-2 rounded-xl bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+              >
+                {eriBusy && eriKeys && <Loader2 size={15} className="animate-spin" />} {t("login.eriSign")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tashkilot tanlash oynasi - login/parol to'g'ri kelib, foydalanuvchi bir nechta
           tashkilotga ega bo'lganda (administrator shunday sozlagan bo'lsa) ochiladi. */}
@@ -268,7 +399,7 @@ export function LoginPage() {
             </div>
             <button
               type="button"
-              onClick={() => setOrgChoices(null)}
+              onClick={() => { setOrgChoices(null); setEriSelectionToken(null); }}
               className="mt-4 w-full text-center text-xs text-slate-400 hover:text-slate-600"
             >
               Bekor qilish

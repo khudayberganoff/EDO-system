@@ -47,18 +47,33 @@ export class AuthService {
       throw new UnauthorizedException("Email yoki parol noto'g'ri.");
     }
 
-    if (!dto.organizationId) {
+    return this.startSession(user, dto.organizationId, "password");
+  }
+
+  /**
+   * Foydalanuvchi aniqlangach (parol yoki ERI): bitta tashkilot bo'lsa darhol token beradi,
+   * bir nechta bo'lsa tanlash uchun ro'yxat qaytaradi. ERI da tanlash `selectionToken` bilan yakunlanadi.
+   */
+  async startSession(
+    user: { id: string; fullName: string; email: string; role: string; isActive: boolean; createdAt: Date; mustChangePassword: boolean },
+    organizationId: string | undefined,
+    method: "password" | "eri",
+  ) {
+    if (!organizationId) {
       const memberships = await this.myOrganizations(user.id);
       if (memberships.length === 0) {
         throw new ForbiddenException("Sizga hech qanday tashkilotga kirish huquqi berilmagan.");
       }
       if (memberships.length > 1) {
-        return { requiresOrganizationSelection: true as const, organizations: memberships };
+        const selectionToken = method === "eri"
+          ? await this.jwtService.signAsync({ sub: user.id, purpose: "eri-org" }, { expiresIn: "5m" })
+          : undefined;
+        return { requiresOrganizationSelection: true as const, organizations: memberships, ...(selectionToken ? { selectionToken } : {}) };
       }
-      dto = { ...dto, organizationId: memberships[0].id };
+      organizationId = memberships[0].id;
     }
 
-    const organization = await this.assertOrgAccess(user.id, dto.organizationId!);
+    const organization = await this.assertOrgAccess(user.id, organizationId);
 
     const payload = { sub: user.id, email: user.email, role: user.role, organizationId: organization.id };
     const accessToken = await this.jwtService.signAsync(payload);
@@ -66,7 +81,7 @@ export class AuthService {
     await this.auditLog.record({
       userId: user.id,
       action: AuditAction.LOGIN,
-      metadata: { organizationId: organization.id },
+      metadata: { organizationId: organization.id, method },
     });
 
     return {
@@ -83,6 +98,32 @@ export class AuthService {
         organizationName: organization.name,
       },
     };
+  }
+
+  /** ERI bilan tasdiqlangan JSHSHIR bo'yicha faol foydalanuvchini topadi (avval hisob, so'ng kadrlar kartochkasi). */
+  async findUserByPinfl(pinfl: string) {
+    const direct = await this.prisma.user.findUnique({ where: { pinfl } });
+    if (direct) return direct;
+    const emp = await this.prisma.employee.findFirst({ where: { pinfl, userId: { not: null } }, include: { user: true } });
+    return emp?.user ?? null;
+  }
+
+  async loginWithEri(pinfl: string, organizationId?: string) {
+    const user = await this.findUserByPinfl(pinfl);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException("Bu ERI kaliti tizimdagi hech bir faol foydalanuvchiga bog'lanmagan. Administratorga murojaat qiling.");
+    }
+    return this.startSession(user, organizationId, "eri");
+  }
+
+  /** Ko'p tashkilotli foydalanuvchi ERI dan keyin tashkilot tanlaganda (selectionToken 5 daqiqa amal qiladi). */
+  async selectOrganizationAfterEri(selectionToken: string, organizationId: string) {
+    let decoded: { sub?: string; purpose?: string };
+    try { decoded = await this.jwtService.verifyAsync(selectionToken); } catch { throw new UnauthorizedException("Sessiya muddati tugadi. ERI bilan qayta kiring."); }
+    if (decoded.purpose !== "eri-org" || !decoded.sub) throw new UnauthorizedException("Noto'g'ri so'rov.");
+    const user = await this.prisma.user.findUnique({ where: { id: decoded.sub } });
+    if (!user || !user.isActive) throw new UnauthorizedException("Foydalanuvchi topilmadi.");
+    return this.startSession(user, organizationId, "eri");
   }
 
   /** Joriy foydalanuvchi kira oladigan barcha tashkilotlar - tashkilot almashtirgichini ko'rsatish kerak-emasligini aniqlash uchun. */

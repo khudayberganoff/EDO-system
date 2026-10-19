@@ -29,3 +29,36 @@ export async function changePassword(currentPassword: string, newPassword: strin
   const { data } = await apiClient.post("/auth/change-password", { currentPassword, newPassword });
   return data;
 }
+
+// ---------- ERI (E-IMZO) orqali kirish ----------
+
+export async function fetchEimzoConfig() {
+  const { data } = await apiClient.get<{ enabled: boolean; apiKeys: string[] }>("/auth/eimzo/config");
+  return data;
+}
+export async function fetchEimzoChallenge() {
+  const { data } = await apiClient.get<{ challenge: string }>("/auth/eimzo/challenge");
+  return data.challenge;
+}
+export async function eimzoLogin(pkcs7: string) {
+  const { data } = await apiClient.post<LoginResponseDto & { selectionToken?: string }>("/auth/eimzo/login", { pkcs7 });
+  return data;
+}
+export async function eimzoSelectOrganization(selectionToken: string, organizationId: string) {
+  const { data } = await apiClient.post<LoginSuccessDto>("/auth/eimzo/select-organization", { selectionToken, organizationId });
+  return data;
+}
+
+export interface EimzoSettings { configured: boolean; source: "env" | "db" | null; serverUrl: string; domain: string; apiKey: string }
+export async function fetchEimzoSettings() {
+  const { data } = await apiClient.get<EimzoSettings>("/auth/eimzo/settings");
+  return data;
+}
+export async function saveEimzoSettings(payload: { serverUrl: string; domain: string; apiKey: string }) {
+  const { data } = await apiClient.put("/auth/eimzo/settings", payload);
+  return data;
+}
+export async function removeEimzoSettings() {
+  const { data } = await apiClient.delete("/auth/eimzo/settings");
+  return data;
+}

@@ -79,12 +79,13 @@ function UsersTab() {
               <th className="px-4 py-3">F.I.Sh.</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Roli</th>
+              <th className="px-4 py-3" title="ERI (E-IMZO) orqali kirish uchun">JSHSHIR (ERI)</th>
               <th className="px-4 py-3">Holati</th>
               <th className="px-4 py-3">Amallar</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {isLoading && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Yuklanmoqda...</td></tr>}
+            {isLoading && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Yuklanmoqda...</td></tr>}
             {data?.map((u: SystemUser) => (
               <tr key={u.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
@@ -104,6 +105,9 @@ function UsersTab() {
                   >
                     {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
+                </td>
+                <td className="px-4 py-3">
+                  <PinflCell user={u} onSave={(pinfl) => update.mutate({ id: u.id, payload: { pinfl } })} />
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${u.isActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
@@ -141,14 +145,32 @@ function UsersTab() {
   );
 }
 
+/** JSHSHIR (14 raqam) - ERI kaliti shu raqam bo'yicha foydalanuvchiga bog'lanadi. Maydondan chiqqanda saqlanadi. */
+function PinflCell({ user, onSave }: { user: SystemUser; onSave: (pinfl: string) => void }) {
+  const [value, setValue] = useState(user.pinfl ?? "");
+  const valid = value === "" || /^\d{14}$/.test(value);
+  return (
+    <input
+      value={value}
+      inputMode="numeric"
+      maxLength={14}
+      placeholder="—"
+      onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+      onBlur={() => { if (valid && value !== (user.pinfl ?? "")) onSave(value); }}
+      className={`w-36 rounded-lg border px-2.5 py-1.5 font-mono text-xs ${valid ? "border-slate-200" : "border-rose-300 bg-rose-50"}`}
+      title={valid ? "ERI orqali kirish uchun 14 xonali JSHSHIR" : "JSHSHIR 14 ta raqam bo'lishi kerak"}
+    />
+  );
+}
+
 function CreateUserModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ fullName: "", email: "", password: "", role: "EMPLOYEE" });
+  const [form, setForm] = useState({ fullName: "", email: "", password: "", role: "EMPLOYEE", pinfl: "" });
   const [error, setError] = useState<string | null>(null);
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const mutation = useMutation({
-    mutationFn: () => createUser(form),
+    mutationFn: () => createUser({ ...form, pinfl: form.pinfl || undefined }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["settings"] }); onClose(); },
     onError: (e: any) => {
       const msg = e?.response?.data?.message;
@@ -178,6 +200,10 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
             <input type="text" value={form.password} onChange={(e) => set("password", e.target.value)} placeholder="Kamida 8 ta belgi" className="input" />
           </label>
           <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">JSHSHIR (ERI orqali kirish uchun)</span>
+            <input value={form.pinfl} inputMode="numeric" maxLength={14} onChange={(e) => set("pinfl", e.target.value.replace(/\D/g, ""))} placeholder="14 ta raqam (ixtiyoriy)" className="input font-mono" />
+          </label>
+          <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">Roli</span>
             <select value={form.role} onChange={(e) => set("role", e.target.value)} className="input">
               {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -186,7 +212,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
           {form.role === "OBSERVER" && (
             <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
               <b>Kuzatuvchi</b> ikkala korxonaning barcha hujjat va xatlarini ko'radi (faqat ko'rish), vazifalar doskasiga vazifa kiritadi
-              va "Tekshiruvda" turgan vazifalarni 1 dan 5 gacha baholaydi. Hujjatlarni o'zgartira olmaydi; Kadrlar (shaxsiy ma'lumotlar) unga ochiq emas.
+              va "Tekshiruvda" turgan vazifalarni 1 dan 5 gacha baholaydi. Kadrlar bo'limini (xodimlar hujjatlari) ham faqat ko'radi. Hujjatlarni o'zgartira olmaydi; unga vazifa yuklanmaydi.
             </p>
           )}
         </div>
@@ -196,7 +222,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">Bekor qilish</button>
           <button
-            disabled={mutation.isPending || !form.fullName || !form.email || form.password.length < 8}
+            disabled={mutation.isPending || !form.fullName || !form.email || form.password.length < 8 || (form.pinfl !== "" && form.pinfl.length !== 14)}
             onClick={() => mutation.mutate()}
             className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
           >

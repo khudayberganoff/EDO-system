@@ -7,6 +7,7 @@ export interface SystemUser {
   role: string;
   isActive: boolean;
   createdAt?: string;
+  pinfl?: string | null;
 }
 
 export interface PermissionRow {
@@ -31,11 +32,11 @@ export async function fetchUsers() {
   const { data } = await apiClient.get<SystemUser[]>("/settings/users");
   return data;
 }
-export async function createUser(payload: { fullName: string; email: string; password: string; role: string }) {
+export async function createUser(payload: { fullName: string; email: string; password: string; role: string; pinfl?: string }) {
   const { data } = await apiClient.post("/settings/users", payload);
   return data;
 }
-export async function updateUser(id: string, payload: { fullName?: string; role?: string; isActive?: boolean; password?: string }) {
+export async function updateUser(id: string, payload: { fullName?: string; role?: string; isActive?: boolean; password?: string; pinfl?: string }) {
   const { data } = await apiClient.patch(`/settings/users/${id}`, payload);
   return data;
 }
