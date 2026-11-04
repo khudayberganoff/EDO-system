@@ -347,7 +347,7 @@ function EimzoCard() {
           </ol>
           <div className="grid gap-2 md:grid-cols-3">
             <input value={form.serverUrl} onChange={(e) => set("serverUrl", e.target.value)} placeholder="e-imzo-server: http://127.0.0.1:8080" className="input" />
-            <input value={form.domain} onChange={(e) => set("domain", e.target.value)} placeholder="Domen: edo.wafaleasing.uz" className="input" />
+            <input value={form.domain} onChange={(e) => set("domain", e.target.value)} placeholder="Domen: edo.wafagroup.uz" className="input" />
             <input value={form.apiKey} onChange={(e) => set("apiKey", e.target.value)} placeholder="API-KEY (ixtiyoriy)" className="input font-mono" />
           </div>
           <button
