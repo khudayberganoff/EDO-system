@@ -64,7 +64,7 @@ export class EimzoService {
     const domain = (input.domain ?? "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     const apiKey = (input.apiKey ?? "").trim();
     if (!/^https?:\/\/[^\s]+$/i.test(serverUrl)) throw new BadRequestException("E-IMZO server manzili noto'g'ri (masalan: http://127.0.0.1:8080).");
-    if (!/^[a-z0-9.-]+(:\d+)?$/.test(domain)) throw new BadRequestException("Domen noto'g'ri (masalan: edo.wafaleasing.uz).");
+    if (!/^[a-z0-9.-]+(:\d+)?$/.test(domain)) throw new BadRequestException("Domen noto'g'ri (masalan: edo.wafagroup.uz).");
     if (apiKey && apiKey.length < 16) throw new BadRequestException("API-KEY noto'g'ri: E-IMZO bergan kalitni to'liq kiriting (yoki bo'sh qoldiring).");
     return { serverUrl, domain, apiKey };
   }

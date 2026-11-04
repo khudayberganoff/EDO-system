@@ -2,7 +2,7 @@
 
 EDO — **WAFA LEASING MCHJ** va **VAFO MOLIYA MCHJ MMT** uchun elektron hujjat aylanishi tizimi: hujjatlar va xatlar, ogohlantirish xatlari (CRM bilan bog'langan), kadrlar bo'limi, vazifalar doskasi va tashqi pochta bitta saytda.
 
-Ishlab turgan tizim: <https://edo.wafaleasing.uz>
+Ishlab turgan tizim: <https://edo.wafagroup.uz>
 
 ## Imkoniyatlar
 
@@ -165,6 +165,7 @@ docker run -d --name edo -p 10000:10000 \
 - **`uploads` papkasini doimiy volume'ga ulang** — yuklangan fayllar, firma blankasi va xodim hujjatlari shu yerda; aks holda har yangilanishda yo'qoladi.
 - Baza sxemasi server ishga tushgandan keyin avtomatik yangilanadi (`prisma db push`), shuning uchun alohida migratsiya buyrug'i shart emas.
 - HTTPS va domen uchun oldiga reverse proxy (Caddy / nginx) qo'ying.
+- **Domenni almashtirish:** DNS'da yangi `A` yozuv → Caddy'da yangi domen (eski domen ham qolsin yoki `redir` bo'lsin — chiqarilgan xatlardagi QR kodlar eski manzilga ishora qiladi) → `PUBLIC_APP_URL` ni yangilab konteynerni qayta ishga tushirish (Telegram webhook ishga tushganda o'zi qayta ulanadi) → ERI uchun API-KEY yangi domenga olinadi.
 - Bazani muntazam zaxiralang (`pg_dump`) va `uploads` papkasini ham nusxalang.
 
 Hozirgi ishlab turgan tizim o'z VPS serverida Docker'da ishlaydi (Caddy orqali HTTPS, kod `main` ga qo'shilganda server o'zi yangilanadi, kunlik zaxira). `render.yaml` — Render.com'dagi eski (bepul tarif) konfiguratsiya, hozir ishlatilmaydi.
