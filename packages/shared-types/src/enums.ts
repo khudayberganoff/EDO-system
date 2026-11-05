@@ -10,6 +10,7 @@ export enum UserRole {
   AUDITOR = "AUDITOR",
   /** Kuzatuvchi: ikkala korxonaning hamma hujjatini ko'radi, vazifa kiritadi, tekshiruvdagi vazifalarni 1-5 baholaydi */
   OBSERVER = "OBSERVER",
+  OPERATOR = "OPERATOR",
 }
 
 /**

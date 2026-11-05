@@ -26,6 +26,7 @@ import { TelephonyModule } from "./telephony/telephony.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { ObserverGuard } from "./common/guards/observer.guard";
+import { OperatorGuard } from "./common/guards/operator.guard";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 @Module({
@@ -71,6 +72,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ObserverGuard },
+    { provide: APP_GUARD, useClass: OperatorGuard },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

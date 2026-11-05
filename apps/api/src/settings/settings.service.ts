@@ -27,7 +27,7 @@ const DEFAULTS: Record<string, { view: string[]; edit: string[] }> = {
   board: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"] },
   letters: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE"] },
   // Call-markaz: qarzdorlarga qo'ng'iroq. Kuzatuvchi faqat ko'radi
-  calls: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE"] },
+  calls: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER", "OPERATOR"], edit: ["ADMIN", "MANAGER", "EMPLOYEE", "OPERATOR"] },
   hr: { view: ["ADMIN", "MANAGER"], edit: ["ADMIN", "MANAGER"] },
   deleted: { view: ["ADMIN", "MANAGER"], edit: ["ADMIN"] },
   integrations: { view: ["ADMIN"], edit: ["ADMIN"] },
@@ -44,7 +44,7 @@ export class SettingsService {
   /** Barcha rollar uchun ruxsatlar jadvali (saqlanganlari + standartlari). */
   async permissions() {
     const saved = await this.prisma.modulePermission.findMany();
-    const roles = [Role.ADMIN, Role.MANAGER, Role.EMPLOYEE, Role.OBSERVER];
+    const roles = [Role.ADMIN, Role.MANAGER, Role.EMPLOYEE, Role.OBSERVER, Role.OPERATOR];
 
     const rows = MODULES.map((m) => ({
       module: m.key,
@@ -170,9 +170,9 @@ export class SettingsService {
         pinfl,
         passwordHash: await bcrypt.hash(data.password, 10),
         role: data.role,
-        // Kuzatuvchi ikkala korxonaning hujjatlarini ko'radi - hamma tashkilotga a'zo qilinadi
+        // Kuzatuvchi va Call-markaz operatori ikkala kompaniya bilan ishlaydi - hamma tashkilotga a'zo qilinadi
         organizations: {
-          create: data.role === Role.OBSERVER
+          create: data.role === Role.OBSERVER || data.role === Role.OPERATOR
             ? (await this.prisma.organization.findMany({ select: { id: true } })).map((o) => ({ organizationId: o.id }))
             : { organizationId },
         },
@@ -233,7 +233,7 @@ export class SettingsService {
     }
 
     // Kuzatuvchi roli berilsa - barcha korxonalarga kirish huquqi ham beriladi
-    if (data.role === Role.OBSERVER) {
+    if (data.role === Role.OBSERVER || data.role === Role.OPERATOR) {
       const orgs = await this.prisma.organization.findMany({ select: { id: true } });
       for (const o of orgs) {
         await this.prisma.userOrganization.upsert({

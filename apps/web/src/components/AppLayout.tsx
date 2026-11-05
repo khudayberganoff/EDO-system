@@ -278,6 +278,7 @@ export function AppLayout() {
               />
             ))}
 
+          {IS_CALL_SITE && can("settings") && <Item to="/settings" label={t("nav.settings")} icon={Settings} />}
           {!IS_CALL_SITE && (<>
           {/* Yig'iladigan "Hujjatlar" bo'limi - Xat / Ogohlantirish / Ma'lumotnoma */}
           <div>
@@ -416,7 +417,7 @@ export function AppLayout() {
             )}
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium text-slate-800">{user?.fullName}</div>
-              <div className="text-xs text-slate-400">{user?.role === "OBSERVER" ? "Kuzatuvchi" : user?.role}</div>
+              <div className="text-xs text-slate-400">{user?.role === "OBSERVER" ? "Kuzatuvchi" : user?.role === "OPERATOR" ? "Operator" : user?.role}</div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
               {initials || <UserCircle2 size={20} />}
