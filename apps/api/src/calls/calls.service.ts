@@ -306,13 +306,12 @@ export class CallsService {
   // ---------- Kalendar ----------
 
   /**
-   * Kalendar voqealari: lidlarning uchrashuvi va qayta bog'lanishi + qarzdorlar bo'yicha qayta qo'ng'iroq
-   * va to'lov va'dalari (faqat mijozning OXIRGI qo'ng'irog'i bo'lsa, ya'ni keyin yangilanmagan bo'lsa).
+   * Kalendar voqealari: lidlarning uchrashuvi (MEETING bosqichi) va qayta bog'lanishi (CALLBACK bosqichi).
    */
   async calendar(actor: Actor, from: Date, to: Date) {
     await this.assertAccess(actor.role, "view");
     const { orgIds } = await this.scope(actor);
-    type Ev = { id: string; type: string; at: Date; allDay: boolean; title: string; subtitle: string | null; phone: string | null; leadId?: string; clientId?: string; crmOrg?: string };
+    type Ev = { id: string; type: string; at: Date; allDay: boolean; title: string; subtitle: string | null; phone: string | null; leadId?: string };
     const events: Ev[] = [];
 
     const leads = await this.prisma.callLead.findMany({
@@ -333,39 +332,6 @@ export class CallsService {
       });
     }
 
-    const candidates = await this.prisma.callLog.findMany({
-      where: {
-        organizationId: { in: orgIds },
-        OR: [
-          { outcome: "CALLBACK", callbackAt: { gte: from, lt: to } },
-          { outcome: "PROMISE", promiseDate: { gte: from, lt: to } },
-        ],
-      },
-      include: { organization: { select: { name: true } }, operator: { select: { fullName: true } } },
-    });
-    if (candidates.length) {
-      const all = await this.prisma.callLog.findMany({
-        where: { organizationId: { in: orgIds }, clientId: { in: [...new Set(candidates.map((c) => c.clientId))] } },
-        orderBy: { createdAt: "desc" },
-        include: { organization: { select: { name: true } } },
-      });
-      const latest = new Map<string, string>();
-      for (const l of all) {
-        const k = `${l.crmOrg ?? this.crmKey(l.organization.name)}:${l.clientId}`;
-        if (!latest.has(k)) latest.set(k, l.id);
-      }
-      for (const c of candidates) {
-        const crmOrg = c.crmOrg ?? this.crmKey(c.organization.name);
-        if (latest.get(`${crmOrg}:${c.clientId}`) !== c.id) continue;
-        const promise = c.outcome === "PROMISE";
-        events.push({
-          id: `log-${c.id}`, type: promise ? "PROMISE" : "DEBT_CALLBACK", at: (promise ? c.promiseDate : c.callbackAt)!, allDay: promise,
-          title: c.clientName,
-          subtitle: promise ? (c.promiseAmount ? `To'lov va'dasi · ${Math.round(c.promiseAmount).toLocaleString("ru-RU")} so'm` : "To'lov va'dasi") : `Qayta qo'ng'iroq · ${c.operator.fullName}`,
-          phone: c.phone, clientId: c.clientId, crmOrg,
-        });
-      }
-    }
     return events.sort((a, b) => a.at.getTime() - b.at.getTime());
   }
 }

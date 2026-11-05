@@ -6,9 +6,7 @@ import { fetchCalendar, type CalendarEvent, type CalendarEventType } from "../..
 
 const TYPES: Record<CalendarEventType, { label: string; chip: string; dot: string }> = {
   MEETING: { label: "Uchrashuv", chip: "bg-sky-100 text-sky-800", dot: "bg-sky-500" },
-  LEAD_CALLBACK: { label: "Lid: qayta bog'lanish", chip: "bg-amber-100 text-amber-800", dot: "bg-amber-500" },
-  DEBT_CALLBACK: { label: "Qarzdor: qayta qo'ng'iroq", chip: "bg-violet-100 text-violet-800", dot: "bg-violet-500" },
-  PROMISE: { label: "To'lov va'dasi", chip: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-500" },
+  LEAD_CALLBACK: { label: "Qayta bog'lanish", chip: "bg-amber-100 text-amber-800", dot: "bg-amber-500" },
 };
 const WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 const MONTHS = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentyabr", "Oktyabr", "Noyabr", "Dekabr"];
@@ -41,7 +39,7 @@ function buildIcs(events: CalendarEvent[]): string {
   return lines.join("\r\n");
 }
 
-/** Kalendar: lidlar uchrashuvi va qayta bog'lanishi, qarzdorlarga qayta qo'ng'iroq va to'lov va'dalari. */
+/** Kalendar: lidlarning uchrashuvi va qayta bog'lanishi. */
 export function CallCalendar({ onOpen }: { onOpen: (e: CalendarEvent) => void }) {
   const today = new Date();
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -157,7 +155,7 @@ export function CallCalendar({ onOpen }: { onOpen: (e: CalendarEvent) => void })
             {selected.subtitle && <p className="mt-1 text-sm text-slate-500">{selected.subtitle}</p>}
             {selected.phone && <a href={telHref(selected.phone)} className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"><Phone size={15} /> {selected.phone}</a>}
             <button onClick={() => { onOpen(selected); setSelected(null); }} className="mt-2 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              {selected.leadId ? "Lidlar bo'limida ochish" : "Qarzdorlar bo'limida ochish"}
+              Lidlar bo'limida ochish
             </button>
           </div>
         </div>
