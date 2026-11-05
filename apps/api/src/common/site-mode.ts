@@ -7,8 +7,8 @@ export function isCallHost(host: string | undefined | null): boolean {
   return (host ?? "").toLowerCase().split(":")[0].startsWith("call.");
 }
 
-/** Call-saytida ochiq API yo'llari: kirish, Call-markaz va o'z ruxsatlarini bilish. */
-export function isCallSiteApiPath(path: string): boolean {
+/** Operator (va umuman Call-markaz) ishlatadigan API yo'llari: kirish, Call-markaz, o'z ruxsatlari, telefoniya webhook/yozuv. */
+export function isOperatorApiPath(path: string): boolean {
   return (
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/calls/") ||
@@ -16,4 +16,9 @@ export function isCallSiteApiPath(path: string): boolean {
     path.startsWith("/api/telephony/recording") ||
     path === "/api/settings/my-access"
   );
+}
+
+/** Call-saytida ochiq API yo'llari: yuqoridagilar + administrator uchun sozlamalar (xodimlar, rollar, IP-telefoniya sozlamasi). */
+export function isCallSiteApiPath(path: string): boolean {
+  return isOperatorApiPath(path) || path.startsWith("/api/settings/") || path.startsWith("/api/telephony/settings");
 }

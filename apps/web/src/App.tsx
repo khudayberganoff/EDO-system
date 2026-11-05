@@ -40,6 +40,7 @@ export default function App() {
                 {IS_CALL_SITE ? (
                   <>
                     <Route path="/calls" element={<CallCenterPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/calls" replace />} />
                   </>
                 ) : (

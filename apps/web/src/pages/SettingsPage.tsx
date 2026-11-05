@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info, Mail, Phone, Briefcase, Building2, CalendarDays, FileText, IdCard } from "lucide-react";
+import { IS_CALL_SITE } from "../utils/site";
+import { TelephonyCard } from "./IntegrationsPage";
 import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, resetUserPassword, fetchUserDetails, type SystemUser, type PermissionRow } from "../api/settings";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -8,22 +10,24 @@ const ROLE_LABELS: Record<string, string> = {
   MANAGER: "Rahbariyat",
   EMPLOYEE: "Xodim",
   OBSERVER: "Kuzatuvchi",
+  OPERATOR: "Call-markaz operatori",
 };
 
 export function SettingsPage() {
-  const [tab, setTab] = useState<"users" | "permissions">("users");
+  const [tab, setTab] = useState<"users" | "permissions" | "telephony">("users");
 
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="font-display text-[30px] font-semibold tracking-tight text-brand-950">Sozlamalar</h1>
-        <p className="mt-1 text-sm text-slate-500">Foydalanuvchilar, rollar va bo'limlarga ruxsatlar</p>
+        <p className="mt-1 text-sm text-slate-500">{IS_CALL_SITE ? "Call-markaz xodimlari, rollar va IP-telefoniya sozlamalari" : "Foydalanuvchilar, rollar va bo'limlarga ruxsatlar"}</p>
       </div>
 
       <div className="mb-5 flex gap-2">
         {[
           { key: "users" as const, label: "Foydalanuvchilar", icon: Users },
           { key: "permissions" as const, label: "Rollar va ruxsatlar", icon: ShieldCheck },
+          ...(IS_CALL_SITE ? [{ key: "telephony" as const, label: "IP-telefoniya", icon: Phone }] : []),
         ].map((x) => (
           <button
             key={x.key}
@@ -37,7 +41,7 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {tab === "users" ? <UsersTab /> : <PermissionsTab />}
+      {tab === "users" ? <UsersTab /> : tab === "permissions" ? <PermissionsTab /> : <TelephonyCard />}
     </div>
   );
 }
@@ -209,6 +213,12 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
               {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </label>
+          {form.role === "OPERATOR" && (
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              <b>Call-markaz operatori</b> faqat <b>call.wafagroup.uz</b> saytiga kiradi va faqat Call-markaz bo'limi (lidlar, qo'ng'iroqlar, kalendar) bilan ishlaydi.
+              EDO ning boshqa bo'limlari (xatlar, hujjatlar, kadrlar, doska) unga yopiq. Ikkala kompaniya bo'yicha ishlaydi.
+            </p>
+          )}
           {form.role === "OBSERVER" && (
             <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
               <b>Kuzatuvchi</b> ikkala korxonaning barcha hujjat va xatlarini ko'radi (faqat ko'rish), vazifalar doskasiga vazifa kiritadi
@@ -506,7 +516,7 @@ function PermissionsTab() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {data?.modules.map((m: PermissionRow) => (
+            {data?.modules.filter((m: PermissionRow) => !IS_CALL_SITE || m.module === "calls").map((m: PermissionRow) => (
               <tr key={m.module} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-800">{m.label}</td>
                 {data.roles.map((role) => {

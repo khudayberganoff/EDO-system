@@ -4,7 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { LoginDto } from "./dto/login.dto";
 import { AuditLogService } from "../audit-log/audit-log.service";
-import { AuditAction } from "../common/enums";
+import { AuditAction, Role } from "../common/enums";
 import { SettingsService } from "../settings/settings.service";
 import { isCallHost } from "../common/site-mode";
 
@@ -63,6 +63,10 @@ export class AuthService {
     method: "password" | "eri",
     host?: string,
   ) {
+    // Operator faqat call.* saytiga kiradi
+    if (user.role === Role.OPERATOR && !isCallHost(host)) {
+      throw new ForbiddenException("Bu hisob faqat Call-markaz uchun: call.wafagroup.uz saytiga kiring.");
+    }
     // call.* saytiga faqat Call-markaz ruxsati bor foydalanuvchilar kiradi
     if (isCallHost(host) && !(await this.settings.myAccess(user.role))["calls"]?.canView) {
       throw new ForbiddenException("Sizga Call-markaz bo'limiga kirish ruxsati berilmagan.");

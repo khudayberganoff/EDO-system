@@ -16,6 +16,8 @@ export enum Role {
   AUDITOR = "AUDITOR",
   /** Kuzatuvchi: ikkala korxonaning hamma hujjatini ko'radi, vazifa kiritadi va tekshiruvdagi vazifalarni 1-5 baholaydi */
   OBSERVER = "OBSERVER",
+  /** Call-markaz operatori: faqat call.* saytiga kiradi va faqat Call-markaz bo'limi bilan ishlaydi */
+  OPERATOR = "OPERATOR",
 }
 
 export enum DocumentStatus {

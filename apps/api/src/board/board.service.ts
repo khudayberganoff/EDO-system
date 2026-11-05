@@ -122,7 +122,7 @@ export class BoardService {
   users(organizationId: string) {
     return this.prisma.user.findMany({
       // Kuzatuvchiga vazifa yuklanmaydi (u vazifa yuklaydi va baholaydi), shuning uchun ro'yxatda yo'q
-      where: { isActive: true, role: { not: Role.OBSERVER }, organizations: { some: { organizationId } } },
+      where: { isActive: true, role: { notIn: [Role.OBSERVER, Role.OPERATOR] }, organizations: { some: { organizationId } } },
       select: { id: true, fullName: true },
       orderBy: { fullName: "asc" },
     });
@@ -133,6 +133,7 @@ export class BoardService {
     if (!assigneeId) return;
     const target = await this.prisma.user.findUnique({ where: { id: assigneeId }, select: { role: true } });
     if (target?.role === Role.OBSERVER) throw new BadRequestException("Kuzatuvchiga vazifa yuklab bo'lmaydi: u vazifani yuklovchi tomon.");
+    if (target?.role === Role.OPERATOR) throw new BadRequestException("Call-markaz operatoriga vazifa yuklab bo'lmaydi: u vazifalar doskasi bilan ishlamaydi.");
   }
 
   /** Kartochkani topadi va doskasi foydalanuvchiga ko'rinishini tekshiradi. */

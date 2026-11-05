@@ -369,7 +369,7 @@ function EimzoCard() {
  * IP-telefoniya (ATS): har bir qo'ng'iroq shu manzilga yuboriladi va bazaga yoziladi (Call-markaz → Qo'ng'iroqlar).
  * Manzil maxfiy token bilan himoyalangan; ATS GET yoki POST (JSON / form) yuborishi mumkin.
  */
-function TelephonyCard() {
+export function TelephonyCard() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const isAdmin = user?.role === "ADMIN";
