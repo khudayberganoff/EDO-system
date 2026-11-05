@@ -90,7 +90,7 @@ export class CrmService {
     const org = params.organization === "vafo_moliya" ? "vafo_moliya" : "wafa_leasing";
     const t = TABLES[org];
     const q = params.q?.trim().toLowerCase() || null;
-    const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
+    const limit = Math.min(Math.max(params.limit ?? 30, 1), 500);
     const today = todayTashkent();
     const phones = await loadPhonesAuto();
     const phoneOrg = org === "vafo_moliya" ? "vafo" : "wafa";

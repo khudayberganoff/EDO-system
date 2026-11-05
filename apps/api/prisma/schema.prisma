@@ -35,6 +35,7 @@ model Organization {
   employees  Employee[]
   boardTasks BoardTask[]
   boards     Board[]
+  callLogs   CallLog[]
 }
 
 /// Foydalanuvchining qaysi tashkilot(lar)ga kirish huquqi borligi.
@@ -77,6 +78,7 @@ model User {
   boardCreated     BoardTask[]       @relation("BoardTaskCreator")
   boardAssigned    BoardTask[]       @relation("BoardTaskAssignee")
   boardRated       BoardTask[]       @relation("BoardTaskRater")
+  callLogs         CallLog[]         @relation("CallOperator")
   boardComments    BoardComment[]    @relation("BoardCommentAuthor")
   boards           Board[]           @relation("BoardOwner")
   documents        Document[]        @relation("DocumentOwner")
@@ -741,4 +743,32 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Call-markaz: qarzdor mijozga qilingan har bir qo'ng'iroq natijasi. Mijoz ma'lumoti CRM'dan
+/// o'qiladi (EDO'da saqlanmaydi), bu yerda faqat qo'ng'iroq tarixi va va'dalar turadi.
+model CallLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// CRM'dagi mijoz ID'si
+  clientId       String
+  clientName     String
+  contractNumber String?
+  phone          String?
+  /// ANSWERED | NO_ANSWER | BUSY | PROMISE | REFUSED | WRONG_NUMBER | CALLBACK
+  outcome        String
+  note           String?
+  promiseDate    DateTime?
+  promiseAmount  Float?
+  callbackAt     DateTime?
+  /// Qo'ng'iroq paytidagi qarz holati (keyinroq solishtirish uchun)
+  dpdAtCall      Int?
+  overdueAtCall  Float?
+  operatorId     String
+  operator       User         @relation("CallOperator", fields: [operatorId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, clientId])
+  @@index([organizationId, createdAt])
 }

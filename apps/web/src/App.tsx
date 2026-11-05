@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -18,6 +18,10 @@ import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { BoardPage } from "./pages/BoardPage";
 import { IncomingMailPage } from "./pages/IncomingMailPage";
+import { CallCenterPage } from "./pages/CallCenterPage";
+
+/** call.* subdomenida (call.wafagroup.uz) kirgandan keyin to'g'ridan-to'g'ri Call-markaz ochiladi. */
+const isCallHost = window.location.hostname.toLowerCase().startsWith("call.");
 
 const queryClient = new QueryClient();
 
@@ -34,7 +38,8 @@ export default function App() {
 
             <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>
-                <Route path="/" element={<DashboardPage />} />
+                <Route path="/" element={isCallHost ? <Navigate to="/calls" replace /> : <DashboardPage />} />
+                <Route path="/calls" element={<CallCenterPage />} />
                 <Route path="/documents" element={<DocumentsPage />} />
                 <Route path="/documents/:id" element={<DocumentDetailPage />} />
                 <Route path="/letters" element={<LettersPage />} />

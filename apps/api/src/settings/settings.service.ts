@@ -11,6 +11,7 @@ export const MODULES = [
   { key: "approvals", label: "Tasdiqlashim kerak" },
   { key: "board", label: "Vazifalar doskasi" },
   { key: "letters", label: "Xatlar" },
+  { key: "calls", label: "Call-markaz" },
   { key: "hr", label: "Kadrlar" },
   { key: "deleted", label: "O'chirilgan" },
   { key: "integrations", label: "Tashqi tizimlar" },
@@ -25,6 +26,8 @@ const DEFAULTS: Record<string, { view: string[]; edit: string[] }> = {
   // Kuzatuvchi doskada vazifa kiritadi va baholaydi; hujjat va xatlarni faqat ko'radi
   board: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"] },
   letters: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE"] },
+  // Call-markaz: qarzdorlarga qo'ng'iroq. Kuzatuvchi faqat ko'radi
+  calls: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE"] },
   hr: { view: ["ADMIN", "MANAGER"], edit: ["ADMIN", "MANAGER"] },
   deleted: { view: ["ADMIN", "MANAGER"], edit: ["ADMIN"] },
   integrations: { view: ["ADMIN"], edit: ["ADMIN"] },
