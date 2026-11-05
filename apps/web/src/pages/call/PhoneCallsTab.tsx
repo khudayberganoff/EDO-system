@@ -81,7 +81,7 @@ export function PhoneCallsTab() {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-slate-400">Har bir kiruvchi qo'ng'iroq avtomatik saqlanadi; bazada yo'q raqamdan «Yangi lead» yaratiladi. Ro'yxat har 15 soniyada yangilanadi.</p>
+      <p className="mt-2 text-xs text-slate-400">Barcha qo'ng'iroqlar saqlanadi; javob berilmagan kiruvchi qo'ng'iroqdan «Lidlar» da «Yangi lead» yaratiladi. Ro'yxat har 15 soniyada yangilanadi.</p>
     </div>
   );
 }
