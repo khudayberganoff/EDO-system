@@ -7,11 +7,13 @@ import { EimzoService } from "./eimzo.service";
 import { AuthController } from "./auth.controller";
 import { JwtStrategy } from "./jwt.strategy";
 import { AuditLogModule } from "../audit-log/audit-log.module";
+import { SettingsModule } from "../settings/settings.module";
 
 @Module({
   imports: [
     PassportModule,
     AuditLogModule,
+    SettingsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

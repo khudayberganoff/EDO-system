@@ -29,8 +29,8 @@ export class AuthController {
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Email, parol va tanlangan tashkilot bilan tizimga kirish, JWT token qaytaradi" })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Headers("x-forwarded-host") fwdHost?: string, @Headers("host") host?: string) {
+    return this.authService.login(dto, fwdHost ?? host);
   }
 
   // ---------- ERI (E-IMZO) orqali kirish ----------
@@ -56,11 +56,11 @@ export class AuthController {
   @Post("eimzo/login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Imzolangan challenge (PKCS#7) bilan kirish - JSHSHIR bo'yicha foydalanuvchi topiladi" })
-  async eimzoLogin(@Body() dto: EimzoLoginDto, @Ip() ip: string, @Headers("x-real-ip") realIp?: string, @Headers("x-forwarded-for") fwd?: string) {
+  async eimzoLogin(@Body() dto: EimzoLoginDto, @Ip() ip: string, @Headers("x-real-ip") realIp?: string, @Headers("x-forwarded-for") fwd?: string, @Headers("x-forwarded-host") fwdHost?: string, @Headers("host") host?: string) {
     const clientIp = (realIp || fwd?.split(",")[0] || ip || "").trim();
     const cert = await this.eimzo.verify(dto.pkcs7, clientIp);
     if (!cert.pinfl) throw new BadRequestException("Sertifikatda JSHSHIR topilmadi: faqat jismoniy shaxs ERI kaliti bilan kirish mumkin.");
-    return this.authService.loginWithEri(cert.pinfl, dto.organizationId);
+    return this.authService.loginWithEri(cert.pinfl, dto.organizationId, fwdHost ?? host);
   }
 
   @Public()
@@ -68,8 +68,8 @@ export class AuthController {
   @Post("eimzo/select-organization")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "ERI dan keyin tashkilotni tanlash (selectionToken bilan)" })
-  eimzoSelectOrg(@Body() dto: EimzoSelectOrgDto) {
-    return this.authService.selectOrganizationAfterEri(dto.selectionToken, dto.organizationId);
+  eimzoSelectOrg(@Body() dto: EimzoSelectOrgDto, @Headers("x-forwarded-host") fwdHost?: string, @Headers("host") host?: string) {
+    return this.authService.selectOrganizationAfterEri(dto.selectionToken, dto.organizationId, fwdHost ?? host);
   }
 
   @ApiBearerAuth() @Roles(Role.ADMIN)
