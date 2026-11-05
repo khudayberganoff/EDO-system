@@ -392,7 +392,7 @@ function TelephonyCard() {
         </span>
       </div>
       <div className="space-y-3 text-sm text-slate-600">
-        <p>ATS sozlamasida har bir qo'ng'iroq (kiruvchi va chiquvchi) tugaganda <b>shu manzilga</b> so'rov (GET yoki POST, JSON yoki form) yuborilsin. Kelgan qo'ng'iroqlar <b>Call-markaz → Qo'ng'iroqlar</b> bo'limida ko'rinadi, bazada yo'q kiruvchi raqamdan «Yangi lead» yaratiladi.</p>
+        <p>ATS sozlamasida har bir qo'ng'iroq (kiruvchi va chiquvchi) tugaganda <b>shu manzilga</b> so'rov (GET yoki POST, JSON yoki form) yuborilsin. Kelgan qo'ng'iroqlar <b>Call-markaz → Qo'ng'iroqlar</b> bo'limida ko'rinadi, javob berilmagan kiruvchi qo'ng'iroqdan «Lidlar» da «Yangi lead» yaratiladi (javob berilgan va chiquvchi qo'ng'iroqlar lid bo'lmaydi).</p>
         <div className="flex gap-2">
           <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="input flex-1 font-mono text-xs" />
           <button onClick={copy} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm hover:bg-slate-50">{copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />} {copied ? "Nusxalandi" : "Nusxalash"}</button>
@@ -406,7 +406,7 @@ function TelephonyCard() {
           </label>
           <label className="flex items-center gap-2 text-xs text-slate-500">
             <input type="checkbox" checked={data.autoLead} onChange={(e) => save.mutate({ autoLead: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
-            Yangi raqamdan kiruvchi qo'ng'iroqda avtomatik lid yaratish
+            Javob berilmagan kiruvchi qo'ng'iroqdan avtomatik lid yaratish
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">

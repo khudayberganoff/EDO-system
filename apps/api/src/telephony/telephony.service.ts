@@ -18,7 +18,7 @@ export interface TelephonyConfig {
   token: string;
   /** Qo'ng'iroqlar va avtomatik lidlar qaysi tashkilotga yoziladi */
   organizationId: string | null;
-  /** Bazada yo'q kiruvchi raqamdan avtomatik "Yangi lead" yaratish */
+  /** Javob berilmagan kiruvchi qo'ng'iroqdan avtomatik "Yangi lead" yaratish */
   autoLead: boolean;
   /** Yozuvlar necha kun saqlanadi (0 = doimiy). Muddati o'tgan yozuv fayllari o'chiriladi, qo'ng'iroq yozuvi qoladi */
   retentionDays?: number;
@@ -145,7 +145,8 @@ export class TelephonyService implements OnModuleInit, OnModuleDestroy {
       const leads = await this.prisma.callLead.findMany({ where: { phone: { not: null } }, select: { id: true, phone: true } });
       leadId = leads.find((l) => samePhone(l.phone, p.phone))?.id ?? null;
     }
-    if (!leadId && p.direction === "IN" && cfg.autoLead) {
+    // Lid faqat javob berilmagan (o'tkazib yuborilgan yoki band) KIRUVCHI qo'ng'iroqdan yaratiladi; javob berilgan va chiquvchilar lid bo'lmaydi
+    if (!leadId && p.direction === "IN" && (p.status === "MISSED" || p.status === "BUSY") && cfg.autoLead) {
       const lead = await this.prisma.callLead.create({
         data: {
           organizationId: orgId,
@@ -188,6 +189,15 @@ export class TelephonyService implements OnModuleInit, OnModuleDestroy {
         })
       : await this.prisma.phoneCall.create({ data: { externalId: p.externalId, ...data } });
     this.logger.log(`Qo'ng'iroq ${existing ? "yangilandi" : "saqlandi"}: ${p.direction} ${p.phone} ${p.status}`);
+
+    // Dastlabki hodisa "javobsiz" edi (lid yaratilgan), keyin javob berilgani ma'lum bo'ldi - bu avtomatik lid ortiqcha
+    if (existing && existing.status !== "ANSWERED" && saved.status === "ANSWERED" && existing.leadId) {
+      const lead = await this.prisma.callLead.findUnique({ where: { id: existing.leadId }, include: { _count: { select: { phoneCalls: true } } } });
+      if (lead && lead.source === "IP-telefoniya" && !lead.ownerId && lead.stage === "NEW" && lead.name === lead.phone && lead._count.phoneCalls <= 1) {
+        await this.prisma.callLead.delete({ where: { id: lead.id } });
+        return { ok: true, id: saved.id, leadId: null };
+      }
+    }
     return { ok: true, id: saved.id, leadId };
   }
 

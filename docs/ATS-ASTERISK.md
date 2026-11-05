@@ -102,7 +102,7 @@ Skript avval qo'ng'iroq haqida (`/webhook`), so'ng yozuvni (`/recording`) yubora
 ## 5. Tekshirish
 
 1. Tashqi raqamdan ATS raqamiga qo'ng'iroq qiling, javob bering va 10 soniya gaplashing.
-2. EDO: **Call-markaz → Qo'ng'iroqlar** da qator paydo bo'lishi, **Tinglash** tugmasi ishlashi kerak. Yangi raqam bo'lsa, «Lidlar» da «Yangi lead» yaratiladi.
+2. EDO: **Call-markaz → Qo'ng'iroqlar** da qator paydo bo'lishi, **Tinglash** tugmasi ishlashi kerak. Javob berilmagan kiruvchi qo'ng'iroq bo'lsa, «Lidlar» da «Yangi lead» yaratiladi.
 3. Chiqmasa: EDO kartasida «Oxirgi kelgan so'rov» (format), ATS'da `asterisk -rvvv` va `sudo bash -x /usr/local/bin/edo-call.sh ...` ni ko'ring.
 
 ## Muhim
