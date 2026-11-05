@@ -1,12 +1,13 @@
 import { FormEvent, useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check, ShieldCheck, RefreshCw, X, KanbanSquare } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Users, QrCode, Building2, Check, ShieldCheck, RefreshCw, X, KanbanSquare, Phone, CalendarClock, BarChart3 } from "lucide-react";
 import { useAuth, OrganizationSelectionRequiredError } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LANGUAGES } from "../i18n/translations";
 import type { OrganizationDto } from "@edo/shared-types";
 import { fetchEimzoConfig, fetchEimzoChallenge } from "../api/auth";
+import { IS_CALL_SITE } from "../utils/site";
 import { eimzoSetApiKeys, eimzoListKeys, eimzoSign, type EimzoKey } from "../utils/eimzo";
 
 /** Sakkiz burchakli yulduz - islom geometriyasidagi asosiy motiv. */
@@ -127,7 +128,11 @@ export function LoginPage() {
         // Login/parol to'g'ri - faqat qaysi tashkilotdanligini tanlash qoldi
         setOrgChoices(err.organizations);
       } else {
-        setError(t("login.error"));
+        // 403: parol to'g'ri, lekin bu saytga ruxsat yo'q (masalan Call-markazga) - sababini ko'rsatamiz
+        const res = (err as any)?.response;
+        const raw = res?.data?.message;
+        const text = typeof raw === "string" ? raw : raw?.message;
+        setError(res?.status === 403 && typeof text === "string" ? text : t("login.error"));
       }
     } finally {
       setLoading(false);
@@ -150,12 +155,18 @@ export function LoginPage() {
   }
 
   // Uchta asosiy yo'nalish - ortiqcha tafsilotsiz
-  const modules = [
-    { icon: Mail, titleKey: "login.modLetters" },
-    { icon: Users, titleKey: "login.modHr" },
-    { icon: KanbanSquare, titleKey: "login.modTasks" },
-    { icon: QrCode, titleKey: "login.modQr" },
-  ] as const;
+  const modules = (IS_CALL_SITE
+    ? [
+        { icon: Phone, titleKey: "login.callMod1" },
+        { icon: CalendarClock, titleKey: "login.callMod2" },
+        { icon: BarChart3, titleKey: "login.callMod3" },
+      ]
+    : [
+        { icon: Mail, titleKey: "login.modLetters" },
+        { icon: Users, titleKey: "login.modHr" },
+        { icon: KanbanSquare, titleKey: "login.modTasks" },
+        { icon: QrCode, titleKey: "login.modQr" },
+      ]) as { icon: typeof Mail; titleKey: any }[];
 
   return (
     <div
@@ -193,7 +204,7 @@ export function LoginPage() {
           </div>
 
           <h1 className="font-display text-[32px] font-semibold leading-tight tracking-tight text-brand-950 sm:text-[38px]">
-            {t("login.overviewTitle")}
+            {IS_CALL_SITE ? t("login.callTitle") : t("login.overviewTitle")}
           </h1>
 
           <div className="mt-8 space-y-4">
@@ -215,8 +226,8 @@ export function LoginPage() {
             <div className="px-8 pb-8 pt-9">
               <div className="mb-7 text-center">
                 <img src="/assets/wafa-logo.png" alt="WAFA" className="mx-auto h-auto w-[190px] object-contain" />
-                <h2 className="mt-4 text-lg font-semibold text-brand-950">{t("login.title")}</h2>
-                <p className="mt-1 text-sm text-slate-400">{t("login.subtitle")}</p>
+                <h2 className="mt-4 text-lg font-semibold text-brand-950">{IS_CALL_SITE ? t("login.callTitle") : t("login.title")}</h2>
+                <p className="mt-1 text-sm text-slate-400">{IS_CALL_SITE ? t("login.callSubtitle") : t("login.subtitle")}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">

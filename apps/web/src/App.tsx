@@ -20,8 +20,7 @@ import { BoardPage } from "./pages/BoardPage";
 import { IncomingMailPage } from "./pages/IncomingMailPage";
 import { CallCenterPage } from "./pages/CallCenterPage";
 
-/** call.* subdomenida (call.wafagroup.uz) kirgandan keyin to'g'ridan-to'g'ri Call-markaz ochiladi. */
-const isCallHost = window.location.hostname.toLowerCase().startsWith("call.");
+import { IS_CALL_SITE } from "./utils/site";
 
 const queryClient = new QueryClient();
 
@@ -38,8 +37,15 @@ export default function App() {
 
             <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>
-                <Route path="/" element={isCallHost ? <Navigate to="/calls" replace /> : <DashboardPage />} />
-                <Route path="/calls" element={<CallCenterPage />} />
+                {IS_CALL_SITE ? (
+                  <>
+                    <Route path="/calls" element={<CallCenterPage />} />
+                    <Route path="*" element={<Navigate to="/calls" replace />} />
+                  </>
+                ) : (
+                  <>
+                    <Route path="/" element={<DashboardPage />} />
+                <Route path="/calls" element={<Navigate to="/" replace />} />
                 <Route path="/documents" element={<DocumentsPage />} />
                 <Route path="/documents/:id" element={<DocumentDetailPage />} />
                 <Route path="/letters" element={<LettersPage />} />
@@ -52,6 +58,8 @@ export default function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/hr" element={<HrPage />} />
                 <Route path="/hr/:tab" element={<HrPage />} />
+              </>
+                )}
               </Route>
             </Route>
           </Routes>

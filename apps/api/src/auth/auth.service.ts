@@ -5,6 +5,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { LoginDto } from "./dto/login.dto";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { AuditAction } from "../common/enums";
+import { SettingsService } from "../settings/settings.service";
+import { isCallHost } from "../common/site-mode";
 
 @Injectable()
 export class AuthService {
@@ -12,6 +14,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private auditLog: AuditLogService,
+    private settings: SettingsService,
   ) {}
 
   /** Kirish sahifasidagi tashkilot tanlagichi uchun - login qilishdan OLDIN ochiq (Public). */
@@ -27,7 +30,7 @@ export class AuthService {
    *   oynada shu ro'yxatni ko'rsatadi, foydalanuvchi tanlagach xuddi shu email/parol bilan,
    *   endi organizationId bilan qayta yuboradi).
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, host?: string) {
     // Email qidiruvi katta-kichik harfga SEZGIR (Postgres) - lekin foydalanuvchilar email
     // yaratilganda har doim kichik harfga normalizatsiya qilinadi (settings.service.ts,
     // hr.service.ts). Agar kirishda email boshqacha registrda kiritilsa (masalan telefon
@@ -47,7 +50,7 @@ export class AuthService {
       throw new UnauthorizedException("Email yoki parol noto'g'ri.");
     }
 
-    return this.startSession(user, dto.organizationId, "password");
+    return this.startSession(user, dto.organizationId, "password", host);
   }
 
   /**
@@ -58,7 +61,12 @@ export class AuthService {
     user: { id: string; fullName: string; email: string; role: string; isActive: boolean; createdAt: Date; mustChangePassword: boolean },
     organizationId: string | undefined,
     method: "password" | "eri",
+    host?: string,
   ) {
+    // call.* saytiga faqat Call-markaz ruxsati bor foydalanuvchilar kiradi
+    if (isCallHost(host) && !(await this.settings.myAccess(user.role))["calls"]?.canView) {
+      throw new ForbiddenException("Sizga Call-markaz bo'limiga kirish ruxsati berilmagan.");
+    }
     if (!organizationId) {
       const memberships = await this.myOrganizations(user.id);
       if (memberships.length === 0) {
@@ -108,22 +116,22 @@ export class AuthService {
     return emp?.user ?? null;
   }
 
-  async loginWithEri(pinfl: string, organizationId?: string) {
+  async loginWithEri(pinfl: string, organizationId?: string, host?: string) {
     const user = await this.findUserByPinfl(pinfl);
     if (!user || !user.isActive) {
       throw new UnauthorizedException("Bu ERI kaliti tizimdagi hech bir faol foydalanuvchiga bog'lanmagan. Administratorga murojaat qiling.");
     }
-    return this.startSession(user, organizationId, "eri");
+    return this.startSession(user, organizationId, "eri", host);
   }
 
   /** Ko'p tashkilotli foydalanuvchi ERI dan keyin tashkilot tanlaganda (selectionToken 5 daqiqa amal qiladi). */
-  async selectOrganizationAfterEri(selectionToken: string, organizationId: string) {
+  async selectOrganizationAfterEri(selectionToken: string, organizationId: string, host?: string) {
     let decoded: { sub?: string; purpose?: string };
     try { decoded = await this.jwtService.verifyAsync(selectionToken); } catch { throw new UnauthorizedException("Sessiya muddati tugadi. ERI bilan qayta kiring."); }
     if (decoded.purpose !== "eri-org" || !decoded.sub) throw new UnauthorizedException("Noto'g'ri so'rov.");
     const user = await this.prisma.user.findUnique({ where: { id: decoded.sub } });
     if (!user || !user.isActive) throw new UnauthorizedException("Foydalanuvchi topilmadi.");
-    return this.startSession(user, organizationId, "eri");
+    return this.startSession(user, organizationId, "eri", host);
   }
 
   /** Joriy foydalanuvchi kira oladigan barcha tashkilotlar - tashkilot almashtirgichini ko'rsatish kerak-emasligini aniqlash uchun. */

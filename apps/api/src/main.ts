@@ -5,6 +5,7 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { AppModule } from "./app.module";
 import { runBootstrapSeed } from "./bootstrap-seed";
+import { isCallHost, isCallSiteApiPath } from "./common/site-mode";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -33,6 +34,15 @@ async function bootstrap() {
   void allowedOrigins;
 
   app.setGlobalPrefix("api");
+
+  // call.* sayti: faqat Call-markaz API'si (kirish, qo'ng'iroqlar, ruxsatlar). Qolgan bo'limlar bu manzilda yo'q.
+  app.use((req: any, res: any, next: any) => {
+    const host = req.headers["x-forwarded-host"] ?? req.headers.host;
+    if (isCallHost(host) && req.path.startsWith("/api") && !req.path.startsWith("/api/docs") && !isCallSiteApiPath(req.path)) {
+      return res.status(404).json({ statusCode: 404, message: "Bu manzilda mavjud emas." });
+    }
+    next();
+  });
 
   // Frontend (React/Vite) shu API bilan bitta serverda birga joylashtirilgan
   // bo'lsa (Render kabi bir xizmatli deploy), SPA marshrutlash uchun
