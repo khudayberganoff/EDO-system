@@ -48,4 +48,12 @@ export class CallsController {
     }
     return this.calls.calendar(user, f, t);
   }
+
+  @Get("phone-calls") @ApiOperation({ summary: "IP-telefoniya qo'ng'iroqlari (ATS dan kelgan)" })
+  phoneCalls(
+    @Query("direction") direction: string | undefined, @Query("status") status: string | undefined, @Query("q") q: string | undefined,
+    @Query("leadId") leadId: string | undefined, @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.calls.phoneCalls(user, { direction, status, q, leadId });
+  }
 }

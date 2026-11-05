@@ -4,10 +4,12 @@ import clsx from "clsx";
 import { useAuth } from "../context/AuthContext";
 import { LeadsBoard } from "./call/LeadsBoard";
 import { CallCalendar } from "./call/CallCalendar";
+import { PhoneCallsTab } from "./call/PhoneCallsTab";
 
-type Tab = "leads" | "calendar";
+type Tab = "leads" | "calls" | "calendar";
 const TABS: { key: Tab; label: string }[] = [
   { key: "leads", label: "Lidlar" },
+  { key: "calls", label: "Qo'ng'iroqlar" },
   { key: "calendar", label: "Kalendar" },
 ];
 
@@ -20,7 +22,7 @@ export function CallCenterPage() {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="font-display flex items-center gap-3 text-[30px] font-semibold tracking-tight text-brand-950"><Headset size={28} className="text-brand-700" /> Call-markaz</h1>
-        <p className="mt-1 text-sm text-slate-500">Yangi mijozlar (lidlar) bosqichlari va rejalashtirilgan uchrashuv hamda qayta bog'lanishlar kalendari.</p>
+        <p className="mt-1 text-sm text-slate-500">Yangi mijozlar (lidlar), IP-telefoniya qo'ng'iroqlari va rejalashtirilgan uchrashuv hamda qayta bog'lanishlar kalendari.</p>
         <div className="mt-4 flex gap-1 border-b border-slate-200">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} className={clsx("-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition", tab === t.key ? "border-brand-700 text-brand-800" : "border-transparent text-slate-500 hover:text-slate-800")}>{t.label}</button>
@@ -28,6 +30,7 @@ export function CallCenterPage() {
         </div>
       </div>
       {tab === "leads" && <LeadsBoard canEdit={canEdit} />}
+      {tab === "calls" && <PhoneCallsTab />}
       {tab === "calendar" && <CallCalendar onOpen={() => setTab("leads")} />}
     </div>
   );

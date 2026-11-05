@@ -37,6 +37,7 @@ model Organization {
   boards     Board[]
   callLogs   CallLog[]
   callLeads  CallLead[]
+  phoneCalls PhoneCall[]
 }
 
 /// Foydalanuvchining qaysi tashkilot(lar)ga kirish huquqi borligi.
@@ -791,11 +792,44 @@ model CallLead {
   stage          String       @default("NEW")
   meetingAt      DateTime?
   callbackAt     DateTime?
-  ownerId        String
-  owner          User         @relation("CallLeadOwner", fields: [ownerId], references: [id])
+  /// IP-telefoniyadan avtomatik yaratilgan lidda bo'sh
+  ownerId        String?
+  owner          User?        @relation("CallLeadOwner", fields: [ownerId], references: [id])
+  phoneCalls     PhoneCall[]
   stageChangedAt DateTime     @default(now())
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId, stage])
+}
+
+/// IP-telefoniya (ATS) orqali kelgan/ketgan har bir qo'ng'iroq. ATS webhook yuboradi (`/api/telephony/webhook`);
+/// bir qo'ng'iroq uchun bir nechta hodisa kelsa, `externalId` bo'yicha yangilanadi.
+model PhoneCall {
+  id             String       @id @default(cuid())
+  externalId     String       @unique
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// IN | OUT
+  direction      String
+  /// ANSWERED | MISSED | BUSY | FAILED
+  status         String
+  /// Mijoz raqami (normallashtirilgan: +998XXXXXXXXX)
+  phone          String
+  /// Bizning raqam / liniya
+  ourNumber      String?
+  /// Ichki raqam yoki operator (ATS bergan bo'lsa)
+  extension      String?
+  startedAt      DateTime
+  durationSec    Int          @default(0)
+  recordingUrl   String?
+  leadId         String?
+  lead           CallLead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  /// ATS yuborgan asl ma'lumot (formatni tekshirish uchun)
+  raw            Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, startedAt])
+  @@index([phone])
 }

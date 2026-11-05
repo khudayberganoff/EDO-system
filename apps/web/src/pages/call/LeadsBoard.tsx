@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Phone, Plus, Trash2, X } from "lucide-react";
+import { CalendarClock, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
 import clsx from "clsx";
-import { createLead, deleteLead, fetchLeads, updateLead, type Lead, type LeadInput, type LeadStage } from "../../api/calls";
+import { createLead, deleteLead, fetchLeads, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage } from "../../api/calls";
+import { CALL_STATUS, fmtDur } from "./PhoneCallsTab";
 import { LEAD_STAGES, TONE_CLASSES, stageTitle } from "../../utils/leadStages";
 
 const fmtDT = (d?: string | null) => (d ? new Date(d).toLocaleString("uz-UZ", { dateStyle: "short", timeStyle: "short" }) : "");
@@ -97,7 +98,13 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
                     {l.note && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{l.note}</p>}
                     {l.stage === "MEETING" && l.meetingAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-sky-700"><CalendarClock size={12} /> {fmtDT(l.meetingAt)}</div>}
                     {l.stage === "CALLBACK" && l.callbackAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700"><CalendarClock size={12} /> {fmtDT(l.callbackAt)}</div>}
-                    <div className="mt-1.5 text-[11px] text-slate-400">{l.owner.fullName}{l.source ? ` · ${l.source}` : ""}</div>
+                    {l.phoneCalls?.[0] && (
+                      <div className={clsx("mt-1.5 flex items-center gap-1 text-[11px]", l.phoneCalls[0].direction === "IN" && l.phoneCalls[0].status !== "ANSWERED" ? "font-medium text-rose-600" : "text-slate-500")}>
+                        {l.phoneCalls[0].direction === "OUT" ? <PhoneOutgoing size={11} /> : l.phoneCalls[0].status === "ANSWERED" ? <PhoneIncoming size={11} /> : <PhoneMissed size={11} />}
+                        {fmtDT(l.phoneCalls[0].startedAt)}
+                      </div>
+                    )}
+                    <div className="mt-1.5 text-[11px] text-slate-400">{l.owner?.fullName ?? "IP-telefoniya"}{l.source && l.source !== "IP-telefoniya" ? ` · ${l.source}` : ""}</div>
                   </div>
                 ))}
 
@@ -204,7 +211,8 @@ function LeadModal({ lead, canEdit, onClose, onSaved }: { lead: Lead | null; can
             <label className="block text-xs text-slate-500">Qayta bog'lanish vaqti{needCallback ? " *" : ""}<input type="datetime-local" value={form.callbackAt} disabled={!canEdit} onChange={(e) => set("callbackAt", e.target.value)} className="input mt-1" /></label>
           )}
           <label className="block text-xs text-slate-500">Izoh<textarea value={form.note} disabled={!canEdit} onChange={(e) => set("note", e.target.value)} rows={3} className="input mt-1" /></label>
-          {lead && <p className="text-xs text-slate-400">Qo'shgan: {lead.owner.fullName} · {fmtDT(lead.createdAt)}</p>}
+          {lead && <p className="text-xs text-slate-400">Qo'shgan: {lead.owner?.fullName ?? "IP-telefoniya (avtomatik)"} · {fmtDT(lead.createdAt)}</p>}
+          {lead && <LeadCalls leadId={lead.id} />}
         </div>
         {error && <p className="mt-3 text-xs text-rose-600">{error}</p>}
         {canEdit && (
@@ -218,6 +226,30 @@ function LeadModal({ lead, canEdit, onClose, onSaved }: { lead: Lead | null; can
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Lid raqamidan kelgan/ketgan qo'ng'iroqlar tarixi (IP-telefoniya). */
+function LeadCalls({ leadId }: { leadId: string }) {
+  const { data } = useQuery({ queryKey: ["calls", "phone-calls", "lead", leadId], queryFn: () => fetchPhoneCalls({ leadId }) });
+  const items = data?.items ?? [];
+  if (!items.length) return null;
+  return (
+    <div>
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Qo'ng'iroqlar</div>
+      <div className="max-h-40 space-y-1 overflow-y-auto">
+        {items.map((c) => (
+          <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
+            <span className="flex items-center gap-1.5 text-slate-600">
+              {c.direction === "OUT" ? <PhoneOutgoing size={12} className="text-sky-600" /> : c.status === "ANSWERED" ? <PhoneIncoming size={12} className="text-emerald-600" /> : <PhoneMissed size={12} className="text-rose-600" />}
+              {fmtDT(c.startedAt)}
+            </span>
+            <span className="text-slate-500">{CALL_STATUS[c.status].label} · {fmtDur(c.durationSec)}</span>
+            {c.recordingUrl && <a href={c.recordingUrl} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">Tinglash</a>}
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -231,7 +231,10 @@ export class CallsService {
       where: { organizationId: { in: orgIds } },
       orderBy: { updatedAt: "desc" },
       take: 500,
-      include: { owner: { select: { id: true, fullName: true } } },
+      include: {
+        owner: { select: { id: true, fullName: true } },
+        phoneCalls: { orderBy: { startedAt: "desc" }, take: 1, select: { direction: true, status: true, startedAt: true } },
+      },
     });
   }
 
@@ -295,7 +298,7 @@ export class CallsService {
   async removeLead(actor: Actor, id: string) {
     await this.assertAccess(actor.role, "edit");
     const lead = await this.findLead(actor, id);
-    if (lead.ownerId !== actor.id && !["ADMIN", "MANAGER"].includes(actor.role)) {
+    if (lead.ownerId && lead.ownerId !== actor.id && !["ADMIN", "MANAGER"].includes(actor.role)) {
       throw new ForbiddenException("Lidni faqat uni qo'shgan xodim yoki rahbariyat o'chira oladi.");
     }
     await this.prisma.callLead.delete({ where: { id } });
@@ -328,10 +331,48 @@ export class CallsService {
       const meeting = l.stage === "MEETING";
       events.push({
         id: `lead-${l.id}`, type: meeting ? "MEETING" : "LEAD_CALLBACK", at: (meeting ? l.meetingAt : l.callbackAt)!, allDay: false,
-        title: l.name, subtitle: l.owner.fullName, phone: l.phone, leadId: l.id,
+        title: l.name, subtitle: l.owner?.fullName ?? "IP-telefoniya", phone: l.phone, leadId: l.id,
       });
     }
 
     return events.sort((a, b) => a.at.getTime() - b.at.getTime());
+  }
+
+  // ---------- IP-telefoniya qo'ng'iroqlari ----------
+
+  /** ATS orqali kelgan/ketgan qo'ng'iroqlar ro'yxati (filtrlar: yo'nalish, holat, qidiruv, lid) + bugungi hisob. */
+  async phoneCalls(actor: Actor, params: { direction?: string; status?: string; q?: string; leadId?: string; limit?: number }) {
+    await this.assertAccess(actor.role, "view");
+    const { orgIds } = await this.scope(actor);
+    const where: any = { organizationId: { in: orgIds } };
+    if (params.direction === "IN" || params.direction === "OUT") where.direction = params.direction;
+    if (params.status && ["ANSWERED", "MISSED", "BUSY", "FAILED"].includes(params.status)) where.status = params.status;
+    if (params.leadId) where.leadId = params.leadId;
+    const q = params.q?.trim();
+    if (q) {
+      const digits = q.replace(/\D/g, "");
+      where.OR = [
+        ...(digits ? [{ phone: { contains: digits } }] : []),
+        { lead: { name: { contains: q, mode: "insensitive" } } },
+        { extension: { contains: q } },
+      ];
+    }
+    const todayStart = startOfTodayTashkent();
+    const [items, today] = await Promise.all([
+      this.prisma.phoneCall.findMany({
+        where, orderBy: { startedAt: "desc" }, take: Math.min(Math.max(params.limit ?? 200, 1), 500),
+        select: { id: true, direction: true, status: true, phone: true, ourNumber: true, extension: true, startedAt: true, durationSec: true, recordingUrl: true, lead: { select: { id: true, name: true } } },
+      }),
+      this.prisma.phoneCall.groupBy({ by: ["direction", "status"], where: { organizationId: { in: orgIds }, startedAt: { gte: todayStart } }, _count: true }),
+    ]);
+    const count = (f: (g: (typeof today)[number]) => boolean) => today.filter(f).reduce((s, g) => s + g._count, 0);
+    return {
+      items,
+      today: {
+        in: count((g) => g.direction === "IN"),
+        out: count((g) => g.direction === "OUT"),
+        missed: count((g) => g.direction === "IN" && g.status !== "ANSWERED"),
+      },
+    };
   }
 }
