@@ -1,10 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CrmService, type CrmContract } from "../crm/crm.service";
 import { SettingsService } from "../settings/settings.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { AuditAction } from "../common/enums";
-import { CreateCallLogDto } from "./dto/calls.dto";
+import { CreateCallLogDto, CreateLeadDto, UpdateLeadDto, type LeadStage } from "./dto/calls.dto";
 
 type Actor = { id: string; role: string; organizationId: string };
 type CrmKey = "wafa_leasing" | "vafo_moliya";
@@ -205,5 +205,167 @@ export class CallsService {
       outcomes,
       operators: [...ops.values()].sort((a, b) => b.calls - a.calls),
     };
+  }
+
+  // ---------- Lidlar (yangi mijozlar Kanban'i) ----------
+
+  private digits(phone?: string | null) { return (phone ?? "").replace(/\D/g, ""); }
+
+  private async findLead(actor: Actor, id: string) {
+    const { orgIds } = await this.scope(actor);
+    const lead = await this.prisma.callLead.findFirst({ where: { id, organizationId: { in: orgIds } } });
+    if (!lead) throw new NotFoundException("Lid topilmadi.");
+    return lead;
+  }
+
+  /** Bosqichga mos sana majburiy: uchrashuv - meetingAt, qayta bog'lanish - callbackAt. */
+  private checkStageDates(stage: LeadStage, meetingAt?: Date | null, callbackAt?: Date | null) {
+    if (stage === "MEETING" && !meetingAt) throw new BadRequestException("Uchrashuv sanasi va vaqtini kiriting.");
+    if (stage === "CALLBACK" && !callbackAt) throw new BadRequestException("Qayta bog'lanish sanasi va vaqtini kiriting.");
+  }
+
+  async leads(actor: Actor) {
+    await this.assertAccess(actor.role, "view");
+    const { orgIds } = await this.scope(actor);
+    return this.prisma.callLead.findMany({
+      where: { organizationId: { in: orgIds } },
+      orderBy: { updatedAt: "desc" },
+      take: 500,
+      include: { owner: { select: { id: true, fullName: true } } },
+    });
+  }
+
+  async createLead(actor: Actor, dto: CreateLeadDto) {
+    await this.assertAccess(actor.role, "edit");
+    const stage = dto.stage ?? "NEW";
+    const meetingAt = dto.meetingAt ? new Date(dto.meetingAt) : null;
+    const callbackAt = dto.callbackAt ? new Date(dto.callbackAt) : null;
+    this.checkStageDates(stage, meetingAt, callbackAt);
+
+    const digits = this.digits(dto.phone);
+    if (digits.length >= 7) {
+      const { orgIds } = await this.scope(actor);
+      const existing = await this.prisma.callLead.findMany({ where: { organizationId: { in: orgIds }, phone: { not: null } }, select: { name: true, phone: true } });
+      const dup = existing.find((l) => this.digits(l.phone).slice(-9) === digits.slice(-9));
+      if (dup) throw new BadRequestException(`Bu raqam bilan lid allaqachon bor: ${dup.name}.`);
+    }
+
+    const lead = await this.prisma.callLead.create({
+      data: {
+        organizationId: actor.organizationId,
+        ownerId: actor.id,
+        name: dto.name.trim(),
+        phone: dto.phone?.trim() || null,
+        source: dto.source?.trim() || null,
+        note: dto.note?.trim() || null,
+        stage,
+        meetingAt,
+        callbackAt,
+      },
+      include: { owner: { select: { id: true, fullName: true } } },
+    });
+    await this.auditLog.record({ userId: actor.id, action: AuditAction.CREATE, metadata: { kind: "callLead", leadId: lead.id } });
+    return lead;
+  }
+
+  async updateLead(actor: Actor, id: string, dto: UpdateLeadDto) {
+    await this.assertAccess(actor.role, "edit");
+    const lead = await this.findLead(actor, id);
+    const stage = (dto.stage ?? lead.stage) as LeadStage;
+    const meetingAt = dto.meetingAt !== undefined ? new Date(dto.meetingAt) : lead.meetingAt;
+    const callbackAt = dto.callbackAt !== undefined ? new Date(dto.callbackAt) : lead.callbackAt;
+    this.checkStageDates(stage, meetingAt, callbackAt);
+
+    return this.prisma.callLead.update({
+      where: { id },
+      data: {
+        name: dto.name?.trim(),
+        phone: dto.phone === undefined ? undefined : dto.phone.trim() || null,
+        source: dto.source === undefined ? undefined : dto.source.trim() || null,
+        note: dto.note === undefined ? undefined : dto.note.trim() || null,
+        stage,
+        stageChangedAt: dto.stage && dto.stage !== lead.stage ? new Date() : undefined,
+        meetingAt,
+        callbackAt,
+      },
+      include: { owner: { select: { id: true, fullName: true } } },
+    });
+  }
+
+  async removeLead(actor: Actor, id: string) {
+    await this.assertAccess(actor.role, "edit");
+    const lead = await this.findLead(actor, id);
+    if (lead.ownerId !== actor.id && !["ADMIN", "MANAGER"].includes(actor.role)) {
+      throw new ForbiddenException("Lidni faqat uni qo'shgan xodim yoki rahbariyat o'chira oladi.");
+    }
+    await this.prisma.callLead.delete({ where: { id } });
+    await this.auditLog.record({ userId: actor.id, action: AuditAction.DELETE, metadata: { kind: "callLead", leadId: id } });
+    return { deleted: true };
+  }
+
+  // ---------- Kalendar ----------
+
+  /**
+   * Kalendar voqealari: lidlarning uchrashuvi va qayta bog'lanishi + qarzdorlar bo'yicha qayta qo'ng'iroq
+   * va to'lov va'dalari (faqat mijozning OXIRGI qo'ng'irog'i bo'lsa, ya'ni keyin yangilanmagan bo'lsa).
+   */
+  async calendar(actor: Actor, from: Date, to: Date) {
+    await this.assertAccess(actor.role, "view");
+    const { orgIds } = await this.scope(actor);
+    type Ev = { id: string; type: string; at: Date; allDay: boolean; title: string; subtitle: string | null; phone: string | null; leadId?: string; clientId?: string; crmOrg?: string };
+    const events: Ev[] = [];
+
+    const leads = await this.prisma.callLead.findMany({
+      where: {
+        organizationId: { in: orgIds },
+        OR: [
+          { stage: "MEETING", meetingAt: { gte: from, lt: to } },
+          { stage: "CALLBACK", callbackAt: { gte: from, lt: to } },
+        ],
+      },
+      include: { owner: { select: { fullName: true } } },
+    });
+    for (const l of leads) {
+      const meeting = l.stage === "MEETING";
+      events.push({
+        id: `lead-${l.id}`, type: meeting ? "MEETING" : "LEAD_CALLBACK", at: (meeting ? l.meetingAt : l.callbackAt)!, allDay: false,
+        title: l.name, subtitle: l.owner.fullName, phone: l.phone, leadId: l.id,
+      });
+    }
+
+    const candidates = await this.prisma.callLog.findMany({
+      where: {
+        organizationId: { in: orgIds },
+        OR: [
+          { outcome: "CALLBACK", callbackAt: { gte: from, lt: to } },
+          { outcome: "PROMISE", promiseDate: { gte: from, lt: to } },
+        ],
+      },
+      include: { organization: { select: { name: true } }, operator: { select: { fullName: true } } },
+    });
+    if (candidates.length) {
+      const all = await this.prisma.callLog.findMany({
+        where: { organizationId: { in: orgIds }, clientId: { in: [...new Set(candidates.map((c) => c.clientId))] } },
+        orderBy: { createdAt: "desc" },
+        include: { organization: { select: { name: true } } },
+      });
+      const latest = new Map<string, string>();
+      for (const l of all) {
+        const k = `${l.crmOrg ?? this.crmKey(l.organization.name)}:${l.clientId}`;
+        if (!latest.has(k)) latest.set(k, l.id);
+      }
+      for (const c of candidates) {
+        const crmOrg = c.crmOrg ?? this.crmKey(c.organization.name);
+        if (latest.get(`${crmOrg}:${c.clientId}`) !== c.id) continue;
+        const promise = c.outcome === "PROMISE";
+        events.push({
+          id: `log-${c.id}`, type: promise ? "PROMISE" : "DEBT_CALLBACK", at: (promise ? c.promiseDate : c.callbackAt)!, allDay: promise,
+          title: c.clientName,
+          subtitle: promise ? (c.promiseAmount ? `To'lov va'dasi · ${Math.round(c.promiseAmount).toLocaleString("ru-RU")} so'm` : "To'lov va'dasi") : `Qayta qo'ng'iroq · ${c.operator.fullName}`,
+          phone: c.phone, clientId: c.clientId, crmOrg,
+        });
+      }
+    }
+    return events.sort((a, b) => a.at.getTime() - b.at.getTime());
   }
 }

@@ -36,6 +36,7 @@ model Organization {
   boardTasks BoardTask[]
   boards     Board[]
   callLogs   CallLog[]
+  callLeads  CallLead[]
 }
 
 /// Foydalanuvchining qaysi tashkilot(lar)ga kirish huquqi borligi.
@@ -79,6 +80,7 @@ model User {
   boardAssigned    BoardTask[]       @relation("BoardTaskAssignee")
   boardRated       BoardTask[]       @relation("BoardTaskRater")
   callLogs         CallLog[]         @relation("CallOperator")
+  callLeads        CallLead[]        @relation("CallLeadOwner")
   boardComments    BoardComment[]    @relation("BoardCommentAuthor")
   boards           Board[]           @relation("BoardOwner")
   documents        Document[]        @relation("DocumentOwner")
@@ -773,4 +775,27 @@ model CallLog {
 
   @@index([organizationId, clientId])
   @@index([organizationId, createdAt])
+}
+
+/// Call-markaz: yangi mijoz (lid) bosqichlari bo'yicha Kanban. Uchrashuv va qayta bog'lanish vaqtlari kalendarda ko'rinadi.
+model CallLead {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String?
+  /// Qayerdan kelgan (Instagram, Telegram, tavsiya...) - erkin matn
+  source         String?
+  note           String?
+  /// NEW | INFO_GIVEN | CALLBACK | MEETING | VISITED | CONTRACT | UNQUALIFIED
+  stage          String       @default("NEW")
+  meetingAt      DateTime?
+  callbackAt     DateTime?
+  ownerId        String
+  owner          User         @relation("CallLeadOwner", fields: [ownerId], references: [id])
+  stageChangedAt DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, stage])
 }
