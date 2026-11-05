@@ -82,9 +82,18 @@ export function LoginPage() {
       navigate("/");
     } catch (err: any) {
       if (err instanceof OrganizationSelectionRequiredError) {
-        setEriSelectionToken(err.selectionToken ?? null);
-        setEriOpen(false);
-        setOrgChoices(err.organizations);
+        if (IS_CALL_SITE && err.selectionToken) {
+          try {
+            await completeEriLogin(err.selectionToken, err.organizations[0].id, remember);
+            navigate("/");
+          } catch {
+            setEriError(t("login.error"));
+          }
+        } else {
+          setEriSelectionToken(err.selectionToken ?? null);
+          setEriOpen(false);
+          setOrgChoices(err.organizations);
+        }
       } else {
         const msg = err?.response?.data?.message;
         setEriError(typeof msg === "string" ? msg : Array.isArray(msg) ? msg.join(". ") : err?.message ?? t("login.error"));
@@ -125,8 +134,18 @@ export function LoginPage() {
       navigate("/");
     } catch (err) {
       if (err instanceof OrganizationSelectionRequiredError) {
-        // Login/parol to'g'ri - faqat qaysi tashkilotdanligini tanlash qoldi
-        setOrgChoices(err.organizations);
+        if (IS_CALL_SITE) {
+          // Call-markaz kompaniyalarga bo'linmaydi (foydalanuvchining barcha kompaniyalari birga) - tanlash so'ralmaydi
+          try {
+            await login({ email, password, organizationId: err.organizations[0].id }, remember);
+            navigate("/");
+          } catch {
+            setError(t("login.error"));
+          }
+        } else {
+          // Login/parol to'g'ri - faqat qaysi tashkilotdanligini tanlash qoldi
+          setOrgChoices(err.organizations);
+        }
       } else {
         // 403: parol to'g'ri, lekin bu saytga ruxsat yo'q (masalan Call-markazga) - sababini ko'rsatamiz
         const res = (err as any)?.response;
