@@ -393,7 +393,7 @@ export function AppLayout() {
           <div className="flex-1 text-sm font-semibold text-slate-800">{pageTitleKey ? t(pageTitleKey as any) : ""}</div>
 
           <div className="flex items-center gap-3">
-            {myOrganizations && myOrganizations.length > 1 ? (
+            {IS_CALL_SITE ? null : myOrganizations && myOrganizations.length > 1 ? (
               <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5">
                 <Building2 size={14} className="text-slate-400" />
                 <select

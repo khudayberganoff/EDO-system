@@ -5,6 +5,7 @@ export type CallOutcome = (typeof CALL_OUTCOMES)[number];
 
 export class CreateCallLogDto {
   @IsString() @MaxLength(100) clientId!: string;
+  @IsOptional() @IsIn(["wafa_leasing", "vafo_moliya"]) crmOrg?: "wafa_leasing" | "vafo_moliya";
   @IsString() @MaxLength(300) clientName!: string;
   @IsOptional() @IsString() @MaxLength(100) contractNumber?: string;
   @IsOptional() @IsString() @MaxLength(50) phone?: string;

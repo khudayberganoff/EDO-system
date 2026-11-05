@@ -753,6 +753,8 @@ model CallLog {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// CRM'dagi mijoz ID'si
   clientId       String
+  /// CRM'dagi kompaniya kaliti: wafa_leasing | vafo_moliya (ikki jadvalda ID'lar bir xil bo'lishi mumkin). Eski yozuvlarda bo'sh - tashkilot nomidan aniqlanadi
+  crmOrg         String?
   clientName     String
   contractNumber String?
   phone          String?

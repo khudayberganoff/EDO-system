@@ -7,6 +7,7 @@ import { AuditAction } from "../common/enums";
 import { CreateCallLogDto } from "./dto/calls.dto";
 
 type Actor = { id: string; role: string; organizationId: string };
+type CrmKey = "wafa_leasing" | "vafo_moliya";
 
 /** Mijoz bilan gaplashilgan natijalar (qo'ng'iroq "yetib bordi" deb hisoblanadi). */
 const REACHED = ["ANSWERED", "PROMISE", "REFUSED", "CALLBACK"];
@@ -34,9 +35,22 @@ export class CallsService {
     if (!(mode === "view" ? a?.canView : a?.canEdit)) throw new ForbiddenException("Call-markaz bo'limiga ruxsat yo'q.");
   }
 
-  private async crmOrgKey(organizationId: string): Promise<"vafo_moliya" | "wafa_leasing"> {
-    const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
-    return org?.name.toUpperCase().includes("VAFO") ? "vafo_moliya" : "wafa_leasing";
+  /** EDO tashkiloti nomi -> CRM'dagi kompaniya kaliti. */
+  private crmKey(orgName: string): CrmKey {
+    return orgName.toUpperCase().includes("VAFO") ? "vafo_moliya" : "wafa_leasing";
+  }
+
+  /**
+   * Call-markaz kompaniyalar bo'yicha bo'linmaydi: foydalanuvchi kira oladigan barcha tashkilotlar
+   * (odatda rahbariyat uchun ikkalasi, oddiy xodim uchun bittasi) qarzdorlari bitta ro'yxatda.
+   */
+  private async scope(actor: Actor): Promise<{ orgIds: string[]; crm: CrmKey[] }> {
+    const rows = await this.prisma.userOrganization.findMany({
+      where: { userId: actor.id },
+      include: { organization: { select: { id: true, name: true } } },
+    });
+    const orgs = rows.length ? rows.map((r) => r.organization) : await this.prisma.organization.findMany({ where: { id: actor.organizationId }, select: { id: true, name: true } });
+    return { orgIds: orgs.map((o) => o.id), crm: [...new Set(orgs.map((o) => this.crmKey(o.name)))] };
   }
 
   /**
@@ -48,29 +62,29 @@ export class CallsService {
     await this.assertAccess(actor.role, "view");
     if (!this.crm.isEnabled()) return { enabled: false, items: [], counts: {} };
 
-    const contracts = await this.crm.searchContracts({
-      q: params.q,
-      organization: await this.crmOrgKey(actor.organizationId),
-      overdueOnly: true,
-      limit: 500,
-    });
+    const { orgIds, crm } = await this.scope(actor);
+    const contracts = (
+      await Promise.all(crm.map((organization) => this.crm.searchContracts({ q: params.q, organization, overdueOnly: true, limit: 500 })))
+    ).flat();
     const logs = contracts.length
       ? await this.prisma.callLog.findMany({
-          where: { organizationId: actor.organizationId, clientId: { in: contracts.map((c) => c.clientId) } },
+          where: { organizationId: { in: orgIds }, clientId: { in: contracts.map((c) => c.clientId) } },
           orderBy: { createdAt: "desc" },
-          include: { operator: { select: { fullName: true } } },
+          include: { operator: { select: { fullName: true } }, organization: { select: { name: true } } },
         })
       : [];
+    const keyOf = (l: (typeof logs)[number]) => `${l.crmOrg ?? this.crmKey(l.organization.name)}:${l.clientId}`;
     const byClient = new Map<string, typeof logs>();
     for (const l of logs) {
-      if (!byClient.has(l.clientId)) byClient.set(l.clientId, []);
-      byClient.get(l.clientId)!.push(l);
+      const k = keyOf(l);
+      if (!byClient.has(k)) byClient.set(k, []);
+      byClient.get(k)!.push(l);
     }
 
     const now = new Date();
     const todayStart = startOfTodayTashkent(now);
     const items = contracts.map((c: CrmContract) => {
-      const history = byClient.get(c.clientId) ?? [];
+      const history = byClient.get(`${c.organization}:${c.clientId}`) ?? [];
       const last = history[0] ?? null;
       const lastPromise = history.find((h) => h.outcome === "PROMISE" && h.promiseDate) ?? null;
       // Va'da keyingi qo'ng'iroqdan keyin yangilanmagan bo'lsa faol hisoblanadi
@@ -114,14 +128,16 @@ export class CallsService {
     return { enabled: true, items: list, counts };
   }
 
-  async history(actor: Actor, clientId: string) {
+  async history(actor: Actor, clientId: string, crmOrg?: string) {
     await this.assertAccess(actor.role, "view");
-    return this.prisma.callLog.findMany({
-      where: { organizationId: actor.organizationId, clientId },
+    const { orgIds } = await this.scope(actor);
+    const rows = await this.prisma.callLog.findMany({
+      where: { organizationId: { in: orgIds }, clientId },
       orderBy: { createdAt: "desc" },
       take: 100,
-      include: { operator: { select: { fullName: true } } },
+      include: { operator: { select: { fullName: true } }, organization: { select: { name: true } } },
     });
+    return crmOrg ? rows.filter((r) => (r.crmOrg ?? this.crmKey(r.organization.name)) === crmOrg) : rows;
   }
 
   async log(actor: Actor, dto: CreateCallLogDto) {
@@ -131,11 +147,15 @@ export class CallsService {
     }
     if (dto.outcome === "CALLBACK" && !dto.callbackAt) throw new BadRequestException("Qayta qo'ng'iroq vaqtini kiriting.");
 
+    const { crm } = await this.scope(actor);
+    const crmOrg = dto.crmOrg ?? crm[0];
+    if (!crm.includes(crmOrg)) throw new ForbiddenException("Bu kompaniya mijozlariga ruxsat yo'q.");
     const created = await this.prisma.callLog.create({
       data: {
         organizationId: actor.organizationId,
         operatorId: actor.id,
         clientId: dto.clientId,
+        crmOrg,
         clientName: dto.clientName,
         contractNumber: dto.contractNumber || null,
         phone: dto.phone || null,
@@ -157,8 +177,9 @@ export class CallsService {
     await this.assertAccess(actor.role, "view");
     const d = Math.min(Math.max(Math.round(days) || 1, 1), 90);
     const from = new Date(startOfTodayTashkent().getTime() - (d - 1) * 86_400_000);
+    const { orgIds } = await this.scope(actor);
     const logs = await this.prisma.callLog.findMany({
-      where: { organizationId: actor.organizationId, createdAt: { gte: from } },
+      where: { organizationId: { in: orgIds }, createdAt: { gte: from } },
       include: { operator: { select: { id: true, fullName: true } } },
     });
     const outcomes: Record<string, number> = {};
@@ -176,7 +197,7 @@ export class CallsService {
     return {
       days: d,
       total: logs.length,
-      uniqueClients: new Set(logs.map((l) => l.clientId)).size,
+      uniqueClients: new Set(logs.map((l) => `${l.crmOrg ?? ""}:${l.clientId}`)).size,
       reached,
       reachRate: logs.length ? Math.round((reached / logs.length) * 100) : 0,
       promises: outcomes["PROMISE"] ?? 0,

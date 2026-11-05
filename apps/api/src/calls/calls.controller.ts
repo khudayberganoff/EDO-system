@@ -14,8 +14,8 @@ export class CallsController {
   }
 
   @Get("history/:clientId") @ApiOperation({ summary: "Mijoz bo'yicha qo'ng'iroqlar tarixi" })
-  history(@Param("clientId") clientId: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.calls.history(user, clientId);
+  history(@Param("clientId") clientId: string, @Query("org") org: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.calls.history(user, clientId, org);
   }
 
   @Post("log") @ApiOperation({ summary: "Qo'ng'iroq natijasini saqlash" })

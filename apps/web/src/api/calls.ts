@@ -48,8 +48,8 @@ export async function fetchCallQueue(params: { q?: string; filter?: string }) {
   const { data } = await apiClient.get<QueueResponse>("/calls/queue", { params });
   return data;
 }
-export async function fetchCallHistory(clientId: string) {
-  const { data } = await apiClient.get<CallLogItem[]>(`/calls/history/${encodeURIComponent(clientId)}`);
+export async function fetchCallHistory(clientId: string, org?: string) {
+  const { data } = await apiClient.get<CallLogItem[]>(`/calls/history/${encodeURIComponent(clientId)}`, { params: { org } });
   return data;
 }
 export async function fetchCallStats(days: number) {
@@ -57,7 +57,7 @@ export async function fetchCallStats(days: number) {
   return data;
 }
 export async function saveCallLog(payload: {
-  clientId: string; clientName: string; contractNumber?: string; phone?: string; outcome: CallOutcome; note?: string;
+  clientId: string; crmOrg?: string; clientName: string; contractNumber?: string; phone?: string; outcome: CallOutcome; note?: string;
   promiseDate?: string; promiseAmount?: number; callbackAt?: string; dpd?: number; overdueAmount?: number;
 }) {
   const { data } = await apiClient.post("/calls/log", payload);

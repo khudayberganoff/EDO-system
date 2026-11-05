@@ -174,11 +174,11 @@ function CallPanel({ item, canEdit, onClose }: { item: QueueItem; canEdit: boole
   const [callbackAt, setCallbackAt] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const { data: history = [] } = useQuery({ queryKey: ["calls", "history", item.clientId], queryFn: () => fetchCallHistory(item.clientId) });
+  const { data: history = [] } = useQuery({ queryKey: ["calls", "history", item.organization, item.clientId], queryFn: () => fetchCallHistory(item.clientId, item.organization) });
 
   const save = useMutation({
     mutationFn: () => saveCallLog({
-      clientId: item.clientId, clientName: item.clientName, contractNumber: item.contractNumber ?? undefined, phone: item.phone ?? undefined,
+      clientId: item.clientId, crmOrg: item.organization, clientName: item.clientName, contractNumber: item.contractNumber ?? undefined, phone: item.phone ?? undefined,
       outcome: outcome!, note: note.trim() || undefined,
       promiseDate: outcome === "PROMISE" ? promiseDate : undefined,
       promiseAmount: outcome === "PROMISE" && promiseAmount ? Number(promiseAmount) : undefined,
