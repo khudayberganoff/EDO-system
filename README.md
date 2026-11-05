@@ -145,6 +145,8 @@ ATS har bir qo'ng'iroq (kiruvchi/chiquvchi) tugaganda EDO'ga webhook yuboradi; q
 
 1. **Tashqi tizimlar → IP-telefoniya** kartasidan webhook manzilini nusxalang: `https://<domen>/api/telephony/webhook?token=<maxfiy>` (token yangilanadi, tashkilot tanlanadi, avtolid yoqiladi/o'chiriladi).
 2. ATS sozlamasida shu manzilni "qo'ng'iroq tugaganda webhook/URL" sifatida kiriting (GET yoki POST, JSON yoki form). Maydon nomlari keng tarqalgan ATS'larga (Asterisk/FreePBX CDR, Zadarma, OnlinePBX va boshqalar) moslab o'qiladi; format mos kelmasa, kartada oxirgi kelgan so'rov ko'rinadi.
+**Yozib olish va qayta eshitish:** ATS har bir qo'ng'iroq tugagach yozuv faylini `POST /api/telephony/recording?token=...&id=<qo'ng'iroq ID>` ga (multipart, maydon `file`) yuboradi; EDO faylni o'zida saqlaydi (`uploads/.private/recordings`), qo'ng'iroqlar ro'yxatida va lid kartochkasida **Tinglash** (oldinga o'tkazish) va yuklab olish ishlaydi. Havolalar qisqa muddatli imzolangan, ko'rish huquqi "Call-markaz" ruxsati bilan tekshiriladi. Saqlash muddati kartada tanlanadi (muddati o'tgan fayllar o'chiriladi). Asterisk va Uztelecom IP-trunk uchun namunaviy sozlama: [docs/ATS-ASTERISK.md](docs/ATS-ASTERISK.md).
+
 3. Token so'rov parametri (`?token=`) yoki `X-Webhook-Token` sarlavhasida; Zadarma tekshiruvi (`zd_echo`) qo'llab-quvvatlanadi.
 
 ## Telegram bot (vazifalar doskasi)

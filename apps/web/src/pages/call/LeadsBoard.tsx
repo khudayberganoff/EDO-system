@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { createLead, deleteLead, fetchLeads, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage } from "../../api/calls";
-import { CALL_STATUS, fmtDur } from "./PhoneCallsTab";
+import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
 import { LEAD_STAGES, TONE_CLASSES, stageTitle } from "../../utils/leadStages";
 
 const fmtDT = (d?: string | null) => (d ? new Date(d).toLocaleString("uz-UZ", { dateStyle: "short", timeStyle: "short" }) : "");
@@ -241,13 +241,13 @@ function LeadCalls({ leadId }: { leadId: string }) {
       <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Qo'ng'iroqlar</div>
       <div className="max-h-40 space-y-1 overflow-y-auto">
         {items.map((c) => (
-          <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
+          <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
             <span className="flex items-center gap-1.5 text-slate-600">
               {c.direction === "OUT" ? <PhoneOutgoing size={12} className="text-sky-600" /> : c.status === "ANSWERED" ? <PhoneIncoming size={12} className="text-emerald-600" /> : <PhoneMissed size={12} className="text-rose-600" />}
               {fmtDT(c.startedAt)}
             </span>
             <span className="text-slate-500">{CALL_STATUS[c.status].label} · {fmtDur(c.durationSec)}</span>
-            {c.recordingUrl && <a href={c.recordingUrl} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">Tinglash</a>}
+            {(c.hasRecording || c.recordingUrl) && <RecordingPlayer callId={c.id} />}
           </div>
         ))}
       </div>

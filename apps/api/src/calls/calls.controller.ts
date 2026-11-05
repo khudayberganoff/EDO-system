@@ -56,4 +56,7 @@ export class CallsController {
   ) {
     return this.calls.phoneCalls(user, { direction, status, q, leadId });
   }
+
+  @Get("phone-calls/:id/recording-link") @ApiOperation({ summary: "Qo'ng'iroq yozuvi uchun qisqa muddatli havola" })
+  recordingLink(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.calls.recordingLink(user, id); }
 }

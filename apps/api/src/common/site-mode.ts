@@ -13,6 +13,7 @@ export function isCallSiteApiPath(path: string): boolean {
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/calls/") ||
     path.startsWith("/api/telephony/webhook") ||
+    path.startsWith("/api/telephony/recording") ||
     path === "/api/settings/my-access"
   );
 }

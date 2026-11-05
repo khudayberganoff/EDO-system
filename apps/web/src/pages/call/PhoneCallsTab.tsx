@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PhoneIncoming, PhoneMissed, PhoneOutgoing, Search } from "lucide-react";
+import { Download, Loader2, Play, PhoneIncoming, PhoneMissed, PhoneOutgoing, Search } from "lucide-react";
 import clsx from "clsx";
-import { fetchPhoneCalls, type PhoneCall } from "../../api/calls";
+import { fetchPhoneCalls, fetchRecordingLink, type PhoneCall } from "../../api/calls";
 
 export const CALL_STATUS: Record<PhoneCall["status"], { label: string; tone: string }> = {
   ANSWERED: { label: "Javob berildi", tone: "bg-emerald-100 text-emerald-800" },
@@ -74,7 +74,7 @@ export function PhoneCallsTab() {
                   <td className="px-4 py-3"><span className={clsx("inline-flex rounded-full px-2.5 py-1 text-xs font-medium", CALL_STATUS[c.status].tone)}>{CALL_STATUS[c.status].label}</span></td>
                   <td className="px-4 py-3 text-slate-600">{fmtDur(c.durationSec)}</td>
                   <td className="px-4 py-3 text-slate-500">{c.extension ?? "—"}</td>
-                  <td className="px-4 py-3">{c.recordingUrl ? <audio controls preload="none" src={c.recordingUrl} className="h-8 w-48" /> : <span className="text-slate-300">—</span>}</td>
+                  <td className="px-4 py-3">{c.hasRecording || c.recordingUrl ? <RecordingPlayer callId={c.id} /> : <span className="text-slate-300">—</span>}</td>
                 </tr>
               );
             })}
@@ -91,6 +91,33 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</div>
       <div className={clsx("mt-1 text-2xl font-semibold", tone ?? "text-brand-950")}>{value}</div>
+    </div>
+  );
+}
+
+/** Yozuvni tinglash: bosilganda qisqa muddatli havola olinadi, so'ng audio pleyer (oldinga o'tkazish bilan) va yuklab olish chiqadi. */
+export function RecordingPlayer({ callId }: { callId: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [external, setExternal] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+
+  async function load() {
+    setBusy(true); setError(false);
+    try { const l = await fetchRecordingLink(callId); setSrc(l.url); setExternal(l.external); } catch { setError(true); } finally { setBusy(false); }
+  }
+
+  if (!src) {
+    return (
+      <button onClick={load} disabled={busy} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+        {busy ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} className="text-emerald-600" />} {error ? "Qayta urinish" : "Tinglash"}
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <audio controls autoPlay preload="metadata" src={src} className="h-8 w-52" onError={() => { setSrc(null); setError(true); }} />
+      <a href={external ? src : `${src}&download=1`} target="_blank" rel="noreferrer" title="Yuklab olish" className="text-slate-400 hover:text-slate-700"><Download size={15} /></a>
     </div>
   );
 }
