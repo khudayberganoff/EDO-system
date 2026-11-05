@@ -7,6 +7,8 @@ import {
   type CallOutcome, type QueueItem,
 } from "../api/calls";
 import { useAuth } from "../context/AuthContext";
+import { LeadsBoard } from "./call/LeadsBoard";
+import { CallCalendar } from "./call/CallCalendar";
 
 const OUTCOMES: { value: CallOutcome; label: string; tone: string }[] = [
   { value: "ANSWERED", label: "Gaplashildi", tone: "bg-sky-100 text-sky-800" },
@@ -40,11 +42,45 @@ function dpdTone(dpd: number | null) {
   return "bg-slate-100 text-slate-700";
 }
 
+type Tab = "debtors" | "leads" | "calendar";
+const TABS: { key: Tab; label: string }[] = [
+  { key: "debtors", label: "Qarzdorlar" },
+  { key: "leads", label: "Lidlar" },
+  { key: "calendar", label: "Kalendar" },
+];
+
 export function CallCenterPage() {
   const { user } = useAuth();
   const canEdit = user?.role !== "OBSERVER";
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("todo");
-  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<Tab>("debtors");
+  const [debtorSearch, setDebtorSearch] = useState("");
+
+  return (
+    <div className="p-8">
+      <div className="mb-6">
+        <h1 className="font-display flex items-center gap-3 text-[30px] font-semibold tracking-tight text-brand-950"><Headset size={28} className="text-brand-700" /> Call-markaz</h1>
+        <p className="mt-1 text-sm text-slate-500">Qarzdorlarga qo'ng'iroq, yangi mijozlar (lidlar) va barcha rejalashtirilgan uchrashuv va qayta bog'lanishlar kalendari.</p>
+        <div className="mt-4 flex gap-1 border-b border-slate-200">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)} className={clsx("-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition", tab === t.key ? "border-brand-700 text-brand-800" : "border-transparent text-slate-500 hover:text-slate-800")}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+      {tab === "debtors" && <DebtorsTab canEdit={canEdit} initialSearch={debtorSearch} />}
+      {tab === "leads" && <LeadsBoard canEdit={canEdit} />}
+      {tab === "calendar" && (
+        <CallCalendar onOpen={(e) => {
+          if (e.leadId) setTab("leads");
+          else { setDebtorSearch(e.title); setTab("debtors"); }
+        }} />
+      )}
+    </div>
+  );
+}
+
+function DebtorsTab({ canEdit, initialSearch }: { canEdit: boolean; initialSearch: string }) {
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>(initialSearch ? "all" : "todo");
+  const [search, setSearch] = useState(initialSearch);
   const [days, setDays] = useState(1);
   const [active, setActive] = useState<QueueItem | null>(null);
 
@@ -57,12 +93,8 @@ export function CallCenterPage() {
   const items = data?.items ?? [];
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display flex items-center gap-3 text-[30px] font-semibold tracking-tight text-brand-950"><Headset size={28} className="text-brand-700" /> Call-markaz</h1>
-          <p className="mt-1 text-sm text-slate-500">Muddati o'tgan to'lovlar bo'yicha mijozlarga qo'ng'iroq: natija, va'da va qayta qo'ng'iroq shu yerda yuritiladi.</p>
-        </div>
+    <div>
+      <div className="mb-4 flex justify-end">
         <div className="flex gap-1 rounded-full border border-slate-200 bg-white p-1">
           {[{ d: 1, l: "Bugun" }, { d: 7, l: "7 kun" }, { d: 30, l: "30 kun" }].map((x) => (
             <button key={x.d} onClick={() => setDays(x.d)} className={clsx("rounded-full px-3 py-1.5 text-xs font-semibold transition", days === x.d ? "bg-brand-800 text-white" : "text-slate-500 hover:text-slate-800")}>{x.l}</button>
