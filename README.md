@@ -139,6 +139,14 @@ Yoqish uchun:
 4. **Sozlamalar → Foydalanuvchilar** jadvalida har bir foydalanuvchiga 14 xonali **JSHSHIR** kiriting (yoki kadrlar kartochkasidagi JSHSHIR ishlatiladi; bitta JSHSHIR — bitta foydalanuvchi).
 5. Foydalanuvchi kompyuterida **E-IMZO** dasturi o'rnatilgan va ishlab turishi kerak.
 
+## IP-telefoniya (ATS) qo'ng'iroqlari
+
+ATS har bir qo'ng'iroq (kiruvchi/chiquvchi) tugaganda EDO'ga webhook yuboradi; qo'ng'iroq bazaga (`PhoneCall`) yoziladi va **Call-markaz → Qo'ng'iroqlar** bo'limida ko'rinadi (raqam, yo'nalish, holat, davomiylik, ichki raqam, yozuv havolasi). Bazada yo'q kiruvchi raqamdan avtomatik «Yangi lead» yaratiladi; raqam mavjud lidga to'g'ri kelsa, qo'ng'iroq shu lidga bog'lanadi (lid kartochkasida tarix).
+
+1. **Tashqi tizimlar → IP-telefoniya** kartasidan webhook manzilini nusxalang: `https://<domen>/api/telephony/webhook?token=<maxfiy>` (token yangilanadi, tashkilot tanlanadi, avtolid yoqiladi/o'chiriladi).
+2. ATS sozlamasida shu manzilni "qo'ng'iroq tugaganda webhook/URL" sifatida kiriting (GET yoki POST, JSON yoki form). Maydon nomlari keng tarqalgan ATS'larga (Asterisk/FreePBX CDR, Zadarma, OnlinePBX va boshqalar) moslab o'qiladi; format mos kelmasa, kartada oxirgi kelgan so'rov ko'rinadi.
+3. Token so'rov parametri (`?token=`) yoki `X-Webhook-Token` sarlavhasida; Zadarma tekshiruvi (`zd_echo`) qo'llab-quvvatlanadi.
+
 ## Telegram bot (vazifalar doskasi)
 
 1. Telegram'da **@BotFather** → `/newbot` → token oling.
