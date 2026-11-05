@@ -823,6 +823,10 @@ model PhoneCall {
   startedAt      DateTime
   durationSec    Int          @default(0)
   recordingUrl   String?
+  /// ATS yuklagan yozuv fayli (uploads/.private/recordings/<nom>) - EDO o'zida saqlaydi va tinglatadi
+  recordingFile  String?
+  recordingMime  String?
+  recordingSize  Int?
   leadId         String?
   lead           CallLead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
   /// ATS yuborgan asl ma'lumot (formatni tekshirish uchun)

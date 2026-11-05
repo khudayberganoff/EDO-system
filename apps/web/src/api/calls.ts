@@ -70,6 +70,7 @@ export interface PhoneCall {
   startedAt: string;
   durationSec: number;
   recordingUrl: string | null;
+  hasRecording: boolean;
   lead: { id: string; name: string } | null;
 }
 
@@ -84,6 +85,9 @@ export interface TelephonySettings {
   token: string;
   organizationId: string | null;
   autoLead: boolean;
+  retentionDays: number;
+  recordingBytes: number;
+  recordingCount: number;
   organizations: { id: string; name: string }[];
   last: { at: string; ok: boolean; error: string | null; raw: unknown } | null;
   total: number;
@@ -93,11 +97,17 @@ export async function fetchTelephonySettings() {
   const { data } = await apiClient.get<TelephonySettings>("/telephony/settings");
   return data;
 }
-export async function saveTelephonySettings(payload: { organizationId?: string; autoLead?: boolean }) {
+export async function saveTelephonySettings(payload: { organizationId?: string; autoLead?: boolean; retentionDays?: number }) {
   const { data } = await apiClient.put("/telephony/settings", payload);
   return data;
 }
 export async function regenerateTelephonyToken() {
   const { data } = await apiClient.post<{ token: string }>("/telephony/settings/regenerate-token");
   return data;
+}
+
+/** Yozuv uchun havola: EDO'da saqlangan bo'lsa qisqa muddatli imzolangan yo'l (API'ga nisbatan), aks holda tashqi havola. */
+export async function fetchRecordingLink(callId: string) {
+  const { data } = await apiClient.get<{ url: string; external: boolean }>(`/calls/phone-calls/${callId}/recording-link`);
+  return { url: data.external ? data.url : `${apiClient.defaults.baseURL ?? ""}${data.url}`, external: data.external };
 }

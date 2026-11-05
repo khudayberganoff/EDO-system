@@ -3,6 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CrmService, type CrmContract } from "../crm/crm.service";
 import { SettingsService } from "../settings/settings.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { TelephonyService } from "../telephony/telephony.service";
 import { AuditAction } from "../common/enums";
 import { CreateCallLogDto, CreateLeadDto, UpdateLeadDto, type LeadStage } from "./dto/calls.dto";
 
@@ -26,6 +27,7 @@ export class CallsService {
     private crm: CrmService,
     private settings: SettingsService,
     private auditLog: AuditLogService,
+    private telephony: TelephonyService,
   ) {}
 
   /** Bo'lim ruxsati serverda ham tekshiriladi (interfeys yashirishi yetarli emas). */
@@ -361,18 +363,29 @@ export class CallsService {
     const [items, today] = await Promise.all([
       this.prisma.phoneCall.findMany({
         where, orderBy: { startedAt: "desc" }, take: Math.min(Math.max(params.limit ?? 200, 1), 500),
-        select: { id: true, direction: true, status: true, phone: true, ourNumber: true, extension: true, startedAt: true, durationSec: true, recordingUrl: true, lead: { select: { id: true, name: true } } },
+        select: { id: true, direction: true, status: true, phone: true, ourNumber: true, extension: true, startedAt: true, durationSec: true, recordingUrl: true, recordingFile: true, lead: { select: { id: true, name: true } } },
       }),
       this.prisma.phoneCall.groupBy({ by: ["direction", "status"], where: { organizationId: { in: orgIds }, startedAt: { gte: todayStart } }, _count: true }),
     ]);
     const count = (f: (g: (typeof today)[number]) => boolean) => today.filter(f).reduce((s, g) => s + g._count, 0);
     return {
-      items,
+      items: items.map(({ recordingFile, ...c }) => ({ ...c, hasRecording: !!recordingFile })),
       today: {
         in: count((g) => g.direction === "IN"),
         out: count((g) => g.direction === "OUT"),
         missed: count((g) => g.direction === "IN" && g.status !== "ANSWERED"),
       },
     };
+  }
+
+  /** Yozuvni tinglash/yuklab olish uchun qisqa muddatli havola (bo'lim ruxsati va tashkilot doirasi tekshiriladi). */
+  async recordingLink(actor: Actor, id: string) {
+    await this.assertAccess(actor.role, "view");
+    const { orgIds } = await this.scope(actor);
+    const call = await this.prisma.phoneCall.findFirst({ where: { id, organizationId: { in: orgIds } }, select: { recordingFile: true, recordingUrl: true } });
+    if (!call) throw new NotFoundException("Qo'ng'iroq topilmadi.");
+    if (call.recordingFile) return { url: this.telephony.signedRecordingPath(id), external: false };
+    if (call.recordingUrl) return { url: call.recordingUrl, external: true };
+    throw new NotFoundException("Bu qo'ng'iroq uchun yozuv yo'q.");
   }
 }

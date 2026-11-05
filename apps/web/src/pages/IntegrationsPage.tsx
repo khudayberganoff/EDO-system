@@ -409,6 +409,15 @@ function TelephonyCard() {
             Yangi raqamdan kiruvchi qo'ng'iroqda avtomatik lid yaratish
           </label>
         </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <span>Yozuvlar: <b className="text-slate-700">{data.recordingCount}</b> ta · <b className="text-slate-700">{(data.recordingBytes / 1048576).toFixed(1)} MB</b></span>
+          <label className="flex items-center gap-2">Saqlash muddati
+            <select value={data.retentionDays} onChange={(e) => save.mutate({ retentionDays: Number(e.target.value) })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700">
+              <option value={0}>Doimiy</option><option value={30}>30 kun</option><option value={90}>90 kun</option><option value={180}>180 kun</option><option value={365}>1 yil</option>
+            </select>
+          </label>
+          <span className="text-slate-400">Muddati o'tgan yozuv fayllari o'chiriladi (qo'ng'iroq yozuvi qoladi). Diskni nazorat qiling.</span>
+        </div>
         <details className="text-xs text-slate-500">
           <summary className="cursor-pointer select-none text-slate-600">Qaysi maydonlar o'qiladi</summary>
           <p className="mt-2">Raqamlar: <code>caller / caller_id / src / from</code> va <code>callee / called_did / dst / to</code>; yo'nalish: <code>direction / call_type</code> (in/out; berilmasa ichki-tashqi raqamdan aniqlanadi); holat: <code>disposition / status</code>; davomiylik: <code>billsec / duration</code> (soniya); qo'ng'iroq ID: <code>uniqueid / call_id / pbx_call_id / uuid</code>; vaqt: <code>calldate / call_start / start_time</code> (ISO yoki epoch); yozuv: <code>recordingfile / record_url</code>; ichki raqam: <code>extension / ext / operator</code>. Bir qo'ng'iroq uchun bir necha hodisa kelsa, ID bo'yicha yangilanadi.</p>
