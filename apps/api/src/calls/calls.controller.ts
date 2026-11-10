@@ -1,7 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CallsService } from "./calls.service";
-import { CreateCallLogDto, CreateLeadDto, UpdateLeadDto } from "./dto/calls.dto";
+import { CreateCallLogDto, CreateLeadDto, SetClientPhoneDto, UpdateLeadDto } from "./dto/calls.dto";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 
 @ApiTags("calls") @ApiBearerAuth() @Controller("calls")
@@ -59,4 +59,12 @@ export class CallsController {
 
   @Get("phone-calls/:id/recording-link") @ApiOperation({ summary: "Qo'ng'iroq yozuvi uchun qisqa muddatli havola" })
   recordingLink(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.calls.recordingLink(user, id); }
+
+  @Get("clients") @ApiOperation({ summary: "CRM mijozlari (majburiyati bor shartnomalar): to'lov sanalari, qarz, telefon" })
+  clients(@Query("q") q: string | undefined, @Query("filter") filter: string | undefined, @Query("sort") sort: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.calls.clients(user, { q, filter, sort });
+  }
+
+  @Put("clients/phone") @ApiOperation({ summary: "Mijozga telefon raqamini qo'lda qo'shish yoki o'zgartirish" })
+  setClientPhone(@Body() dto: SetClientPhoneDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.setClientPhone(user, dto); }
 }

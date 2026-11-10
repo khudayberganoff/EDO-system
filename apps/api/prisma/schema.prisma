@@ -82,6 +82,7 @@ model User {
   boardRated       BoardTask[]       @relation("BoardTaskRater")
   callLogs         CallLog[]         @relation("CallOperator")
   callLeads        CallLead[]        @relation("CallLeadOwner")
+  clientPhones     ClientPhone[]     @relation("ClientPhoneEditor")
   boardComments    BoardComment[]    @relation("BoardCommentAuthor")
   boards           Board[]           @relation("BoardOwner")
   documents        Document[]        @relation("DocumentOwner")
@@ -836,4 +837,19 @@ model PhoneCall {
 
   @@index([organizationId, startedAt])
   @@index([phone])
+}
+
+/// CRM'dagi mijozga qo'lda qo'shilgan telefon raqami. CRM faqat o'qiladi, shuning uchun raqam shu yerda saqlanadi
+/// (CRM ro'yxatida raqam bo'lmasa yoki noto'g'ri bo'lsa). Kompaniya kaliti: wafa_leasing | vafo_moliya.
+model ClientPhone {
+  id          String   @id @default(cuid())
+  crmOrg      String
+  clientId    String
+  phone       String
+  updatedById String
+  updatedBy   User     @relation("ClientPhoneEditor", fields: [updatedById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([crmOrg, clientId])
 }

@@ -111,3 +111,43 @@ export async function fetchRecordingLink(callId: string) {
   const { data } = await apiClient.get<{ url: string; external: boolean }>(`/calls/phone-calls/${callId}/recording-link`);
   return { url: data.external ? data.url : `${apiClient.defaults.baseURL ?? ""}${data.url}`, external: data.external };
 }
+
+// ---------- CRM mijozlari (majburiyati bor shartnomalar) ----------
+
+export interface CrmClient {
+  organization: "wafa_leasing" | "vafo_moliya";
+  clientId: string;
+  clientName: string;
+  clientType: "CITIZEN" | "ORGANIZATION";
+  contractNumber: string | null;
+  contractDate: string | null;
+  contractKind: "MURABAHA" | "LEASING";
+  endDate: string | null;
+  principalBalance: number | null;
+  overdueAmount: number | null;
+  dpd: number | null;
+  monthlyPayment: number | null;
+  paymentDay: number | null;
+  nextPaymentDate: string | null;
+  firstOverdueDate: string | null;
+  daysToPayment: number | null;
+  phone: string | null;
+  phoneSource: "crm" | "manual" | null;
+  crmPhone: string | null;
+  manualPhone: string | null;
+}
+
+export interface ClientsResponse {
+  enabled: boolean;
+  items: CrmClient[];
+  counts: Partial<Record<"all" | "overdue" | "soon" | "nophone", number>>;
+}
+
+export async function fetchCrmClients(params: { q?: string; filter?: string; sort?: string }) {
+  const { data } = await apiClient.get<ClientsResponse>("/calls/clients", { params });
+  return data;
+}
+export async function setClientPhone(payload: { crmOrg: string; clientId: string; phone: string }) {
+  const { data } = await apiClient.put<{ phone: string | null }>("/calls/clients/phone", payload);
+  return data;
+}
