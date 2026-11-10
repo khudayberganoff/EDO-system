@@ -22,6 +22,10 @@ export interface CrmContract {
   dpd: number | null;
   monthlyPayment: number | null;
   paymentDay: number | null;
+  /** Keyingi to'lov sanasi (ISO, bugundan keyingi yoki bugungi); shartnoma tugagan bo'lsa - null */
+  nextPaymentDate: string | null;
+  /** Birinchi to'lanmagan to'lov sanasi (kechikish boshlangan kun); kechikish bo'lmasa - null */
+  firstOverdueDate: string | null;
 }
 
 const ORG_RE = /(mchj|мчж|xk|хк|xnnt|хн?нт|yatt|ятт|llc|ooo|ооо|universiteti|университет)/i;
@@ -31,6 +35,17 @@ function todayTashkent(): number {
   const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent", year: "numeric", month: "2-digit", day: "2-digit" })
     .format(new Date()).split("-").map(Number);
   return dayOf(y, m, d);
+}
+
+/** Keyingi to'lov sanasi: oyning to'lov kuni (qisqa oyda oxirgi kun) bugundan keyin yoki bugun bo'lsa shu oy, aks holda keyingi oy. */
+function nextPaymentDay(today: number, payday: number, endDay: number | null): string | null {
+  const t = new Date(today * 86400000);
+  let y = t.getUTCFullYear(), m = t.getUTCMonth() + 1;
+  const due = (yy: number, mm: number) => dayOf(yy, mm, Math.min(payday, new Date(Date.UTC(yy, mm, 0)).getUTCDate()));
+  let d = due(y, m);
+  if (d < today) { m += 1; if (m > 12) { m = 1; y += 1; } d = due(y, m); }
+  if (endDay !== null && d > endDay) return null;
+  return isoOfDay(d);
 }
 
 /** "№17 от 18.12.2025" -> raqam va sana (CRM ham sanani shu matndan oladi). */
@@ -90,7 +105,7 @@ export class CrmService {
     const org = params.organization === "vafo_moliya" ? "vafo_moliya" : "wafa_leasing";
     const t = TABLES[org];
     const q = params.q?.trim().toLowerCase() || null;
-    const limit = Math.min(Math.max(params.limit ?? 30, 1), 500);
+    const limit = Math.min(Math.max(params.limit ?? 30, 1), 3000);
     const today = todayTashkent();
     const phones = await loadPhonesAuto();
     const phoneOrg = org === "vafo_moliya" ? "vafo" : "wafa";
@@ -158,6 +173,8 @@ export class CrmService {
         dpd: led.dpd,
         monthlyPayment: Math.round(led.monthly),
         paymentDay: Number(c.paydey) || 20,
+        nextPaymentDate: nextPaymentDay(today, Number(c.paydey) || 20, led.endDay),
+        firstOverdueDate: led.dpd > 0 ? isoOfDay(today - led.dpd) : null,
       });
     }
     if (params.includeClosed) out.sort((a, b) => a.clientName.localeCompare(b.clientName));

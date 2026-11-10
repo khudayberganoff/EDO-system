@@ -42,3 +42,10 @@ export class UpdateLeadDto {
   @IsOptional() @IsDateString() meetingAt?: string;
   @IsOptional() @IsDateString() callbackAt?: string;
 }
+
+export class SetClientPhoneDto {
+  @IsIn(["wafa_leasing", "vafo_moliya"]) crmOrg!: "wafa_leasing" | "vafo_moliya";
+  @IsString() @MaxLength(100) clientId!: string;
+  /** Bo'sh qator - qo'lda kiritilgan raqamni o'chiradi */
+  @IsString() @MaxLength(50) phone!: string;
+}

@@ -4,8 +4,9 @@ import { CrmService, type CrmContract } from "../crm/crm.service";
 import { SettingsService } from "../settings/settings.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { TelephonyService } from "../telephony/telephony.service";
+import { normalizePhone } from "../telephony/telephony-parser";
 import { AuditAction } from "../common/enums";
-import { CreateCallLogDto, CreateLeadDto, UpdateLeadDto, type LeadStage } from "./dto/calls.dto";
+import { CreateCallLogDto, CreateLeadDto, SetClientPhoneDto, UpdateLeadDto, type LeadStage } from "./dto/calls.dto";
 
 type Actor = { id: string; role: string; organizationId: string };
 type CrmKey = "wafa_leasing" | "vafo_moliya";
@@ -387,5 +388,76 @@ export class CallsService {
     if (call.recordingFile) return { url: this.telephony.signedRecordingPath(id), external: false };
     if (call.recordingUrl) return { url: call.recordingUrl, external: true };
     throw new NotFoundException("Bu qo'ng'iroq uchun yozuv yo'q.");
+  }
+
+  // ---------- CRM mijozlari (majburiyati bor shartnomalar) ----------
+
+  /**
+   * CRM'dagi majburiyati bor (asosiy qoldiq > 0) mijozlar: to'lov sanalari, qarz, telefon (CRM ro'yxatidan yoki qo'lda
+   * qo'shilgan). Filtrlar: all | overdue | soon (7 kun ichida to'lov) | nophone.
+   */
+  async clients(actor: Actor, params: { q?: string; filter?: string; sort?: string }) {
+    await this.assertAccess(actor.role, "view");
+    if (!this.crm.isEnabled()) return { enabled: false, items: [], counts: {} };
+    const { crm } = await this.scope(actor);
+    const contracts = (await Promise.all(crm.map((organization) => this.crm.searchContracts({ q: params.q, organization, overdueOnly: false, limit: 3000 })))).flat();
+
+    const manual = contracts.length
+      ? await this.prisma.clientPhone.findMany({ where: { crmOrg: { in: crm }, clientId: { in: contracts.map((c) => c.clientId) } } })
+      : [];
+    const manualBy = new Map(manual.map((m) => [`${m.crmOrg}:${m.clientId}`, m.phone]));
+
+    const todayMs = startOfTodayTashkent().getTime();
+    const items = contracts.map((c: CrmContract) => {
+      const manualPhone = manualBy.get(`${c.organization}:${c.clientId}`) ?? null;
+      const daysToPayment = c.nextPaymentDate ? Math.round((new Date(c.nextPaymentDate).getTime() + 5 * 3600_000 - todayMs) / 86_400_000) : null;
+      return {
+        ...c,
+        crmPhone: c.phone,
+        manualPhone,
+        // Qo'lda kiritilgan raqam CRM ro'yxatidagidan ustun (operator tuzatgan bo'ladi)
+        phone: manualPhone ?? c.phone,
+        phoneSource: manualPhone ? ("manual" as const) : c.phone ? ("crm" as const) : null,
+        daysToPayment,
+      };
+    });
+
+    const isOverdue = (i: (typeof items)[number]) => (i.overdueAmount ?? 0) > 0 || (i.dpd ?? 0) > 0;
+    const isSoon = (i: (typeof items)[number]) => !isOverdue(i) && i.daysToPayment !== null && i.daysToPayment <= 7;
+    const counts = { all: items.length, overdue: items.filter(isOverdue).length, soon: items.filter(isSoon).length, nophone: items.filter((i) => !i.phone).length };
+
+    const f = params.filter ?? "all";
+    let list = items;
+    if (f === "overdue") list = items.filter(isOverdue);
+    else if (f === "soon") list = items.filter(isSoon);
+    else if (f === "nophone") list = items.filter((i) => !i.phone);
+
+    const sort = params.sort ?? (f === "overdue" ? "dpd" : "payment");
+    list = [...list].sort((a, b) =>
+      sort === "name" ? a.clientName.localeCompare(b.clientName)
+      : sort === "dpd" ? (b.dpd ?? 0) - (a.dpd ?? 0) || a.clientName.localeCompare(b.clientName)
+      : (a.daysToPayment ?? 9999) - (b.daysToPayment ?? 9999) || a.clientName.localeCompare(b.clientName));
+    return { enabled: true, items: list, counts };
+  }
+
+  /** Mijozga telefon raqamini qo'lda qo'shish/o'zgartirish (bo'sh raqam - qo'lda kiritilganini o'chiradi, CRM raqami qoladi). */
+  async setClientPhone(actor: Actor, dto: SetClientPhoneDto) {
+    await this.assertAccess(actor.role, "edit");
+    const { crm } = await this.scope(actor);
+    if (!crm.includes(dto.crmOrg)) throw new ForbiddenException("Bu kompaniya mijozlariga ruxsat yo'q.");
+    const phone = dto.phone.trim();
+    if (!phone) {
+      await this.prisma.clientPhone.deleteMany({ where: { crmOrg: dto.crmOrg, clientId: dto.clientId } });
+      return { phone: null };
+    }
+    if (phone.replace(/\D/g, "").length < 7) throw new BadRequestException("Telefon raqami noto'g'ri.");
+    const normalized = normalizePhone(phone) ?? phone;
+    await this.prisma.clientPhone.upsert({
+      where: { crmOrg_clientId: { crmOrg: dto.crmOrg, clientId: dto.clientId } },
+      create: { crmOrg: dto.crmOrg, clientId: dto.clientId, phone: normalized, updatedById: actor.id },
+      update: { phone: normalized, updatedById: actor.id },
+    });
+    await this.auditLog.record({ userId: actor.id, action: AuditAction.UPDATE, metadata: { kind: "clientPhone", crmOrg: dto.crmOrg, clientId: dto.clientId } });
+    return { phone: normalized };
   }
 }
