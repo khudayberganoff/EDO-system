@@ -254,6 +254,28 @@ export class LettersService {
     return this.prisma.letter.findMany({ where, orderBy: [{ documentDate: "asc" }, { createdAt: "asc" }], include: { createdBy: { select: { fullName: true } } } });
   }
 
+  /**
+   * Yon menyudagi sanoqlar: qoralamalar (yo'nalish va tur bo'yicha) va tasdiq kutayotgan xatlar soni.
+   * Ilgari buning uchun xatlar ro'yxatining o'zi (matni bilan, 20 tadan) yuklanardi - sanoq 20 dan oshmasdi.
+   */
+  async sidebarBadges(organizationId: string) {
+    const [drafts, pendingApproval] = await Promise.all([
+      this.prisma.letter.groupBy({ by: ["direction", "type"], where: { organizationId, status: LetterStatus.DRAFT }, _count: { _all: true } }),
+      this.prisma.letter.count({ where: { organizationId, status: LetterStatus.PENDING_APPROVAL } }),
+    ]);
+    const sum = (f: (d: (typeof drafts)[number]) => boolean) => drafts.filter(f).reduce((s, d) => s + d._count._all, 0);
+    return {
+      pendingApproval,
+      drafts: {
+        total: sum(() => true),
+        incoming: sum((d) => d.direction === "INCOMING"),
+        letter: sum((d) => d.direction === "OUTGOING" && d.type === "LETTER"),
+        reference: sum((d) => d.direction === "OUTGOING" && d.type === "REFERENCE"),
+        warning: sum((d) => d.direction === "OUTGOING" && (d.type === "FIRST_WARNING" || d.type === "FINAL_WARNING")),
+      },
+    };
+  }
+
   async countsByDirection(organizationId: string) {
     const [all, incoming, outgoing] = await this.prisma.$transaction([
       this.prisma.letter.count({ where: { organizationId } }),

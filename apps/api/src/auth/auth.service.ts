@@ -196,7 +196,8 @@ export class AuthService {
     if (!user) throw new NotFoundException("Foydalanuvchi topilmadi.");
 
     const matches = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!matches) throw new UnauthorizedException("Joriy parol noto'g'ri.");
+    // 400 (401 emas): 401 "sessiya tugadi" degani - interfeys foydalanuvchini tizimdan chiqarib yuborardi
+    if (!matches) throw new BadRequestException("Joriy parol noto'g'ri.");
     if (!newPassword || newPassword.length < 8) {
       throw new BadRequestException("Yangi parol kamida 8 ta belgidan iborat bo'lishi kerak.");
     }

@@ -1,3 +1,4 @@
+import { contentDisposition } from "../common/content-disposition";
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -24,6 +25,7 @@ export class LettersController {
   @Post("ai-generate") aiGenerate(@Body() body: any) { return this.lettersService.aiGenerate(body); }
 
   @Get() findAll(@Query() query: QueryLettersDto, @CurrentUser() user: AuthenticatedUser) { return this.lettersService.findAll(query, user.organizationId); }
+  @Get("badges") @ApiOperation({ summary: "Yon menyu uchun sanoqlar (qoralamalar, tasdiq kutayotganlar)" }) badges(@CurrentUser() user: AuthenticatedUser) { return this.lettersService.sidebarBadges(user.organizationId); }
   @Get("counts") counts(@CurrentUser() user: AuthenticatedUser) { return this.lettersService.countsByDirection(user.organizationId); }
   @Get("approvers") @ApiOperation({ summary: "Tasdiqlashi mumkin bo'lgan rahbarlar" }) approvers() { return this.lettersService.listApprovers(); }
   @Get("archive") archive(@CurrentUser() user: AuthenticatedUser) { return this.lettersService.archiveList(user.organizationId); }
@@ -88,7 +90,7 @@ export class LettersController {
     await this.lettersService.verifyByToken(id, token); // token to'g'riligini tekshiradi
     const { buffer, name } = await this.lettersService.buildPdf(id);
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.setHeader("Content-Disposition", contentDisposition(name));
     res.send(buffer);
   }
 
@@ -103,7 +105,7 @@ export class LettersController {
   async downloadPdf(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
     const { buffer, name } = await this.lettersService.buildPdf(id, user.organizationId);
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.setHeader("Content-Disposition", contentDisposition(name));
     res.send(buffer);
   }
 

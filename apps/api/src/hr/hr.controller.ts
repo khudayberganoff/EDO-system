@@ -8,6 +8,7 @@ import { CreateEmployeeDto, UpdateEmployeeDto, CreateHrOrderDto, CreateContractD
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { Role } from "../common/enums";
+import { contentDisposition } from "../common/content-disposition";
 
 @ApiTags("Kadrlar")
 @ApiBearerAuth()
@@ -92,13 +93,14 @@ export class HrController {
   @Get("orders/next-number")
   @ApiOperation({ summary: "Keyingi bo'sh buyruq raqami" })
   nextOrderNumber() {
+    // Buyruq raqamlari ikkala tashkilot uchun umumiy ketma-ketlikda (takrorlanmaslik bazada ham umumiy tekshiriladi)
     return this.hrService.nextOrderNumber();
   }
 
   @Get("orders/export")
   @ApiOperation({ summary: "Buyruqlar ro'yxatini Excel sifatida yuklab olish" })
-  async exportOrders(@Res() res: Response) {
-    const buffer = await this.hrService.exportOrdersXlsx();
+  async exportOrders(@CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const buffer = await this.hrService.exportOrdersXlsx(user.organizationId);
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", 'attachment; filename="buyruqlar.xlsx"');
     res.send(buffer);
@@ -106,15 +108,15 @@ export class HrController {
 
   /** Buyruqni Word yoki PDF sifatida yuklab olish. */
   @Get("orders/:id/download")
-  async downloadOrder(@Param("id") id: string, @Query("format") format: string, @Res() res: Response) {
+  async downloadOrder(@Param("id") id: string, @Query("format") format: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
     const isPdf = format === "pdf";
     const { buffer, name } = isPdf
-      ? await this.hrService.buildOrderPdf(id)
-      : await this.hrService.buildOrderDocx(id);
+      ? await this.hrService.buildOrderPdf(id, user.organizationId)
+      : await this.hrService.buildOrderDocx(id, user.organizationId);
     res.setHeader("Content-Type", isPdf
       ? "application/pdf"
       : "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.setHeader("Content-Disposition", contentDisposition(name));
     res.send(buffer);
   }
 
@@ -266,11 +268,12 @@ export class HrController {
 
   @Get("attendance")
   @ApiOperation({ summary: "Bir oylik davomat jadvali" })
-  attendanceMonth(@Query("year") year: string, @Query("month") month: string) {
+  attendanceMonth(@Query("year") year: string, @Query("month") month: string, @CurrentUser() user: AuthenticatedUser) {
     const now = new Date();
     return this.hrService.attendanceMonth(
       year ? Number(year) : now.getFullYear(),
       month ? Number(month) : now.getMonth() + 1,
+      user.organizationId,
     );
   }
 
@@ -293,8 +296,8 @@ export class HrController {
   // ---------- Ish jadvali (smena) ----------
 
   @Get("schedules/:employeeId")
-  listSchedules(@Param("employeeId") employeeId: string) {
-    return this.hrService.listSchedules(employeeId);
+  listSchedules(@Param("employeeId") employeeId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.listSchedules(employeeId, user.organizationId);
   }
 
   @Post("schedules")
@@ -309,8 +312,8 @@ export class HrController {
   // ---------- Minnatdorchilik ----------
 
   @Get("gratitudes")
-  listGratitudes(@Query("employeeId") employeeId?: string) {
-    return this.hrService.listGratitudes(employeeId);
+  listGratitudes(@Query("employeeId") employeeId: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.hrService.listGratitudes(employeeId, user.organizationId);
   }
 
   @Post("gratitudes")

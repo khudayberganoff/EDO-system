@@ -28,7 +28,8 @@ const DEFAULTS: Record<string, { view: string[]; edit: string[] }> = {
   letters: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE"] },
   // Call-markaz: qarzdorlarga qo'ng'iroq. Kuzatuvchi faqat ko'radi
   calls: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER", "OPERATOR"], edit: ["ADMIN", "MANAGER", "EMPLOYEE", "OPERATOR"] },
-  hr: { view: ["ADMIN", "MANAGER"], edit: ["ADMIN", "MANAGER"] },
+  // Kuzatuvchi kadrlar hujjatlarini faqat ko'radi
+  hr: { view: ["ADMIN", "MANAGER", "OBSERVER"], edit: ["ADMIN", "MANAGER"] },
   deleted: { view: ["ADMIN", "MANAGER"], edit: ["ADMIN"] },
   integrations: { view: ["ADMIN"], edit: ["ADMIN"] },
   settings: { view: ["ADMIN"], edit: ["ADMIN"] },
@@ -80,12 +81,25 @@ export class SettingsService {
       create: { role: data.role, module: data.module, canView: data.canView, canEdit: data.canEdit },
       update: { canView: data.canView, canEdit: data.canEdit },
     });
+    this.accessCache.clear();
     await this.auditLog.record({ userId, action: AuditAction.UPDATE, metadata: { kind: "permission", ...data } });
     return saved;
   }
 
+  /** Ruxsatlar har so'rovda tekshiriladi - bazaga qayta-qayta bormaslik uchun qisqa muddatli kesh (o'zgartirilganda tozalanadi). */
+  private accessCache = new Map<string, { at: number; value: Record<string, { canView: boolean; canEdit: boolean }> }>();
+  private static readonly ACCESS_TTL_MS = 30_000;
+
   /** Joriy foydalanuvchi uchun ochiq bo'limlar - interfeys shunga qarab quriladi. */
-  async myAccess(role: string) {
+  async myAccess(role: string): Promise<Record<string, { canView: boolean; canEdit: boolean }>> {
+    const hit = this.accessCache.get(role);
+    if (hit && Date.now() - hit.at < SettingsService.ACCESS_TTL_MS) return hit.value;
+    const value = await this.loadAccess(role);
+    this.accessCache.set(role, { at: Date.now(), value });
+    return value;
+  }
+
+  private async loadAccess(role: string) {
     const saved = await this.prisma.modulePermission.findMany({ where: { role } });
     return Object.fromEntries(
       MODULES.map((m) => {

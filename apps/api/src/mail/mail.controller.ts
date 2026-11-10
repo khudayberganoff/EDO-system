@@ -1,3 +1,4 @@
+import { contentDisposition } from "../common/content-disposition";
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from "@nestjs/common";
 import { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
@@ -68,7 +69,7 @@ export class MailController {
   async downloadAttachment(@Param("id") id: string, @Res() res: Response) {
     const { full, name, mimeType } = await this.mailService.getAttachment(id);
     res.setHeader("Content-Type", mimeType);
-    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(name)}"`);
+    res.setHeader("Content-Disposition", contentDisposition(name));
     res.sendFile(full);
   }
 

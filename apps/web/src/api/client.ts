@@ -20,8 +20,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      clearSession();
-      window.location.href = "/login";
+      // Kirish so'rovining o'zi ham 401 qaytaradi (noto'g'ri parol, bog'lanmagan ERI) - bu "sessiya tugadi" emas:
+      // sahifani qayta yuklamaymiz, aks holda xato xabari ko'rinmay qoladi.
+      const url: string = error.config?.url ?? "";
+      const isLoginRequest = url.startsWith("/auth/login") || url.startsWith("/auth/eimzo/");
+      if (!isLoginRequest && readToken()) {
+        clearSession();
+        if (window.location.pathname !== "/login") window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },
