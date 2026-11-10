@@ -26,6 +26,8 @@ export class AuthController {
   }
 
   @Public()
+  // Parolni terib ko'rishga qarshi: bitta IP'dan daqiqasiga 20 ta urinish
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Email, parol va tanlangan tashkilot bilan tizimga kirish, JWT token qaytaradi" })

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Suspense } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   FileText,
@@ -32,7 +33,7 @@ import { useAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMyAccess } from "../api/settings";
 import { fetchDocuments } from "../api/documents";
-import { fetchLetters } from "../api/letters";
+import { fetchLetterBadges } from "../api/letters";
 import { fetchHrStats } from "../api/hr";
 import { fetchMyOrganizations } from "../api/auth";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -158,11 +159,13 @@ function SubSubItem({ to, label, icon: Icon, badge }: { to: string; label: strin
 export function AppLayout() {
   const { user, logout, switchOrganization } = useAuth();
   // Interfeys foydalanuvchining ruxsatlariga qarab quriladi
-  const { data: access } = useQuery({ queryKey: ["settings", "my-access"], queryFn: fetchMyAccess });
-  const can = (module: string) => access?.[module]?.canView !== false;
+  const { data: access, isPending: accessPending } = useQuery({ queryKey: ["settings", "my-access"], queryFn: fetchMyAccess, staleTime: 60_000 });
+  // Ruxsatlar yuklanguncha menyu bandlari ko'rsatilmaydi (yopiq bo'lim bir lahzaga ko'rinib qolmasligi uchun);
+  // yuklab bo'lmasa - hammasi ko'rsatiladi, himoya baribir serverda.
+  const can = (module: string) => (accessPending ? false : access?.[module]?.canView !== false);
 
   // Foydalanuvchi bir nechta tashkilotga kira oladimi - shunda topbar'da almashtirgich ko'rsatiladi
-  const { data: myOrganizations } = useQuery({ queryKey: ["auth", "my-organizations"], queryFn: fetchMyOrganizations });
+  const { data: myOrganizations } = useQuery({ queryKey: ["auth", "my-organizations"], queryFn: fetchMyOrganizations, enabled: !IS_CALL_SITE });
   const [switchingOrg, setSwitchingOrg] = useState(false);
   const handleSwitchOrg = async (organizationId: string) => {
     if (organizationId === user?.organizationId) return;
@@ -177,38 +180,33 @@ export function AppLayout() {
   };
 
   // Menyudagi son-bo'rtmalar - har biri o'z bo'limi uchun "diqqat talab qiladigan" elementlar soni.
+  // So'rovlar faqat ruxsatlar ma'lum bo'lgach va shu bo'lim ochiq bo'lsa yuboriladi (call.* saytida umuman yuborilmaydi).
+  const ready = !!access && !IS_CALL_SITE;
   const { data: pendingSignatureDocs } = useQuery({
     queryKey: ["documents", "count", "pendingSignature"],
     queryFn: () => fetchDocuments({ status: "PENDING_SIGNATURE", page: 1 }),
-    enabled: can("approvals"),
+    enabled: ready && can("approvals"),
   });
-  const { data: pendingLetters } = useQuery({
-    queryKey: ["letters", "count", "pendingApproval"],
-    queryFn: () => fetchLetters({ status: "PENDING_APPROVAL" as any }),
-    enabled: can("approvals"),
-  });
-  const { data: draftLetters } = useQuery({
-    queryKey: ["letters", "count", "draft"],
-    queryFn: () => fetchLetters({ status: "DRAFT" as any }),
-    enabled: can("letters"),
+  const { data: letterBadges } = useQuery({
+    queryKey: ["letters", "badges"],
+    queryFn: fetchLetterBadges,
+    enabled: ready && (can("letters") || can("approvals")),
   });
   const { data: hrStats } = useQuery({
     queryKey: ["hr", "stats", "sidebar"],
     queryFn: fetchHrStats,
-    enabled: can("hr"),
+    enabled: ready && can("hr"),
   });
-  const needApprovalCount = (pendingSignatureDocs?.total ?? 0) + (pendingLetters?.items?.length ?? 0);
-  const draftLettersCount = draftLetters?.items?.length ?? 0;
+  const needApprovalCount = (pendingSignatureDocs?.total ?? 0) + (letterBadges?.pendingApproval ?? 0);
+  const drafts = letterBadges?.drafts;
+  const draftLettersCount = drafts?.total ?? 0;
   const pendingLeavesCount = hrStats?.pendingLeaves ?? 0;
 
-  // "Xatlar" bo'rtmasi (5 kabi) qaysi bo'limlarga tegishli ekanini ko'rsatish uchun -
-  // qoralama xatlarni yo'nalish (kiruvchi/chiquvchi) va turi (Xat/Ma'lumotnoma/Ogohlantirish) bo'yicha ajratamiz.
-  const draftItems: { direction: string; type: string }[] = draftLetters?.items ?? [];
-  const countBy = (pred: (l: { direction: string; type: string }) => boolean) => draftItems.filter(pred).length;
-  const draftIncomingCount = countBy((l) => l.direction === "INCOMING");
-  const draftLetterCount = countBy((l) => l.direction === "OUTGOING" && l.type === "LETTER");
-  const draftReferenceCount = countBy((l) => l.direction === "OUTGOING" && l.type === "REFERENCE");
-  const draftWarningCount = countBy((l) => l.direction === "OUTGOING" && (l.type === "FIRST_WARNING" || l.type === "FINAL_WARNING"));
+  // "Xatlar" bo'rtmasi qaysi bo'limlarga tegishli ekanini ko'rsatish uchun - qoralamalar yo'nalish va tur bo'yicha.
+  const draftIncomingCount = drafts?.incoming ?? 0;
+  const draftLetterCount = drafts?.letter ?? 0;
+  const draftReferenceCount = drafts?.reference ?? 0;
+  const draftWarningCount = drafts?.warning ?? 0;
   const draftOutgoingCount = draftLetterCount + draftReferenceCount + draftWarningCount;
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
@@ -281,7 +279,7 @@ export function AppLayout() {
           {IS_CALL_SITE && can("settings") && <Item to="/settings" label={t("nav.settings")} icon={Settings} />}
           {!IS_CALL_SITE && (<>
           {/* Yig'iladigan "Hujjatlar" bo'limi - Xat / Ogohlantirish / Ma'lumotnoma */}
-          <div>
+          {can("letters") && <div>
             <button
               onClick={() => setLettersOpen((v) => !v)}
               className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${
@@ -330,10 +328,10 @@ export function AppLayout() {
                 <SubItem to="/letters/incoming" label={t("nav.incoming")} icon={Inbox} badge={draftIncomingCount} />
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Yig'iladigan "Kadrlar" bo'limi */}
-          <div>
+          {can("hr") && <div>
             <button
               onClick={() => setHrOpen((v) => !v)}
               className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${
@@ -354,7 +352,7 @@ export function AppLayout() {
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
           <div className="my-2 border-t border-slate-100" />
           {can("deleted") && <Item to="/letters/archive" label={t("nav.deleted")} icon={Trash2} />}
@@ -433,7 +431,9 @@ export function AppLayout() {
         </header>
 
         <main className="relative flex-1 overflow-y-auto">
-          <Outlet />
+          <Suspense fallback={<div className="p-8 text-sm text-slate-400">Yuklanmoqda...</div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

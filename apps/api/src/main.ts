@@ -1,4 +1,6 @@
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import compression = require("compression");
 import { ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { join } from "path";
@@ -8,7 +10,29 @@ import { runBootstrapSeed } from "./bootstrap-seed";
 import { isCallHost, isCallSiteApiPath } from "./common/site-mode";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Maxfiy kalitsiz ishlab bo'lmaydi: aks holda tokenlarni istalgan kishi yasay olardi
+  if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET o'rnatilmagan: production rejimida server ishga tushmaydi.");
+  }
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Server reverse proxy (Caddy/nginx) ortida turadi: mijozning haqiqiy IP manzili X-Forwarded-For'dan olinadi.
+  // Faqat xususiy tarmoqdagi proxy'ga ishoniladi (to'g'ridan-to'g'ri kelgan so'rov sarlavhani soxtalashtira olmaydi).
+  // Busiz barcha foydalanuvchilar bitta IP (proxy) bo'lib ko'rinadi va so'rovlar cheklovi hammaga umumiy bo'lib qoladi.
+  app.set("trust proxy", "loopback, linklocal, uniquelocal");
+  app.disable("x-powered-by");
+
+  // Javoblarni siqish (gzip): JS/CSS/JSON 3-4 baravar kichrayadi. Audio/rasm kabi siqilgan fayllarga tegilmaydi.
+  app.use(compression({ threshold: 1024 }));
+
+  // Asosiy xavfsizlik sarlavhalari
+  app.use((_req: any, res: any, next: any) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
 
   // Faqat DTO'da e'lon qilingan maydonlarni qabul qilamiz - xavfsizlik uchun muhim
   app.useGlobalPipes(
@@ -22,16 +46,26 @@ async function bootstrap() {
   // Asosiy interfeys uchun - faqat ruxsat etilgan manzillar.
   // Ochiq API (/api/public/*) esa API kalit bilan himoyalangani uchun
   // istalgan saytdan chaqirilishi mumkin.
-  const allowedOrigins = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()) ?? ["http://localhost:5173"];
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // server-server so'rovlar
-      callback(null, true);
-    },
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+  const allowedOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:5173").split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean);
+  const isProduction = process.env.NODE_ENV === "production";
+  app.enableCors((req: any, callback: (err: Error | null, options?: any) => void) => {
+    const origin: string | undefined = req.headers.origin;
+    const path: string = String(req.url ?? "").split("?")[0];
+    let allowed = false;
+    if (!origin) allowed = true; // server-server so'rovlar (brauzer emas)
+    else if (path.startsWith("/api/public/")) allowed = true; // ochiq API - API kalit bilan himoyalangan
+    else if (allowedOrigins.includes(origin)) allowed = true;
+    else {
+      try {
+        const host = new URL(origin).host;
+        // Sayt o'z manzilidan (edo.*, call.* ...) murojaat qilyapti
+        if (host === (req.headers["x-forwarded-host"] ?? req.headers.host)) allowed = true;
+        // Mahalliy ishlab chiqish: istalgan localhost porti
+        else if (!isProduction && /^(.+\.)?localhost(:\d+)?$/.test(host)) allowed = true;
+      } catch { /* noto'g'ri Origin - ruxsat yo'q */ }
+    }
+    callback(null, { origin: allowed, allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Webhook-Token"] });
   });
-  void allowedOrigins;
 
   app.setGlobalPrefix("api");
 
@@ -56,6 +90,8 @@ async function bootstrap() {
       if (req.path.includes(".")) {
         return next(); // statik fayl (js/css/rasm) bo'lsa, static middleware o'zi topadi
       }
+      // index.html keshlanmaydi: yangi versiya chiqqanda brauzer darhol yangi (xeshli) fayllarni oladi
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(join(webDistPath, "index.html"));
     });
   }

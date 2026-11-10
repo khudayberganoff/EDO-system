@@ -22,7 +22,7 @@ Ishlab turgan tizim: <https://edo.wafagroup.uz>
 
 ### Rollar va xavfsizlik
 
-- Rollar: `ADMIN`, `MANAGER` (rahbariyat), `EMPLOYEE`, `OBSERVER` (**Kuzatuvchi**: Sozlamalar → Foydalanuvchilar'da qo'shiladi; ikkala korxonaning barcha hujjat va xatlarini faqat ko'radi, vazifalar doskasiga vazifa kiritadi va "Tekshiruvda" turgan vazifalarni 1–5 yulduz bilan baholaydi; boshqa o'zgartirishlar server tomonida rad etiladi, Kadrlar bo'limi unga ochiq emas). `OPERATOR` (**Call-markaz operatori**: faqat `call.<domen>` saytiga kiradi va faqat Call-markaz bilan ishlaydi; boshqa API yo'llari tokeni bilan ham server tomonida yopiq; ikkala kompaniya bo'yicha ishlaydi). Bo'limlarga ruxsat Sozlamalar → "Ruxsatlar" bo'limida rol bo'yicha belgilanadi. Administrator `call.<domen>` saytida ham **Sozlamalar** (xodim qo'shish, rol belgilash, Call-markaz ruxsati, IP-telefoniya) bilan ishlaydi.
+- Rollar: `ADMIN`, `MANAGER` (rahbariyat), `EMPLOYEE`, `OBSERVER` (**Kuzatuvchi**: Sozlamalar → Foydalanuvchilar'da qo'shiladi; ikkala korxonaning barcha hujjat va xatlarini faqat ko'radi, vazifalar doskasiga vazifa kiritadi va "Tekshiruvda" turgan vazifalarni 1–5 yulduz bilan baholaydi; boshqa o'zgartirishlar server tomonida rad etiladi, Kadrlar bo'limi unga ochiq emas). `OPERATOR` (**Call-markaz operatori**: faqat `call.<domen>` saytiga kiradi va faqat Call-markaz bilan ishlaydi; boshqa API yo'llari tokeni bilan ham server tomonida yopiq; ikkala kompaniya bo'yicha ishlaydi). Bo'limlarga ruxsat Sozlamalar → "Ruxsatlar" bo'limida rol bo'yicha belgilanadi. Bu jadval **serverda ham** tekshiriladi (`ModuleAccessGuard`): bo'lim yopiq rol API'ga to'g'ridan-to'g'ri murojaat qilsa ham 403 oladi (Kadrlar, Xatlar/Pochta/CRM, Doska, API kalitlari). Administrator `call.<domen>` saytida ham **Sozlamalar** (xodim qo'shish, rol belgilash, Call-markaz ruxsati, IP-telefoniya) bilan ishlaydi.
 - Autentifikatsiya: JWT. `ADMIN`/`MANAGER` ikkala tashkilotga kira oladi, kirishda tashkilot tanlanadi; qolganlar faqat WAFA LEASING.
 - Xodim rasmi, obyektivka va mehnat shartnomasi fayllari ommaviy `/uploads` da **emas**, yashirin `uploads/.private/` papkasida saqlanadi va faqat avtorizatsiya bilan beriladi (obyektivka va shartnoma — faqat rahbariyatga).
 - So'rovlar tezligi cheklangan (throttler), kiruvchi ma'lumotlar DTO bo'yicha qat'iy tekshiriladi (`whitelist`).
@@ -159,6 +159,13 @@ ATS har bir qo'ng'iroq (kiruvchi/chiquvchi) tugaganda EDO'ga webhook yuboradi; q
 ## CRM bilan integratsiya
 
 Ogohlantirish xatlari uchun mijoz, shartnoma raqami/sanasi/turi (Murobaha / Lizing), qarzdorlik va kechikkan kunlar CRM (Supabase) bazasidan **faqat o'qish** huquqi bilan olinadi; qarz CRM'dagi Monitoring → Portfel bilan bir xil hisoblanadi. Batafsil: [`docs/CRM-INTEGRATION.md`](docs/CRM-INTEGRATION.md).
+
+## Ishlash tezligi va himoya (server)
+
+- Javoblar gzip bilan siqiladi; Vite yig'gan (xeshli) fayllar bir yilga keshlanadi, `index.html` keshlanmaydi; sahifalar alohida bo'laklarga ajratilgan (brauzer faqat ochilgan sahifa kodini yuklaydi).
+- Server reverse proxy ortida ishlaydi (`trust proxy`: faqat xususiy tarmoqdagi proxy). So'rovlar cheklovi: tizimga kirgan foydalanuvchi o'z tokeni bo'yicha (300/daq), kirmaganlar IP bo'yicha; kirish urinishlari bitta IP'dan 20/daq.
+- CORS: faqat `CORS_ORIGIN` dagi manzillar va saytning o'z manzili; ochiq API (`/api/public/*`) istalgan manzildan (API kalit bilan).
+- `NODE_ENV=production` da `JWT_SECRET` bo'lmasa server ishga tushmaydi.
 
 ## Deploy (Docker)
 

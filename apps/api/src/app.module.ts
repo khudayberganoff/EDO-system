@@ -27,12 +27,19 @@ import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { ObserverGuard } from "./common/guards/observer.guard";
 import { OperatorGuard } from "./common/guards/operator.guard";
+import { ModuleAccessGuard } from "./common/guards/module-access.guard";
+import { throttleTracker } from "./common/throttle-tracker";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]), // DDOS/brute-force'dan asosiy himoya
+    // So'rovlar cheklovi. Ofisdagi hamma bitta tashqi IP ortida bo'lishi mumkin, shuning uchun tizimga kirgan
+    // foydalanuvchi o'z tokeni bo'yicha hisoblanadi (har biriga alohida limit), kirmaganlar esa IP bo'yicha.
+    ThrottlerModule.forRoot([
+      { name: "default", ttl: 60_000, limit: 300, getTracker: throttleTracker },
+      { name: "ip", ttl: 60_000, limit: 3000, getTracker: (req) => `ip:${req.ip ?? ""}` },
+    ]),
     ServeStaticModule.forRoot(
       {
         rootPath: join(__dirname, "..", "uploads"),
@@ -45,7 +52,15 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
         // Frontend build (apps/web/dist) - bitta xizmat sifatida deploy qilinganda
         rootPath: join(__dirname, "..", "..", "web", "dist"),
         exclude: ["/api*", "/uploads*"],
-        serveStaticOptions: { index: false },
+        serveStaticOptions: {
+          index: false,
+          // Vite yig'gan fayllar nomida xesh bor (index-AbC123.js) - ular hech qachon o'zgarmaydi, bir yilga keshlanadi.
+          // Qolgan statik fayllar (logotip, favicon) bir kunga.
+          setHeaders: (res, filePath) => {
+            if (/[\\/]assets[\\/].+-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/.test(filePath)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+            else if (!filePath.endsWith(".html")) res.setHeader("Cache-Control", "public, max-age=86400");
+          },
+        },
       },
     ),
     PrismaModule,
@@ -73,6 +88,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ObserverGuard },
     { provide: APP_GUARD, useClass: OperatorGuard },
+    { provide: APP_GUARD, useClass: ModuleAccessGuard },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

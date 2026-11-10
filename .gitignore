@@ -5,3 +5,4 @@ uploads/
 .DS_Store
 apps/api/uploads/
 *.tsbuildinfo
+dist/

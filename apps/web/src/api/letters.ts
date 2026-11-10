@@ -4,6 +4,9 @@ import type { LetterDirection, LetterType, LetterStatus } from "@edo/shared-type
 export async function fetchLetters(params?: { direction?: LetterDirection; type?: LetterType; status?: LetterStatus; page?: number }) {
   const { data } = await apiClient.get("/letters", { params }); return data;
 }
+export interface LetterBadges { pendingApproval: number; drafts: { total: number; incoming: number; letter: number; reference: number; warning: number } }
+/** Yon menyu sanoqlari - xatlarning o'zi yuklanmaydi, faqat sonlar. */
+export async function fetchLetterBadges() { const { data } = await apiClient.get<LetterBadges>("/letters/badges"); return data; }
 export async function fetchLetterCounts() { const { data } = await apiClient.get("/letters/counts"); return data; }
 export async function fetchAiAgentStats() { const { data } = await apiClient.get("/letters/ai-agent/stats"); return data; }
 export async function createLetter(input: any) { const { data } = await apiClient.post("/letters", input); return data; }

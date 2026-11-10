@@ -66,6 +66,16 @@ export class HrService {
     }
   }
 
+  /**
+   * Xodim joriy tashkilotga tegishli ekanini tekshiradi: ID orqali boshqa tashkilot xodimiga buyruq, ta'til,
+   * davomat va h.k. yozib yuborilmasligi uchun. Boshqa tashkilot xodimi "topilmadi" bo'ladi.
+   */
+  private async assertEmployeeInOrg(employeeId: string, organizationId?: string) {
+    if (!organizationId) return;
+    const e = await this.prisma.employee.findUnique({ where: { id: employeeId }, select: { organizationId: true } });
+    if (!e || e.organizationId !== organizationId) throw new NotFoundException("Xodim topilmadi.");
+  }
+
   private ensureHrAccess(role: string) {
     if (![Role.ADMIN, Role.MANAGER].includes(role as Role)) {
       throw new ForbiddenException("Kadrlar bo'limiga faqat rahbariyat kirishi mumkin.");
@@ -254,8 +264,9 @@ export class HrService {
     });
   }
 
-  async createOrder(dto: CreateHrOrderDto, user: { id: string; role: string }) {
+  async createOrder(dto: CreateHrOrderDto, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertEmployeeInOrg(dto.employeeId, user.organizationId);
 
     // Buyruq raqami takrorlanmasligi shart - bir xil raqamli ikkita buyruq bo'lmasin
     const number = dto.number.trim();
@@ -310,7 +321,7 @@ export class HrService {
   }
 
   /** Buyruqni Word (.docx) hujjat sifatida shakllantiradi. */
-  async buildOrderDocx(id: string): Promise<{ buffer: Buffer; name: string }> {
+  async buildOrderDocx(id: string, organizationId?: string): Promise<{ buffer: Buffer; name: string }> {
     const order = await this.prisma.hrOrder.findUnique({
       where: { id },
       include: {
@@ -319,11 +330,12 @@ export class HrService {
             fullName: true, position: true, department: true,
             departmentRef: { select: { name: true } },
             organization: { select: { name: true } },
+            organizationId: true,
           },
         },
       },
     });
-    if (!order) throw new NotFoundException("Buyruq topilmadi.");
+    if (!order || (organizationId && order.employee?.organizationId !== organizationId)) throw new NotFoundException("Buyruq topilmadi.");
 
     // Ishga qabul qilish buyrug'i - kompaniya taqdim etgan tayyor shablon (har ikkala
     // tashkilot uchun ham bir xil shablon, faqat tashkilot nomi o'zgaradi) asosida shakllanadi.
@@ -369,8 +381,8 @@ export class HrService {
   }
 
   /** Buyruqning PDF nusxasi (Word hujjatidan aylantiriladi). */
-  async buildOrderPdf(id: string): Promise<{ buffer: Buffer; name: string }> {
-    const { buffer: docx, name } = await this.buildOrderDocx(id);
+  async buildOrderPdf(id: string, organizationId?: string): Promise<{ buffer: Buffer; name: string }> {
+    const { buffer: docx, name } = await this.buildOrderDocx(id, organizationId);
     const pdf = await this.pdfService.docxToPdf(docx);
     return { buffer: pdf, name: name.replace(/\.docx$/, ".pdf") };
   }
@@ -418,8 +430,9 @@ export class HrService {
   }
 
   /** Buyruqlar ro'yxatini Excel (.xlsx) fayl sifatida shakllantiradi. */
-  async exportOrdersXlsx(): Promise<Buffer> {
+  async exportOrdersXlsx(organizationId?: string): Promise<Buffer> {
     const orders = await this.prisma.hrOrder.findMany({
+      where: organizationId ? { employee: { organizationId } } : {},
       orderBy: { orderDate: "desc" },
       include: { employee: { select: { fullName: true, position: true, department: true } } },
     });
@@ -453,8 +466,10 @@ export class HrService {
     return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   }
 
-  async removeOrder(id: string, user: { id: string; role: string }) {
+  async removeOrder(id: string, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    const order = await this.prisma.hrOrder.findUnique({ where: { id }, select: { employee: { select: { organizationId: true } } } });
+    if (!order || (user.organizationId && order.employee?.organizationId !== user.organizationId)) throw new NotFoundException("Buyruq topilmadi.");
     await this.prisma.hrOrder.delete({ where: { id } });
     await this.auditLog.record({ userId: user.id, action: AuditAction.DELETE, metadata: { kind: "hrOrder", orderId: id } });
     return { deleted: true };
@@ -577,8 +592,9 @@ export class HrService {
     return Math.floor(ms / (1000 * 60 * 60 * 24)) + 1;
   }
 
-  async createLeave(dto: CreateLeaveDto, user: { id: string; role: string }) {
+  async createLeave(dto: CreateLeaveDto, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertEmployeeInOrg(dto.employeeId, user.organizationId);
     const start = new Date(dto.startDate);
     const end = new Date(dto.endDate);
     if (end < start) throw new BadRequestException("Ta'til tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas.");
@@ -598,8 +614,15 @@ export class HrService {
     return leave;
   }
 
-  async approveLeave(id: string, user: { id: string; role: string }) {
+  /** Ta'tilni topadi; boshqa tashkilot xodimining ta'tili "topilmadi" bo'ladi. */
+  private async assertLeaveInOrg(id: string, organizationId?: string) {
+    const leave = await this.prisma.leave.findUnique({ where: { id }, select: { employee: { select: { organizationId: true } } } });
+    if (!leave || (organizationId && leave.employee?.organizationId !== organizationId)) throw new NotFoundException("Ta'til topilmadi.");
+  }
+
+  async approveLeave(id: string, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertLeaveInOrg(id, user.organizationId);
     const leave = await this.prisma.leave.update({
       where: { id },
       data: { status: "APPROVED", approvedById: user.id, approvedAt: new Date() },
@@ -608,10 +631,11 @@ export class HrService {
     return leave;
   }
 
-  async rejectLeave(id: string, reason: string, user: { id: string; role: string }) {
+  async rejectLeave(id: string, reason: string, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
     const trimmed = (reason ?? "").trim();
     if (trimmed.length < 3) throw new BadRequestException("Rad etish sababini yozing.");
+    await this.assertLeaveInOrg(id, user.organizationId);
     const leave = await this.prisma.leave.update({
       where: { id },
       data: { status: "REJECTED", rejectionReason: trimmed },
@@ -620,8 +644,9 @@ export class HrService {
     return leave;
   }
 
-  async removeLeave(id: string, user: { id: string; role: string }) {
+  async removeLeave(id: string, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertLeaveInOrg(id, user.organizationId);
     await this.prisma.leave.delete({ where: { id } });
     await this.auditLog.record({ userId: user.id, action: AuditAction.DELETE, metadata: { kind: "leave", leaveId: id } });
     return { deleted: true };
@@ -704,16 +729,20 @@ export class HrService {
    * Bir oylik davomat jadvali: har bir xodim uchun kunlar bo'yicha holat.
    * Bayram kunlari va tasdiqlangan ta'tillar avtomatik belgilanadi.
    */
-  async attendanceMonth(year: number, month: number) {
+  async attendanceMonth(year: number, month: number, organizationId?: string) {
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12 || year < 2000 || year > 2100) {
+      throw new BadRequestException("Yil yoki oy noto'g'ri.");
+    }
+    const orgWhere = organizationId ? { organizationId } : {};
     const from = new Date(Date.UTC(year, month - 1, 1));
     const to = new Date(Date.UTC(year, month, 1));
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
     const [employees, records, holidays, leaves] = await this.prisma.$transaction([
-      this.prisma.employee.findMany({ where: { status: "ACTIVE" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, position: true, department: true } }),
-      this.prisma.attendance.findMany({ where: { date: { gte: from, lt: to } } }),
+      this.prisma.employee.findMany({ where: { status: "ACTIVE", ...orgWhere }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, position: true, department: true } }),
+      this.prisma.attendance.findMany({ where: { date: { gte: from, lt: to }, employee: orgWhere } }),
       this.prisma.holiday.findMany({ where: { date: { gte: from, lt: to } } }),
-      this.prisma.leave.findMany({ where: { status: "APPROVED", startDate: { lt: to }, endDate: { gte: from } } }),
+      this.prisma.leave.findMany({ where: { status: "APPROVED", startDate: { lt: to }, endDate: { gte: from }, employee: orgWhere } }),
     ]);
 
     const holidayDays = new Map<number, string>();
@@ -752,9 +781,11 @@ export class HrService {
   }
 
   /** Bitta kunning holatini belgilash (jadvaldagi katakni bosganda). */
-  async setAttendance(data: { employeeId: string; date: string; status: string; lateMinutes?: number; note?: string }, user: { id: string; role: string }) {
+  async setAttendance(data: { employeeId: string; date: string; status: string; lateMinutes?: number; note?: string }, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertEmployeeInOrg(data.employeeId, user.organizationId);
     const day = new Date(data.date);
+    if (isNaN(day.getTime())) throw new BadRequestException("Sana noto'g'ri.");
     const normalized = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()));
 
     const record = await this.prisma.attendance.upsert({
@@ -858,8 +889,9 @@ export class HrService {
   }
 
   /** Xodimning haftalik ish jadvalini belgilash. */
-  async setSchedule(data: { employeeId: string; weekday: number; startTime?: string; endTime?: string; isDayOff?: boolean; shiftName?: string }, user: { id: string; role: string }) {
+  async setSchedule(data: { employeeId: string; weekday: number; startTime?: string; endTime?: string; isDayOff?: boolean; shiftName?: string }, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertEmployeeInOrg(data.employeeId, user.organizationId);
     return this.prisma.workSchedule.upsert({
       where: { employeeId_weekday: { employeeId: data.employeeId, weekday: data.weekday } },
       create: {
@@ -874,22 +906,24 @@ export class HrService {
     });
   }
 
-  async listSchedules(employeeId: string) {
+  async listSchedules(employeeId: string, organizationId?: string) {
+    await this.assertEmployeeInOrg(employeeId, organizationId);
     return this.prisma.workSchedule.findMany({ where: { employeeId }, orderBy: { weekday: "asc" } });
   }
 
   // ---------- Minnatdorchilik ----------
 
-  async listGratitudes(employeeId?: string) {
+  async listGratitudes(employeeId?: string, organizationId?: string) {
     return this.prisma.gratitude.findMany({
-      where: employeeId ? { employeeId } : {},
+      where: { ...(employeeId ? { employeeId } : {}), ...(organizationId ? { employee: { organizationId } } : {}) },
       orderBy: { createdAt: "desc" },
       include: { employee: { select: { id: true, fullName: true, position: true } }, author: { select: { fullName: true } } },
     });
   }
 
-  async createGratitude(data: { employeeId: string; message: string }, user: { id: string; role: string }) {
+  async createGratitude(data: { employeeId: string; message: string }, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertEmployeeInOrg(data.employeeId, user.organizationId);
     const trimmed = (data.message ?? "").trim();
     if (trimmed.length < 3) throw new BadRequestException("Minnatdorchilik matnini yozing.");
     return this.prisma.gratitude.create({
@@ -898,15 +932,18 @@ export class HrService {
     });
   }
 
-  async removeGratitude(id: string, user: { id: string; role: string }) {
+  async removeGratitude(id: string, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    const g = await this.prisma.gratitude.findUnique({ where: { id }, select: { employee: { select: { organizationId: true } } } });
+    if (!g || (user.organizationId && g.employee?.organizationId !== user.organizationId)) throw new NotFoundException("Yozuv topilmadi.");
     await this.prisma.gratitude.delete({ where: { id } });
     return { deleted: true };
   }
 
   /** Xodim kartasini tizim foydalanuvchisiga bog'lash. */
-  async linkUser(employeeId: string, userId: string | null, user: { id: string; role: string }) {
+  async linkUser(employeeId: string, userId: string | null, user: { id: string; role: string; organizationId?: string }) {
     this.ensureHrAccess(user.role);
+    await this.assertEmployeeInOrg(employeeId, user.organizationId);
     return this.prisma.employee.update({ where: { id: employeeId }, data: { userId } });
   }
 
