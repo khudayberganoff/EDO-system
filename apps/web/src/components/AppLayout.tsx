@@ -28,6 +28,7 @@ import {
   Inbox,
   KanbanSquare,
   Headset,
+  Contact,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -74,6 +75,7 @@ const PAGE_TITLES: { test: (path: string) => boolean; labelKey: string }[] = [
   { test: (p) => p === "/my-hr", labelKey: "nav.myHr" },
   { test: (p) => p === "/board", labelKey: "nav.board" },
   { test: (p) => p === "/calls", labelKey: "nav.calls" },
+  { test: (p) => p === "/clients", labelKey: "nav.clients" },
   { test: (p) => p.startsWith("/documents"), labelKey: "nav.needApproval" },
   { test: (p) => p.startsWith("/letters/incoming"), labelKey: "nav.incoming" },
   { test: (p) => p.startsWith("/letters/outgoing"), labelKey: "nav.letter" },
@@ -277,6 +279,7 @@ export function AppLayout() {
               />
             ))}
 
+          {IS_CALL_SITE && can("calls") && <Item to="/clients" label={t("nav.clients")} icon={Contact} />}
           {IS_CALL_SITE && can("settings") && <Item to="/settings" label={t("nav.settings")} icon={Settings} />}
           {!IS_CALL_SITE && (<>
           {/* Yig'iladigan "Hujjatlar" bo'limi - Xat / Ogohlantirish / Ma'lumotnoma */}
