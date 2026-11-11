@@ -6,6 +6,8 @@ import { fetchTelegramConfig, saveTelegramToken, removeTelegramToken } from "../
 import { fetchEimzoSettings, saveEimzoSettings, removeEimzoSettings } from "../api/auth";
 import { fetchTelephonySettings, saveTelephonySettings, regenerateTelephonyToken } from "../api/calls";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../i18n/LanguageContext";
+import { LOCALE_OF } from "../i18n/callsTranslations";
 
 const SCOPES = [
   { value: "hr", label: "Kadrlar (xodimlar, buyruqlar, davomat...)" },
@@ -370,6 +372,7 @@ function EimzoCard() {
  * Manzil maxfiy token bilan himoyalangan; ATS GET yoki POST (JSON / form) yuborishi mumkin.
  */
 export function TelephonyCard() {
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const qc = useQueryClient();
   const isAdmin = user?.role === "ADMIN";
@@ -386,50 +389,50 @@ export function TelephonyCard() {
   return (
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><PhoneIcon size={16} className="text-emerald-600" /> IP-telefoniya (ATS) qo'ng'iroqlari</h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><PhoneIcon size={16} className="text-emerald-600" /> {t("tel.title")}</h2>
         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${data.last24h > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
-          {data.last24h > 0 ? `Ishlayapti · 24 soatda ${data.last24h} ta` : "Hali qo'ng'iroq kelmagan"}
+          {data.last24h > 0 ? t("tel.working", { n: data.last24h }) : t("tel.noCalls")}
         </span>
       </div>
       <div className="space-y-3 text-sm text-slate-600">
-        <p>ATS sozlamasida har bir qo'ng'iroq (kiruvchi va chiquvchi) tugaganda <b>shu manzilga</b> so'rov (GET yoki POST, JSON yoki form) yuborilsin. Kelgan qo'ng'iroqlar <b>Call-markaz → Qo'ng'iroqlar</b> bo'limida ko'rinadi, javob berilmagan kiruvchi qo'ng'iroqdan «Lidlar» da «Yangi lead» yaratiladi (javob berilgan va chiquvchi qo'ng'iroqlar lid bo'lmaydi).</p>
+        <p>{t("tel.help")}</p>
         <div className="flex gap-2">
           <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="input flex-1 font-mono text-xs" />
-          <button onClick={copy} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm hover:bg-slate-50">{copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />} {copied ? "Nusxalandi" : "Nusxalash"}</button>
-          <button onClick={() => window.confirm("Token yangilansinmi? Eski manzil ishlamay qoladi, ATS'da yangisini kiritish kerak.") && regen.mutate()} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50"><RefreshCw size={14} /> Yangilash</button>
+          <button onClick={copy} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm hover:bg-slate-50">{copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />} {copied ? t("tel.copied") : t("tel.copy")}</button>
+          <button onClick={() => window.confirm(t("tel.regenConfirm")) && regen.mutate()} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50"><RefreshCw size={14} /> {t("tel.regen")}</button>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-xs text-slate-500">Qaysi tashkilotga yoziladi
+          <label className="flex items-center gap-2 text-xs text-slate-500">{t("tel.org")}
             <select value={data.organizationId ?? ""} onChange={(e) => save.mutate({ organizationId: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700">
               {data.organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </label>
           <label className="flex items-center gap-2 text-xs text-slate-500">
             <input type="checkbox" checked={data.autoLead} onChange={(e) => save.mutate({ autoLead: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
-            Javob berilmagan kiruvchi qo'ng'iroqdan avtomatik lid yaratish
+            {t("tel.autoLead")}
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-          <span>Yozuvlar: <b className="text-slate-700">{data.recordingCount}</b> ta · <b className="text-slate-700">{(data.recordingBytes / 1048576).toFixed(1)} MB</b></span>
-          <label className="flex items-center gap-2">Saqlash muddati
+          <span className="font-medium text-slate-700">{t("tel.recordings", { n: data.recordingCount, size: (data.recordingBytes / 1048576).toFixed(1) })}</span>
+          <label className="flex items-center gap-2">{t("tel.retention")}
             <select value={data.retentionDays} onChange={(e) => save.mutate({ retentionDays: Number(e.target.value) })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700">
-              <option value={0}>Doimiy</option><option value={30}>30 kun</option><option value={90}>90 kun</option><option value={180}>180 kun</option><option value={365}>1 yil</option>
+              <option value={0}>{t("tel.forever")}</option>{[30, 90, 180].map((n) => <option key={n} value={n}>{t("tel.days", { n })}</option>)}<option value={365}>{t("tel.year")}</option>
             </select>
           </label>
-          <span className="text-slate-400">Muddati o'tgan yozuv fayllari o'chiriladi (qo'ng'iroq yozuvi qoladi). Diskni nazorat qiling.</span>
+          <span className="text-slate-400">{t("tel.retentionHint")}</span>
         </div>
         <details className="text-xs text-slate-500">
-          <summary className="cursor-pointer select-none text-slate-600">Qaysi maydonlar o'qiladi</summary>
-          <p className="mt-2">Raqamlar: <code>caller / caller_id / src / from</code> va <code>callee / called_did / dst / to</code>; yo'nalish: <code>direction / call_type</code> (in/out; berilmasa ichki-tashqi raqamdan aniqlanadi); holat: <code>disposition / status</code>; davomiylik: <code>billsec / duration</code> (soniya); qo'ng'iroq ID: <code>uniqueid / call_id / pbx_call_id / uuid</code>; vaqt: <code>calldate / call_start / start_time</code> (ISO yoki epoch); yozuv: <code>recordingfile / record_url</code>; ichki raqam: <code>extension / ext / operator</code>. Bir qo'ng'iroq uchun bir necha hodisa kelsa, ID bo'yicha yangilanadi.</p>
+          <summary className="cursor-pointer select-none text-slate-600">{t("tel.fields")}</summary>
+          <p className="mt-2">{t("tel.fieldsText")}</p>
         </details>
         <div className="rounded-lg bg-slate-50 p-3 text-xs">
-          <div className="font-medium text-slate-700">Oxirgi kelgan so'rov</div>
+          <div className="font-medium text-slate-700">{t("tel.lastRequest")}</div>
           {data.last ? (
             <>
-              <p className={data.last.ok ? "text-emerald-700" : "text-rose-700"}>{new Date(data.last.at).toLocaleString("uz-UZ")} · {data.last.ok ? "qabul qilindi" : `rad etildi: ${data.last.error}`}</p>
+              <p className={data.last.ok ? "text-emerald-700" : "text-rose-700"}>{new Date(data.last.at).toLocaleString(LOCALE_OF[language])} · {data.last.ok ? t("tel.accepted") : t("tel.rejected", { error: data.last.error ?? "" })}</p>
               <pre className="mt-1.5 max-h-40 overflow-auto rounded bg-white p-2 text-[11px] text-slate-600">{JSON.stringify(data.last.raw, null, 2)}</pre>
             </>
-          ) : <p className="text-slate-400">Hali so'rov kelmagan. ATS ulangach, shu yerda ma'lumot ko'rinadi (format muammosini aniqlash uchun).</p>}
+          ) : <p className="text-slate-400">{t("tel.noRequest")}</p>}
         </div>
       </div>
     </div>
