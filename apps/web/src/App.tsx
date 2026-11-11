@@ -24,6 +24,7 @@ const SettingsPage = page(() => import("./pages/SettingsPage"), "SettingsPage");
 const BoardPage = page(() => import("./pages/BoardPage"), "BoardPage");
 const IncomingMailPage = page(() => import("./pages/IncomingMailPage"), "IncomingMailPage");
 const CallCenterPage = page(() => import("./pages/CallCenterPage"), "CallCenterPage");
+const ClientsPage = page(() => import("./pages/ClientsPage"), "ClientsPage");
 import { IS_CALL_SITE } from "./utils/site";
 
 const queryClient = new QueryClient({
@@ -57,6 +58,7 @@ export default function App() {
                 {IS_CALL_SITE ? (
                   <>
                     <Route path="/calls" element={<CallCenterPage />} />
+                    <Route path="/clients" element={<ClientsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/calls" replace />} />
                   </>

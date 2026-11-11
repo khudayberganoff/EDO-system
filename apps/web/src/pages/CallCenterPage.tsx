@@ -7,12 +7,10 @@ import type { TranslationKey } from "../i18n/translations";
 import { LeadsBoard } from "./call/LeadsBoard";
 import { CallCalendar } from "./call/CallCalendar";
 import { PhoneCallsTab } from "./call/PhoneCallsTab";
-import { ClientsTab } from "./call/ClientsTab";
 
-type Tab = "leads" | "clients" | "calls" | "calendar";
+type Tab = "leads" | "calls" | "calendar";
 const TABS: { key: Tab; label: TranslationKey }[] = [
   { key: "leads", label: "calls.tab.leads" },
-  { key: "clients", label: "calls.tab.clients" },
   { key: "calls", label: "calls.tab.calls" },
   { key: "calendar", label: "calls.tab.calendar" },
 ];
@@ -35,7 +33,6 @@ export function CallCenterPage() {
         </div>
       </div>
       {tab === "leads" && <LeadsBoard canEdit={canEdit} />}
-      {tab === "clients" && <ClientsTab canEdit={canEdit} />}
       {tab === "calls" && <PhoneCallsTab />}
       {tab === "calendar" && <CallCalendar onOpen={() => setTab("leads")} />}
     </div>
