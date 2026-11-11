@@ -37,6 +37,7 @@ import { fetchLetterBadges } from "../api/letters";
 import { fetchHrStats } from "../api/hr";
 import { fetchMyOrganizations } from "../api/auth";
 import { useLanguage } from "../i18n/LanguageContext";
+import type { TranslationKey } from "../i18n/translations";
 import { LANGUAGES } from "../i18n/translations";
 import { IS_CALL_SITE } from "../utils/site";
 
@@ -251,11 +252,11 @@ export function AppLayout() {
           </div>
           <div className="flex-1">
             <div className="text-sm font-semibold text-slate-900">WAFA</div>
-            <div className="text-xs text-slate-400">{IS_CALL_SITE ? "Call-markaz" : "EDO tizimi"}</div>
+            <div className="text-xs text-slate-400">{IS_CALL_SITE ? t("nav.calls") : t("layout.edoSystem")}</div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            title="Menyuni yopish"
+            title={t("layout.closeMenu")}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           >
             <ChevronLeft size={18} />
@@ -263,7 +264,7 @@ export function AppLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3">
-          <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Asosiy</div>
+          <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("layout.sectionMain")}</div>
           {TOP_NAV_ITEMS.filter((x) => (IS_CALL_SITE ? x.to === "/calls" : x.to !== "/calls")).filter((x) => can(x.to === "/" ? "dashboard" : x.to === "/my-hr" ? "my-hr" : x.to === "/board" ? "board" : x.to === "/calls" ? "calls" : "approvals"))
             .map((x) => (
               <Item
@@ -415,7 +416,7 @@ export function AppLayout() {
             )}
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium text-slate-800">{user?.fullName}</div>
-              <div className="text-xs text-slate-400">{user?.role === "OBSERVER" ? "Kuzatuvchi" : user?.role === "OPERATOR" ? "Operator" : user?.role}</div>
+              <div className="text-xs text-slate-400">{user?.role ? t(`settings.role.${user.role}` as TranslationKey) : ""}</div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
               {initials || <UserCircle2 size={20} />}
