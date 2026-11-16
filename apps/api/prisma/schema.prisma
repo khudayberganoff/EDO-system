@@ -802,6 +802,19 @@ model CallLead {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  /// Facebook/Instagram lid formasidan kelgan bo'lsa (Meta Lead Ads). leadgen_id - takrorlanmaslik
+  /// kafolati va keyinchalik Conversions API'ga natija qaytarish uchun saqlanadi.
+  metaLeadgenId    String? @unique
+  metaFormId       String?
+  metaFormName     String?
+  metaCampaignId   String?
+  metaCampaignName String?
+  metaAdsetName    String?
+  metaAdId         String?
+  metaAdName       String?
+  /// fb | ig
+  metaPlatform     String?
+
   @@index([organizationId, stage])
 }
 
@@ -853,4 +866,88 @@ model ClientPhone {
   updatedAt   DateTime @updatedAt
 
   @@unique([crmOrg, clientId])
+}
+
+// ==================== FACEBOOK LEAD ADS ====================
+
+/// Meta (Facebook) akkaunti ulanishi (OAuth). Token shifrlangan holda saqlanadi.
+model MetaConnection {
+  id            String     @id @default(cuid())
+  fbUserId      String     @unique
+  fbUserName    String?
+  /// Uzoq muddatli user token (shifrlangan)
+  userToken     String
+  connectedById String?
+  /// ACTIVE | REAUTH (token bekor bo'lgan - qayta ulash kerak)
+  status        String     @default("ACTIVE")
+  pages         MetaPage[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+/// Ulangan akkaunt boshqaradigan Facebook sahifasi. `subscribed` - leadgen webhook'iga obuna qilinganmi.
+model MetaPage {
+  id             String         @id @default(cuid())
+  connectionId   String
+  connection     MetaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  pageId         String         @unique
+  pageName       String
+  /// Muddatsiz Page token (shifrlangan) - frontendga hech qachon qaytarilmaydi
+  pageToken      String
+  subscribed     Boolean        @default(false)
+  /// Barcha formalar (keyin yaratiladiganlari ham) qabul qilinadi
+  allForms       Boolean        @default(false)
+  /// "Barcha formalar" uchun standart sozlamalar (formaning o'z sozlamasi bo'lmasa)
+  stage          String         @default("NEW")
+  organizationId String?
+  assigneeId     String?
+  lastLeadAt     DateTime?
+  lastError      String?
+  lastErrorAt    DateTime?
+  forms          MetaForm[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+/// Sahifaning lid formasi va uning sozlamasi (maydonlar moslamasi, bosqich, tashkilot, mas'ul).
+model MetaForm {
+  id             String   @id @default(cuid())
+  pageRefId      String
+  page           MetaPage @relation(fields: [pageRefId], references: [id], onDelete: Cascade)
+  formId         String   @unique
+  formName       String
+  /// Meta'dagi holati (ACTIVE / ARCHIVED ...)
+  formStatus     String?
+  /// null - sahifaning "Barcha formalar" sozlamasiga bo'ysunadi; true/false - aniq yoqilgan/o'chirilgan
+  enabled        Boolean?
+  /// Forma savollari: [{ key, label, type }]
+  questions      Json?
+  /// Savol kaliti -> tizim maydoni (name | phone | note | skip)
+  mapping        Json?
+  stage          String?
+  organizationId String?
+  assigneeId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+/// Meta'dan kelgan har bir leadgen xabari (navbat). leadgen_id unikal - qayta yuborilsa dublikat bo'lmaydi.
+model MetaWebhookEvent {
+  id            String    @id @default(cuid())
+  leadgenId     String    @unique
+  pageId        String
+  formId        String?
+  adId          String?
+  rawPayload    Json
+  /// new | done | skipped | error
+  status        String    @default("new")
+  attempts      Int       @default(0)
+  error         String?
+  nextAttemptAt DateTime  @default(now())
+  leadId        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
 }

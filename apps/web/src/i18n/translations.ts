@@ -1,4 +1,5 @@
 import { callsEn, callsRu, callsUz } from "./callsTranslations";
+import { metaEn, metaRu, metaUz } from "./metaTranslations";
 
 export type Language = "uz" | "ru" | "en";
 
@@ -15,6 +16,7 @@ export const LANGUAGES: { code: Language; label: string; short: string }[] = [
 export const translations = {
   uz: {
     ...callsUz,
+    ...metaUz,
     // --- Login ---
     "login.title": "Elektron hujjat aylanishi",
     "login.subtitle": "EDO tizimiga kirish",
@@ -432,6 +434,7 @@ export const translations = {
 
   ru: {
     ...callsRu,
+    ...metaRu,
     "login.title": "Электронный документооборот",
     "login.subtitle": "Вход в систему ЭДО",
     "login.eimzo": "Электронная цифровая подпись",
@@ -839,6 +842,7 @@ export const translations = {
 
   en: {
     ...callsEn,
+    ...metaEn,
     "login.title": "Electronic Document Management",
     "login.subtitle": "Sign in to the EDMS",
     "login.eimzo": "Digital signature",

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
+import { CalendarClock, Facebook, Instagram, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { createLead, deleteLead, fetchLeads, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage } from "../../api/calls";
 import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
@@ -14,6 +14,12 @@ function useFmtDT() {
   const locale = LOCALE_OF[language];
   return (d?: string | null) => (d ? new Date(d).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" }) : "");
 }
+/** Kartochkadagi qisqa izoh: Meta lidida faqat arizadagi javoblar (forma/kampaniya pastdagi ko'k qatorda) */
+const notePreview = (l: Lead) => {
+  if (!l.note || !l.metaLeadgenId) return l.note;
+  const first = l.note.split("\n\n")[0];
+  return first.startsWith("Forma:") || first.startsWith("Platforma:") ? "" : first;
+};
 const telHref = (p: string) => `tel:${p.replace(/[^\d+]/g, "")}`;
 /** ISO -> <input type="datetime-local"> qiymati (mahalliy vaqt) */
 const toLocalInput = (iso?: string | null) => {
@@ -104,7 +110,7 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
                     {l.phone && (
                       <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-emerald-700 hover:underline"><Phone size={11} /> {l.phone}</a>
                     )}
-                    {l.note && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{l.note}</p>}
+                    {notePreview(l) && <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-slate-500">{notePreview(l)}</p>}
                     {l.stage === "MEETING" && l.meetingAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-sky-700"><CalendarClock size={12} /> {fmtDT(l.meetingAt)}</div>}
                     {l.stage === "CALLBACK" && l.callbackAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700"><CalendarClock size={12} /> {fmtDT(l.callbackAt)}</div>}
                     {l.phoneCalls?.[0] && (
@@ -113,7 +119,13 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
                         {fmtDT(l.phoneCalls[0].startedAt)}
                       </div>
                     )}
-                    <div className="mt-1.5 text-[11px] text-slate-400">{l.owner?.fullName ?? t("calls.ipTelephony")}{l.source && l.source !== "IP-telefoniya" ? ` · ${l.source}` : ""}</div>
+                    {l.metaLeadgenId && (
+                      <div className="mt-1.5 flex items-center gap-1 truncate text-[11px] font-medium text-[#1877F2]" title={[l.metaFormName, l.metaCampaignName, l.metaAdName].filter(Boolean).join(" · ")}>
+                        {l.metaPlatform === "ig" ? <Instagram size={11} className="shrink-0" /> : <Facebook size={11} className="shrink-0" />}
+                        <span className="truncate">{l.metaCampaignName ?? l.metaFormName ?? "Meta Ads"}</span>
+                      </div>
+                    )}
+                    <div className="mt-1.5 text-[11px] text-slate-400">{[l.owner?.fullName ?? (l.metaLeadgenId ? null : t("calls.ipTelephony")), l.source && l.source !== "IP-telefoniya" && !l.metaLeadgenId ? l.source : null].filter(Boolean).join(" · ")}</div>
                   </div>
                 ))}
 
@@ -223,7 +235,22 @@ function LeadModal({ lead, canEdit, onClose, onSaved }: { lead: Lead | null; can
             <label className="block text-xs text-slate-500">{t("calls.leads.callbackAt")}{needCallback ? " *" : ""}<input type="datetime-local" value={form.callbackAt} disabled={!canEdit} onChange={(e) => set("callbackAt", e.target.value)} className="input mt-1" /></label>
           )}
           <label className="block text-xs text-slate-500">{t("calls.leads.note")}<textarea value={form.note} disabled={!canEdit} onChange={(e) => set("note", e.target.value)} rows={3} className="input mt-1" /></label>
-          {lead && <p className="text-xs text-slate-400">{t("calls.leads.addedBy")}: {lead.owner?.fullName ?? t("calls.ipTelephonyAuto")} · {fmtDT(lead.createdAt)}</p>}
+          {lead?.metaLeadgenId && (
+            <div className="space-y-0.5 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs text-slate-600">
+              <div className="flex items-center gap-1.5 font-semibold text-[#1877F2]">
+                {lead.metaPlatform === "ig" ? <Instagram size={13} /> : <Facebook size={13} />} {t("meta.leadInfo")} · {lead.metaPlatform === "ig" ? "Instagram" : "Facebook"}
+              </div>
+              {lead.metaFormName && <div>{t("meta.form")}: <b className="font-medium text-slate-800">{lead.metaFormName}</b></div>}
+              {lead.metaCampaignName && <div>{t("meta.campaign")}: <b className="font-medium text-slate-800">{lead.metaCampaignName}</b></div>}
+              {lead.metaAdsetName && <div>{t("meta.adset")}: <b className="font-medium text-slate-800">{lead.metaAdsetName}</b></div>}
+              {lead.metaAdName && <div>{t("meta.ad")}: <b className="font-medium text-slate-800">{lead.metaAdName}</b></div>}
+            </div>
+          )}
+          {lead && (
+            <p className="text-xs text-slate-400">
+              {lead.metaLeadgenId ? `${t("meta.assignee")}: ${lead.owner?.fullName ?? t("meta.noAssignee")}` : `${t("calls.leads.addedBy")}: ${lead.owner?.fullName ?? t("calls.ipTelephonyAuto")}`} · {fmtDT(lead.createdAt)}
+            </p>
+          )}
           {lead && <LeadCalls leadId={lead.id} />}
         </div>
         {error && <p className="mt-3 text-xs text-rose-600">{error}</p>}

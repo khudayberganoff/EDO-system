@@ -22,6 +22,7 @@ import { TelegramModule } from "./telegram/telegram.module";
 import { CrmModule } from "./crm/crm.module";
 import { CallsModule } from "./calls/calls.module";
 import { TelephonyModule } from "./telephony/telephony.module";
+import { MetaModule } from "./meta/meta.module";
 
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -80,6 +81,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     CrmModule,
     CallsModule,
     TelephonyModule,
+    MetaModule,
   ],
   providers: [
     // Tartib muhim: avval kim ekanligini aniqlaymiz (JWT), keyin nima qila olishini (Roles)

@@ -18,7 +18,10 @@ export function isOperatorApiPath(path: string): boolean {
   );
 }
 
-/** Call-saytida ochiq API yo'llari: yuqoridagilar + administrator uchun sozlamalar (xodimlar, rollar, IP-telefoniya sozlamasi). */
+/**
+ * Call-saytida ochiq API yo'llari: yuqoridagilar + administrator uchun sozlamalar (xodimlar, rollar, IP-telefoniya)
+ * va Facebook Lead Ads (webhook, OAuth, sozlash - administrator; webhook'ni imzo himoyalaydi).
+ */
 export function isCallSiteApiPath(path: string): boolean {
-  return isOperatorApiPath(path) || path.startsWith("/api/settings/") || path.startsWith("/api/telephony/settings");
+  return isOperatorApiPath(path) || path.startsWith("/api/settings/") || path.startsWith("/api/telephony/settings") || path.startsWith("/api/meta/");
 }

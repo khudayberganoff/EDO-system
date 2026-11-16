@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info, Mail, Phone, Briefcase, Building2, CalendarDays, FileText, IdCard } from "lucide-react";
+import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info, Mail, Phone, Briefcase, Building2, CalendarDays, FileText, IdCard, Plug } from "lucide-react";
 import { IS_CALL_SITE } from "../utils/site";
 import { TelephonyCard } from "./IntegrationsPage";
+import { MetaLeadsCard } from "./call/MetaLeadsCard";
+import { useSearchParams } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LOCALE_OF } from "../i18n/callsTranslations";
 import type { TranslationKey } from "../i18n/translations";
@@ -38,7 +40,9 @@ function useRoleLabel() {
 
 export function SettingsPage() {
   const { t } = useLanguage();
-  const [tab, setTab] = useState<"users" | "permissions" | "telephony">("users");
+  // ?tab=integrations - Facebook ulanishidan qaytilganda shu bo'lim ochiladi
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<"users" | "permissions" | "telephony">(IS_CALL_SITE && params.get("tab") === "integrations" ? "telephony" : "users");
 
   return (
     <div className="p-8">
@@ -51,7 +55,7 @@ export function SettingsPage() {
         {[
           { key: "users" as const, label: t("settings.tab.users"), icon: Users },
           { key: "permissions" as const, label: t("settings.tab.permissions"), icon: ShieldCheck },
-          ...(IS_CALL_SITE ? [{ key: "telephony" as const, label: t("settings.tab.telephony"), icon: Phone }] : []),
+          ...(IS_CALL_SITE ? [{ key: "telephony" as const, label: t("settings.tab.telephony"), icon: Plug }] : []),
         ].map((x) => (
           <button
             key={x.key}
@@ -65,7 +69,7 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {tab === "users" ? <UsersTab /> : tab === "permissions" ? <PermissionsTab /> : <TelephonyCard />}
+      {tab === "users" ? <UsersTab /> : tab === "permissions" ? <PermissionsTab /> : <><MetaLeadsCard /><TelephonyCard /></>}
     </div>
   );
 }
