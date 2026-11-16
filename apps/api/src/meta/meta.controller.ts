@@ -13,6 +13,7 @@ class SaveAppDto {
   @IsOptional() @IsString() @MaxLength(100) appSecret?: string;
   @IsOptional() @IsBoolean() dedupeByPhone?: boolean;
   @IsOptional() @IsBoolean() notifyTelegram?: boolean;
+  @IsOptional() @IsString() @MaxLength(40) loginConfigId?: string;
 }
 
 class OauthStartDto {
