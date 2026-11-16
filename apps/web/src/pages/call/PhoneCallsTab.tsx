@@ -60,7 +60,7 @@ export function PhoneCallsTab() {
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr><th className="px-4 py-3">{t("calls.calls.colTime")}</th><th className="px-4 py-3">{t("calls.calls.colNumber")}</th><th className="px-4 py-3">{t("calls.calls.colLead")}</th><th className="px-4 py-3">{t("calls.calls.colStatus")}</th><th className="px-4 py-3">{t("calls.calls.colDuration")}</th><th className="px-4 py-3">{t("calls.calls.colExt")}</th><th className="px-4 py-3">{t("calls.calls.colRecording")}</th></tr>
+            <tr><th className="px-4 py-3">{t("calls.calls.colTime")}</th><th className="px-4 py-3">{t("calls.calls.colNumber")}</th><th className="px-4 py-3">{t("calls.calls.colLead")}</th><th className="px-4 py-3">{t("calls.calls.colStatus")}</th><th className="px-4 py-3">{t("calls.calls.colDuration")}</th><th className="px-4 py-3">{t("calls.calls.colOperator")}</th><th className="px-4 py-3">{t("calls.calls.colRecording")}</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{t("calls.loading")}</td></tr>}
@@ -78,7 +78,14 @@ export function PhoneCallsTab() {
                   <td className="px-4 py-3 text-slate-600">{c.lead && c.lead.name !== c.phone ? c.lead.name : <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-3"><span className={clsx("inline-flex rounded-full px-2.5 py-1 text-xs font-medium", CALL_STATUS[c.status].tone)}>{t(CALL_STATUS[c.status].label)}</span></td>
                   <td className="px-4 py-3 text-slate-600">{fmtDur(c.durationSec)}</td>
-                  <td className="px-4 py-3 text-slate-500">{c.extension ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {c.operator ? (
+                      <div>
+                        <div className="font-medium text-slate-800">{c.operator.fullName}</div>
+                        <div className="text-xs text-slate-400">{[c.operator.position, c.extension && `☎ ${c.extension}`].filter(Boolean).join(" · ")}</div>
+                      </div>
+                    ) : c.extension ? <span className="font-mono text-xs text-slate-500">☎ {c.extension}</span> : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3">{c.hasRecording || c.recordingUrl ? <RecordingPlayer callId={c.id} /> : <span className="text-slate-300">—</span>}</td>
                 </tr>
               );

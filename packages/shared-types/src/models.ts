@@ -15,6 +15,8 @@ import {
 export interface UserDto {
   id: string;
   fullName: string;
+  /// Korxonadagi lavozimi
+  position?: string | null;
   email: string;
   role: UserRole;
   isActive: boolean;

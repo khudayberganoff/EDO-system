@@ -15,7 +15,7 @@ export interface Lead {
   callbackAt: string | null;
   stageChangedAt: string;
   createdAt: string;
-  owner: { id: string; fullName: string } | null;
+  owner: { id: string; fullName: string; position?: string | null } | null;
   /** Facebook / Instagram lid formasidan kelgan bo'lsa */
   metaLeadgenId?: string | null;
   metaFormName?: string | null;
@@ -79,6 +79,8 @@ export interface PhoneCall {
   recordingUrl: string | null;
   hasRecording: boolean;
   lead: { id: string; name: string } | null;
+  /** Ichki raqam bo'yicha aniqlangan xodim (javob bergan / qo'ng'iroq qilgan operator) */
+  operator?: { id: string; fullName: string; position: string | null } | null;
 }
 
 export async function fetchPhoneCalls(params: { direction?: string; status?: string; q?: string; leadId?: string }) {

@@ -419,7 +419,7 @@ export function AppLayout() {
             )}
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium text-slate-800">{user?.fullName}</div>
-              <div className="text-xs text-slate-400">{user?.role ? t(`settings.role.${user.role}` as TranslationKey) : ""}</div>
+              <div className="text-xs text-slate-400">{user?.position || (user?.role ? t(`settings.role.${user.role}` as TranslationKey) : "")}</div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
               {initials || <UserCircle2 size={20} />}

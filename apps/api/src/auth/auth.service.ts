@@ -58,7 +58,7 @@ export class AuthService {
    * bir nechta bo'lsa tanlash uchun ro'yxat qaytaradi. ERI da tanlash `selectionToken` bilan yakunlanadi.
    */
   async startSession(
-    user: { id: string; fullName: string; email: string; role: string; isActive: boolean; createdAt: Date; mustChangePassword: boolean },
+    user: { id: string; fullName: string; position?: string | null; email: string; role: string; isActive: boolean; createdAt: Date; mustChangePassword: boolean },
     organizationId: string | undefined,
     method: "password" | "eri",
     host?: string,
@@ -101,6 +101,7 @@ export class AuthService {
       user: {
         id: user.id,
         fullName: user.fullName,
+        position: user.position ?? null,
         email: user.email,
         role: user.role,
         isActive: user.isActive,
@@ -165,6 +166,7 @@ export class AuthService {
       user: {
         id: user.id,
         fullName: user.fullName,
+        position: user.position ?? null,
         email: user.email,
         role: user.role,
         isActive: user.isActive,

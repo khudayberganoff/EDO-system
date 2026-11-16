@@ -3,12 +3,21 @@ import { apiClient } from "./client";
 export interface SystemUser {
   id: string;
   fullName: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  /** Korxonadagi lavozimi */
+  position?: string | null;
+  /** ATS ichki raqami */
+  extension?: string | null;
   email: string;
   role: string;
   isActive: boolean;
   createdAt?: string;
   pinfl?: string | null;
 }
+
+/** Ism, familiya, lavozim va ATS ichki raqami (xodim kartasi) */
+export interface PersonPayload { firstName?: string; lastName?: string; position?: string; extension?: string }
 
 export interface PermissionRow {
   module: string;
@@ -32,11 +41,11 @@ export async function fetchUsers() {
   const { data } = await apiClient.get<SystemUser[]>("/settings/users");
   return data;
 }
-export async function createUser(payload: { fullName: string; email: string; password: string; role: string; pinfl?: string }) {
+export async function createUser(payload: PersonPayload & { email: string; password: string; role: string; pinfl?: string }) {
   const { data } = await apiClient.post("/settings/users", payload);
   return data;
 }
-export async function updateUser(id: string, payload: { fullName?: string; role?: string; isActive?: boolean; password?: string; pinfl?: string }) {
+export async function updateUser(id: string, payload: PersonPayload & { fullName?: string; role?: string; isActive?: boolean; password?: string; pinfl?: string }) {
   const { data } = await apiClient.patch(`/settings/users/${id}`, payload);
   return data;
 }
