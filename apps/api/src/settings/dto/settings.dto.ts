@@ -2,10 +2,28 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 import { Role } from "../../common/enums";
 
+const PERSON_FIELDS_NOTE = "Ism va familiya kiritilsa, F.I.Sh. ulardan avtomatik yasaladi";
+
 export class CreateUserDto {
-  @ApiProperty({ example: "Maqsud Xudayberganov" })
-  @IsString() @MinLength(3, { message: "F.I.Sh. kamida 3 ta belgidan iborat bo'lishi kerak." }) @MaxLength(150)
-  fullName!: string;
+  @ApiPropertyOptional({ example: "Maqsud Xudayberganov", description: PERSON_FIELDS_NOTE })
+  @IsOptional() @IsString() @MinLength(3, { message: "F.I.Sh. kamida 3 ta belgidan iborat bo'lishi kerak." }) @MaxLength(150)
+  fullName?: string;
+
+  @ApiPropertyOptional({ example: "Maqsud" })
+  @IsOptional() @IsString() @MaxLength(60)
+  firstName?: string;
+
+  @ApiPropertyOptional({ example: "Xudayberganov" })
+  @IsOptional() @IsString() @MaxLength(60)
+  lastName?: string;
+
+  @ApiPropertyOptional({ example: "Call-markaz operatori" })
+  @IsOptional() @IsString() @MaxLength(120)
+  position?: string;
+
+  @ApiPropertyOptional({ example: "101", description: "ATS'dagi ichki raqam (qo'ng'iroqlarni xodimga bog'lash uchun)" })
+  @IsOptional() @Matches(/^(\d{2,8})?$/, { message: "Ichki raqam 2-8 ta raqamdan iborat bo'lishi kerak." })
+  extension?: string;
 
   @ApiProperty({ example: "xodim@wafagroup.uz" })
   @IsEmail({}, { message: "Email manzili noto'g'ri kiritilgan." })
@@ -28,6 +46,22 @@ export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MinLength(3) @MaxLength(150)
   fullName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() @MaxLength(60)
+  firstName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() @MaxLength(60)
+  lastName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() @MaxLength(120)
+  position?: string;
+
+  @ApiPropertyOptional({ description: "ATS ichki raqami; bo'sh qator - olib tashlash" })
+  @IsOptional() @Matches(/^(\d{2,8})?$/, { message: "Ichki raqam 2-8 ta raqamdan iborat bo'lishi kerak." })
+  extension?: string;
 
   @ApiPropertyOptional({ enum: Role })
   @IsOptional() @IsEnum(Role)

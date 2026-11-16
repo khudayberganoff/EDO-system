@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info, Mail, Phone, Briefcase, Building2, CalendarDays, FileText, IdCard, Plug } from "lucide-react";
+import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info, Mail, Phone, Briefcase, Building2, CalendarDays, FileText, IdCard, Plug, Pencil, Hash } from "lucide-react";
 import { IS_CALL_SITE } from "../utils/site";
 import { TelephonyCard } from "./IntegrationsPage";
 import { MetaLeadsCard } from "./call/MetaLeadsCard";
@@ -8,7 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
 import { LOCALE_OF } from "../i18n/callsTranslations";
 import type { TranslationKey } from "../i18n/translations";
-import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, resetUserPassword, fetchUserDetails, type SystemUser, type PermissionRow } from "../api/settings";
+import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, resetUserPassword, fetchUserDetails, type SystemUser, type PermissionRow, type PersonPayload } from "../api/settings";
 
 const ROLES = ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER", "OPERATOR"] as const;
 const ROLE_KEYS: Record<string, TranslationKey> = {
@@ -81,6 +81,7 @@ function UsersTab() {
   const roleLabel = useRoleLabel();
   const [showCreate, setShowCreate] = useState(false);
   const [resetTarget, setResetTarget] = useState<SystemUser | null>(null);
+  const [editTarget, setEditTarget] = useState<SystemUser | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["settings", "users"], queryFn: fetchUsers });
@@ -129,6 +130,12 @@ function UsersTab() {
                   >
                     {u.fullName}
                   </button>
+                  {(u.position || u.extension) && (
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                      {u.position}
+                      {u.extension && <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600" title={t("settings.extension")}>☎ {u.extension}</span>}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-slate-500">{u.email}</td>
                 <td className="px-4 py-3">
@@ -150,6 +157,13 @@ function UsersTab() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
+                  <button
+                    title={t("settings.editUser")}
+                    onClick={() => setEditTarget(u)}
+                    className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                  >
+                    <Pencil size={16} />
+                  </button>
                   <button
                     title={t("settings.resetPassword")}
                     onClick={() => setResetTarget(u)}
@@ -173,6 +187,7 @@ function UsersTab() {
       </div>
 
       {showCreate && <CreateUserModal onClose={() => setShowCreate(false)} />}
+      {editTarget && <EditUserModal user={editTarget} onClose={() => setEditTarget(null)} />}
       {resetTarget && <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />}
       {detailsId && <UserDetailsModal id={detailsId} onClose={() => setDetailsId(null)} />}
     </>
@@ -202,12 +217,14 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
   const { t } = useLanguage();
   const roleLabel = useRoleLabel();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ fullName: "", email: "", password: "", role: "EMPLOYEE", pinfl: "" });
+  // Call saytida asosan operatorlar qo'shiladi
+  const [form, setForm] = useState({ email: "", password: "", role: IS_CALL_SITE ? "OPERATOR" : "EMPLOYEE", pinfl: "" });
+  const [person, setPerson] = useState<Required<PersonPayload>>({ firstName: "", lastName: "", position: "", extension: "" });
   const [error, setError] = useState<string | null>(null);
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const mutation = useMutation({
-    mutationFn: () => createUser({ ...form, pinfl: form.pinfl || undefined }),
+    mutationFn: () => createUser({ ...form, ...person, pinfl: form.pinfl || undefined, extension: person.extension || undefined }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["settings"] }); onClose(); },
     onError: (e: any) => {
       const msg = e?.response?.data?.message;
@@ -225,9 +242,12 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
 
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.colName")} *</span>
-            <input value={form.fullName} onChange={(e) => set("fullName", e.target.value)} className="input" />
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.colRole")}</span>
+            <select value={form.role} onChange={(e) => set("role", e.target.value)} className="input">
+              {ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
+            </select>
           </label>
+          <PersonFields value={person} onChange={setPerson} operator={form.role === "OPERATOR"} />
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.colEmail")} *</span>
             <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} className="input" />
@@ -239,12 +259,6 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.pinflLabel")}</span>
             <input value={form.pinfl} inputMode="numeric" maxLength={14} onChange={(e) => set("pinfl", e.target.value.replace(/\D/g, ""))} placeholder={t("settings.pinflPlaceholder")} className="input font-mono" />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.colRole")}</span>
-            <select value={form.role} onChange={(e) => set("role", e.target.value)} className="input">
-              {ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
-            </select>
           </label>
           {form.role === "OPERATOR" && (
             <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
@@ -263,11 +277,98 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("calls.cancel")}</button>
           <button
-            disabled={mutation.isPending || !form.fullName || !form.email || form.password.length < 8 || (form.pinfl !== "" && form.pinfl.length !== 14)}
+            disabled={mutation.isPending || !personReady(person, form.role) || !form.email || form.password.length < 8 || (form.pinfl !== "" && form.pinfl.length !== 14)}
             onClick={() => mutation.mutate()}
             className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
           >
             {t("settings.add")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Ism + familiya majburiy; operator uchun lavozim ham majburiy (server ham tekshiradi). */
+const personReady = (p: PersonPayload, role: string) =>
+  !!p.firstName?.trim() && !!p.lastName?.trim() && (role !== "OPERATOR" || !!p.position?.trim()) && (!p.extension || /^\d{2,8}$/.test(p.extension));
+
+/** Xodim kartasi maydonlari: ism, familiya, lavozim va (operator uchun) ATS ichki raqami. */
+function PersonFields({ value, onChange, operator }: { value: Required<PersonPayload>; onChange: (v: Required<PersonPayload>) => void; operator: boolean }) {
+  const { t } = useLanguage();
+  const set = (k: keyof PersonPayload, v: string) => onChange({ ...value, [k]: v });
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.firstName")} *</span>
+          <input value={value.firstName} onChange={(e) => set("firstName", e.target.value)} className="input" />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.lastName")} *</span>
+          <input value={value.lastName} onChange={(e) => set("lastName", e.target.value)} className="input" />
+        </label>
+      </div>
+      <div className={operator ? "grid grid-cols-[1fr_140px] gap-3" : ""}>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.position")}{operator ? " *" : ""}</span>
+          <input value={value.position} onChange={(e) => set("position", e.target.value)} placeholder={t(operator ? "settings.positionPlaceholderOperator" : "settings.positionPlaceholder")} className="input" />
+        </label>
+        {operator && (
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">{t("settings.extension")}</span>
+            <input value={value.extension} inputMode="numeric" maxLength={8} onChange={(e) => set("extension", e.target.value.replace(/\D/g, ""))} placeholder="101" className="input font-mono" />
+          </label>
+        )}
+      </div>
+      {operator && <p className="-mt-2 text-[11px] text-slate-400">{t("settings.extensionHint")}</p>}
+    </>
+  );
+}
+
+/** Xodim ma'lumotlarini tahrirlash: ism, familiya, lavozim, ichki raqam. */
+function EditUserModal({ user, onClose }: { user: SystemUser; onClose: () => void }) {
+  const { t } = useLanguage();
+  const queryClient = useQueryClient();
+  // Eski hisoblarda ism/familiya alohida saqlanmagan - F.I.Sh. dan taxminiy ajratiladi (tekshirib saqlash kerak)
+  const [first, ...rest] = user.fullName.split(/\s+/);
+  const [person, setPerson] = useState<Required<PersonPayload>>({
+    firstName: user.firstName ?? first ?? "",
+    lastName: user.lastName ?? rest.join(" "),
+    position: user.position ?? "",
+    extension: user.extension ?? "",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: () => updateUser(user.id, person),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["settings"] }); onClose(); },
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message;
+      setError(Array.isArray(msg) ? msg.join(". ") : typeof msg === "string" ? msg : msg?.message ?? t("settings.updateFailed"));
+    },
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">{t("settings.editUser")}</h2>
+            <p className="text-xs text-slate-500">{user.email}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+        </div>
+        <div className="space-y-4">
+          <PersonFields value={person} onChange={setPerson} operator={user.role === "OPERATOR"} />
+        </div>
+        {error && <p className="mt-3 text-xs text-rose-600">{error}</p>}
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm">{t("calls.cancel")}</button>
+          <button
+            disabled={mutation.isPending || !personReady(person, user.role)}
+            onClick={() => mutation.mutate()}
+            className="rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+          >
+            {t("calls.save")}
           </button>
         </div>
       </div>
@@ -312,6 +413,8 @@ function UserDetailsModal({ id, onClose }: { id: string; onClose: () => void }) 
 
             {/* Tizim hisobi */}
             <Section title={t("settings.systemAccount")}>
+              {data.position && <Row icon={Briefcase} label={t("settings.position")} value={data.position} />}
+              {data.extension && <Row icon={Hash} label={t("settings.extension")} value={data.extension} />}
               <Row icon={Mail} label={t("settings.colEmail")} value={data.email} />
               <Row icon={ShieldCheck} label={t("settings.colRole")} value={roleLabel(data.role)} />
               <Row icon={Check} label={t("settings.colStatus")} value={data.isActive ? t("settings.active") : t("settings.blocked")} />

@@ -235,7 +235,7 @@ export class CallsService {
       orderBy: { updatedAt: "desc" },
       take: 500,
       include: {
-        owner: { select: { id: true, fullName: true } },
+        owner: { select: { id: true, fullName: true, position: true } },
         phoneCalls: { orderBy: { startedAt: "desc" }, take: 1, select: { direction: true, status: true, startedAt: true } },
       },
     });
@@ -268,7 +268,7 @@ export class CallsService {
         meetingAt,
         callbackAt,
       },
-      include: { owner: { select: { id: true, fullName: true } } },
+      include: { owner: { select: { id: true, fullName: true, position: true } } },
     });
     await this.auditLog.record({ userId: actor.id, action: AuditAction.CREATE, metadata: { kind: "callLead", leadId: lead.id } });
     return lead;
@@ -294,7 +294,7 @@ export class CallsService {
         meetingAt,
         callbackAt,
       },
-      include: { owner: { select: { id: true, fullName: true } } },
+      include: { owner: { select: { id: true, fullName: true, position: true } } },
     });
   }
 
@@ -361,16 +361,19 @@ export class CallsService {
       ];
     }
     const todayStart = startOfTodayTashkent();
-    const [items, today] = await Promise.all([
+    const [items, today, staff] = await Promise.all([
       this.prisma.phoneCall.findMany({
         where, orderBy: { startedAt: "desc" }, take: Math.min(Math.max(params.limit ?? 200, 1), 500),
         select: { id: true, direction: true, status: true, phone: true, ourNumber: true, extension: true, startedAt: true, durationSec: true, recordingUrl: true, recordingFile: true, lead: { select: { id: true, name: true } } },
       }),
       this.prisma.phoneCall.groupBy({ by: ["direction", "status"], where: { organizationId: { in: orgIds }, startedAt: { gte: todayStart } }, _count: true }),
+      // Ichki raqami biriktirilgan xodimlar - qo'ng'iroqqa kim javob bergani shu orqali aniqlanadi
+      this.prisma.user.findMany({ where: { extension: { not: null } }, select: { id: true, fullName: true, position: true, extension: true } }),
     ]);
+    const byExt = new Map(staff.map((u) => [u.extension!, { id: u.id, fullName: u.fullName, position: u.position }]));
     const count = (f: (g: (typeof today)[number]) => boolean) => today.filter(f).reduce((s, g) => s + g._count, 0);
     return {
-      items: items.map(({ recordingFile, ...c }) => ({ ...c, hasRecording: !!recordingFile })),
+      items: items.map(({ recordingFile, ...c }) => ({ ...c, hasRecording: !!recordingFile, operator: c.extension ? byExt.get(c.extension) ?? null : null })),
       today: {
         in: count((g) => g.direction === "IN"),
         out: count((g) => g.direction === "OUT"),

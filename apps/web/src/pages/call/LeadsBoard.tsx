@@ -248,7 +248,7 @@ function LeadModal({ lead, canEdit, onClose, onSaved }: { lead: Lead | null; can
           )}
           {lead && (
             <p className="text-xs text-slate-400">
-              {lead.metaLeadgenId ? `${t("meta.assignee")}: ${lead.owner?.fullName ?? t("meta.noAssignee")}` : `${t("calls.leads.addedBy")}: ${lead.owner?.fullName ?? t("calls.ipTelephonyAuto")}`} · {fmtDT(lead.createdAt)}
+              {lead.metaLeadgenId ? `${t("meta.assignee")}: ${lead.owner?.fullName ?? t("meta.noAssignee")}` : `${t("calls.leads.addedBy")}: ${lead.owner ? `${lead.owner.fullName}${lead.owner.position ? ` (${lead.owner.position})` : ""}` : t("calls.ipTelephonyAuto")}`} · {fmtDT(lead.createdAt)}
             </p>
           )}
           {lead && <LeadCalls leadId={lead.id} />}

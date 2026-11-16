@@ -118,8 +118,35 @@ export class SettingsService {
   async listUsers() {
     return this.prisma.user.findMany({
       orderBy: { fullName: "asc" },
-      select: { id: true, fullName: true, email: true, role: true, isActive: true, createdAt: true, pinfl: true },
+      select: { id: true, fullName: true, firstName: true, lastName: true, position: true, extension: true, email: true, role: true, isActive: true, createdAt: true, pinfl: true },
     });
+  }
+
+  /** ATS ichki raqami bitta xodimga tegishli bo'lishi kerak (qo'ng'iroqlar shu raqam bo'yicha bog'lanadi). */
+  private async assertExtensionFree(extension: string, exceptUserId?: string) {
+    const other = await this.prisma.user.findUnique({ where: { extension }, select: { id: true, fullName: true } });
+    if (other && other.id !== exceptUserId) throw new BadRequestException(`Bu ichki raqam boshqa xodimga biriktirilgan: ${other.fullName}.`);
+  }
+
+  /**
+   * Ism, familiya, lavozim va F.I.Sh.: ism + familiya berilsa F.I.Sh. ulardan yasaladi.
+   * Call-markaz operatori uchun ism, familiya va lavozim majburiy.
+   */
+  private personFields(
+    input: { fullName?: string; firstName?: string; lastName?: string; position?: string },
+    current: { fullName?: string; firstName?: string | null; lastName?: string | null; position?: string | null } = {},
+    role?: string,
+  ) {
+    const pick = (v: string | undefined, cur: string | null | undefined) => (v === undefined ? cur ?? null : v.trim() || null);
+    const firstName = pick(input.firstName, current.firstName);
+    const lastName = pick(input.lastName, current.lastName);
+    const position = pick(input.position, current.position);
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : input.fullName?.trim() || current.fullName || [firstName, lastName].filter(Boolean).join(" ");
+    if (!fullName || fullName.length < 3) throw new BadRequestException("Ism va familiyani kiriting.");
+    if (role === Role.OPERATOR && (!firstName || !lastName || !position)) {
+      throw new BadRequestException("Operator uchun ism, familiya va lavozim majburiy.");
+    }
+    return { fullName, firstName, lastName, position };
   }
 
   /** JSHSHIR band emasligini tekshiradi (ERI orqali kirishda bitta kalit - bitta foydalanuvchi). */
@@ -136,7 +163,7 @@ export class SettingsService {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: {
-        id: true, fullName: true, email: true, role: true, isActive: true, createdAt: true,
+        id: true, fullName: true, firstName: true, lastName: true, position: true, extension: true, email: true, role: true, isActive: true, createdAt: true,
         employeeCard: {
           include: {
             departmentRef: { select: { name: true } },
@@ -166,7 +193,14 @@ export class SettingsService {
     };
   }
 
-  async createUser(data: { fullName: string; email: string; password: string; role: string; pinfl?: string }, actorId: string, organizationId: string) {
+  async createUser(
+    data: { fullName?: string; firstName?: string; lastName?: string; position?: string; extension?: string; email: string; password: string; role: string; pinfl?: string },
+    actorId: string,
+    organizationId: string,
+  ) {
+    const person = this.personFields(data, {}, data.role);
+    const extension = data.extension?.trim() || null;
+    if (extension) await this.assertExtensionFree(extension);
     const email = data.email.trim().toLowerCase();
     const exists = await this.prisma.user.findUnique({ where: { email } });
     if (exists) throw new BadRequestException("Bu email allaqachon ro'yxatdan o'tgan.");
@@ -179,7 +213,8 @@ export class SettingsService {
 
     const user = await this.prisma.user.create({
       data: {
-        fullName: data.fullName.trim(),
+        ...person,
+        extension,
         email,
         pinfl,
         passwordHash: await bcrypt.hash(data.password, 10),
@@ -191,7 +226,7 @@ export class SettingsService {
             : { organizationId },
         },
       },
-      select: { id: true, fullName: true, email: true, role: true, isActive: true },
+      select: { id: true, fullName: true, firstName: true, lastName: true, position: true, extension: true, email: true, role: true, isActive: true },
     });
     await this.auditLog.record({ userId: actorId, action: AuditAction.CREATE, metadata: { kind: "user", userId: user.id } });
     return user;
@@ -234,9 +269,22 @@ export class SettingsService {
     return `${pick(upper, 1)}${pick(letters, 5)}${pick(digits, 3)}!`;
   }
 
-  async updateUser(id: string, data: { fullName?: string; role?: string; isActive?: boolean; password?: string; pinfl?: string }, actorId: string) {
+  async updateUser(
+    id: string,
+    data: { fullName?: string; firstName?: string; lastName?: string; position?: string; extension?: string; role?: string; isActive?: boolean; password?: string; pinfl?: string },
+    actorId: string,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException("Foydalanuvchi topilmadi.");
+
+    // Ism/familiya/lavozim faqat o'zgartirilganda yoki operator roli berilganda tekshiriladi (eski hisoblarni bloklamaslik uchun)
+    const touchesPerson = data.fullName !== undefined || data.firstName !== undefined || data.lastName !== undefined || data.position !== undefined;
+    const becomesOperator = data.role === Role.OPERATOR && user.role !== Role.OPERATOR;
+    const person = touchesPerson || becomesOperator
+      ? this.personFields(data, user, data.role ?? user.role)
+      : undefined;
+    const extension = data.extension === undefined ? undefined : data.extension.trim() || null;
+    if (extension) await this.assertExtensionFree(extension, id);
 
     // Oxirgi faol administrator o'chirilmasligi kerak
     if ((data.role && data.role !== Role.ADMIN) || data.isActive === false) {
@@ -265,12 +313,13 @@ export class SettingsService {
       where: { id },
       data: {
         pinfl,
-        fullName: data.fullName?.trim(),
+        ...(person ?? {}),
+        extension,
         role: data.role,
         isActive: data.isActive,
         ...(data.password ? { passwordHash: await bcrypt.hash(data.password, 10) } : {}),
       },
-      select: { id: true, fullName: true, email: true, role: true, isActive: true, pinfl: true },
+      select: { id: true, fullName: true, firstName: true, lastName: true, position: true, extension: true, email: true, role: true, isActive: true, pinfl: true },
     });
     await this.auditLog.record({ userId: actorId, action: AuditAction.UPDATE, metadata: { kind: "user", userId: id } });
     return updated;
