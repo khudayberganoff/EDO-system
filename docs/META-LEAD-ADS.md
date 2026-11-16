@@ -95,7 +95,7 @@ Odatda hammasi saytdan kiritiladi. Muhit o'zgaruvchilari berilsa, saytdagidan us
 | `META_APP_ID`, `META_APP_SECRET` | Meta ilovasi |
 | `META_VERIFY_TOKEN` | Webhook tekshiruv satri (berilmasa avtomatik yaratiladi) |
 | `META_GRAPH_VERSION` | Graph API versiyasi (standart `v26.0`) |
-| `META_LOGIN_CONFIG_ID` | Facebook Login for Business konfiguratsiyasi ID'si (berilsa, ruxsatlar shundan olinadi) |
+| `META_LOGIN_CONFIG_ID` | Facebook Login for Business konfiguratsiyasi ID'si (odatda saytda, 1-qadamda kiritiladi; berilsa, ruxsatlar shundan olinadi) |
 | `META_SCOPES` | Ruxsatlar ro'yxati (vergul bilan), standart yuqoridagi 7 ta |
 | `META_PUBLIC_URL`, `META_REDIRECT_URI` | Manzillarni qo'lda berish (odatda so'rovdan aniqlanadi) |
 | `CALL_PUBLIC_URL` | Telegram xabaridagi havola uchun call sayti manzili |

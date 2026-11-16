@@ -24,6 +24,8 @@ const LEAD_FIELDS_BASIC = "id,created_time,field_data,form_id,ad_id,platform,is_
 interface MetaAppConfig {
   appId?: string;
   appSecretEnc?: string;
+  /** Facebook Login for Business konfiguratsiyasi ID'si (berilsa, ruxsatlar shundan olinadi) */
+  loginConfigId?: string;
   verifyToken: string;
   /** Shu raqamli ochiq lid bo'lsa, yangisi yaratilmay, mavjudiga izoh qo'shiladi */
   dedupeByPhone: boolean;
@@ -96,7 +98,7 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async saveApp(dto: { appId?: string; appSecret?: string; dedupeByPhone?: boolean; notifyTelegram?: boolean }) {
+  async saveApp(dto: { appId?: string; appSecret?: string; loginConfigId?: string; dedupeByPhone?: boolean; notifyTelegram?: boolean }) {
     const cfg = { ...(await this.config()) };
     if (dto.appId !== undefined) {
       if (process.env.META_APP_ID) throw new BadRequestException("App ID server sozlamasida (META_APP_ID) berilgan.");
@@ -109,6 +111,12 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
       const secret = dto.appSecret.trim();
       if (secret && !/^[a-f0-9]{32}$/i.test(secret)) throw new BadRequestException("App Secret 32 belgili (0-9, a-f) bo'ladi. Meta panelidan qayta nusxalang.");
       cfg.appSecretEnc = secret ? encryptSecret(secret, SECRET_PURPOSE) : undefined;
+    }
+    if (dto.loginConfigId !== undefined) {
+      if (process.env.META_LOGIN_CONFIG_ID) throw new BadRequestException("Configuration ID server sozlamasida (META_LOGIN_CONFIG_ID) berilgan.");
+      const id = dto.loginConfigId.trim();
+      if (id && !/^\d{5,25}$/.test(id)) throw new BadRequestException("Configuration ID faqat raqamlardan iborat bo'ladi.");
+      cfg.loginConfigId = id || undefined;
     }
     if (dto.dedupeByPhone !== undefined) cfg.dedupeByPhone = dto.dedupeByPhone;
     if (dto.notifyTelegram !== undefined) cfg.notifyTelegram = dto.notifyTelegram;
@@ -169,6 +177,8 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
         hasSecret: !!a.appSecret, secretSource: a.secretSource,
         verifyToken: a.verifyToken, verifySource: a.verifySource,
         graphVersion: graphVersion(),
+        loginConfigId: process.env.META_LOGIN_CONFIG_ID?.trim() || a.cfg.loginConfigId || null,
+        loginConfigSource: process.env.META_LOGIN_CONFIG_ID ? "env" : a.cfg.loginConfigId ? "db" : null,
       },
       urls: { webhook: `${base}/api/meta/webhook`, redirect: this.redirectUri(base), domain: new URL(base).hostname },
       settings: { dedupeByPhone: a.cfg.dedupeByPhone, notifyTelegram: a.cfg.notifyTelegram, telegramEnabled: this.telegram.isEnabled() },
@@ -199,7 +209,8 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
     this.states.set(state, { userId: actor.id, redirectUri, returnUrl, exp: Date.now() + STATE_TTL_MS });
     const q = new URLSearchParams({ client_id: a.appId, redirect_uri: redirectUri, state, response_type: "code" });
     // Facebook Login for Business: konfiguratsiya ID berilsa, ruxsatlar shu konfiguratsiyadan olinadi
-    if (process.env.META_LOGIN_CONFIG_ID) q.set("config_id", process.env.META_LOGIN_CONFIG_ID);
+    const configId = process.env.META_LOGIN_CONFIG_ID?.trim() || a.cfg.loginConfigId;
+    if (configId) q.set("config_id", configId);
     else q.set("scope", (process.env.META_SCOPES?.split(",").map((s) => s.trim()).filter(Boolean) ?? DEFAULT_SCOPES).join(","));
     return { url: `${dialogBase()}/${graphVersion()}/dialog/oauth?${q.toString()}` };
   }
