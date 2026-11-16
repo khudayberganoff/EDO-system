@@ -16,6 +16,13 @@ export interface Lead {
   stageChangedAt: string;
   createdAt: string;
   owner: { id: string; fullName: string } | null;
+  /** Facebook / Instagram lid formasidan kelgan bo'lsa */
+  metaLeadgenId?: string | null;
+  metaFormName?: string | null;
+  metaCampaignName?: string | null;
+  metaAdsetName?: string | null;
+  metaAdName?: string | null;
+  metaPlatform?: string | null;
   phoneCalls?: { direction: "IN" | "OUT"; status: "ANSWERED" | "MISSED" | "BUSY" | "FAILED"; startedAt: string }[];
 }
 

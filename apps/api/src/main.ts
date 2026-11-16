@@ -15,7 +15,8 @@ async function bootstrap() {
     throw new Error("JWT_SECRET o'rnatilmagan: production rejimida server ishga tushmaydi.");
   }
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // rawBody: Facebook webhook imzosi (X-Hub-Signature-256) so'rovning xom tanasi bo'yicha tekshiriladi
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
 
   // Server reverse proxy (Caddy/nginx) ortida turadi: mijozning haqiqiy IP manzili X-Forwarded-For'dan olinadi.
   // Faqat xususiy tarmoqdagi proxy'ga ishoniladi (to'g'ridan-to'g'ri kelgan so'rov sarlavhani soxtalashtira olmaydi).
