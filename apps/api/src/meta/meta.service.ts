@@ -26,6 +26,8 @@ interface MetaAppConfig {
   appSecretEnc?: string;
   /** Facebook Login for Business konfiguratsiyasi ID'si (berilsa, ruxsatlar shundan olinadi) */
   loginConfigId?: string;
+  /** Maxfiylik siyosati sahifasida ko'rsatiladigan aloqa emaili */
+  contactEmail?: string;
   verifyToken: string;
   /** Shu raqamli ochiq lid bo'lsa, yangisi yaratilmay, mavjudiga izoh qo'shiladi */
   dedupeByPhone: boolean;
@@ -98,7 +100,7 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async saveApp(dto: { appId?: string; appSecret?: string; loginConfigId?: string; dedupeByPhone?: boolean; notifyTelegram?: boolean }) {
+  async saveApp(dto: { appId?: string; appSecret?: string; loginConfigId?: string; contactEmail?: string; dedupeByPhone?: boolean; notifyTelegram?: boolean }) {
     const cfg = { ...(await this.config()) };
     if (dto.appId !== undefined) {
       if (process.env.META_APP_ID) throw new BadRequestException("App ID server sozlamasida (META_APP_ID) berilgan.");
@@ -118,9 +120,20 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
       if (id && !/^\d{5,25}$/.test(id)) throw new BadRequestException("Configuration ID faqat raqamlardan iborat bo'ladi.");
       cfg.loginConfigId = id || undefined;
     }
+    if (dto.contactEmail !== undefined) {
+      const email = dto.contactEmail.trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException("Email noto'g'ri.");
+      cfg.contactEmail = email || undefined;
+    }
     if (dto.dedupeByPhone !== undefined) cfg.dedupeByPhone = dto.dedupeByPhone;
     if (dto.notifyTelegram !== undefined) cfg.notifyTelegram = dto.notifyTelegram;
     await this.saveConfig(cfg);
+  }
+
+  /** Ochiq ma'lumot: maxfiylik siyosati sahifasidagi aloqa emaili */
+  async publicContact() {
+    const cfg = await this.config();
+    return { email: cfg.contactEmail ?? null };
   }
 
   async regenerateVerifyToken() {
@@ -179,8 +192,9 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
         graphVersion: graphVersion(),
         loginConfigId: process.env.META_LOGIN_CONFIG_ID?.trim() || a.cfg.loginConfigId || null,
         loginConfigSource: process.env.META_LOGIN_CONFIG_ID ? "env" : a.cfg.loginConfigId ? "db" : null,
+        contactEmail: a.cfg.contactEmail ?? null,
       },
-      urls: { webhook: `${base}/api/meta/webhook`, redirect: this.redirectUri(base), domain: new URL(base).hostname },
+      urls: { webhook: `${base}/api/meta/webhook`, redirect: this.redirectUri(base), domain: new URL(base).hostname, privacy: `${base}/privacy`, dataDeletion: `${base}/data-deletion` },
       settings: { dedupeByPhone: a.cfg.dedupeByPhone, notifyTelegram: a.cfg.notifyTelegram, telegramEnabled: this.telegram.isEnabled() },
       connection: conn ? { fbUserName: conn.fbUserName, status: conn.status, connectedAt: conn.updatedAt, connectedBy: connectedBy?.fullName ?? null } : null,
       pages: pages.map((p) => ({

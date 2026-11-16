@@ -14,6 +14,7 @@ class SaveAppDto {
   @IsOptional() @IsBoolean() dedupeByPhone?: boolean;
   @IsOptional() @IsBoolean() notifyTelegram?: boolean;
   @IsOptional() @IsString() @MaxLength(40) loginConfigId?: string;
+  @IsOptional() @IsString() @MaxLength(120) contactEmail?: string;
 }
 
 class OauthStartDto {
@@ -77,6 +78,12 @@ export class MetaController {
   async receive(@Req() req: any, @Headers("x-hub-signature-256") signature: string | undefined, @Body() body: any) {
     await this.meta.receiveWebhook(req.rawBody, signature, body);
     return "EVENT_RECEIVED";
+  }
+
+  /** Maxfiylik siyosati sahifasi uchun aloqa emaili (ochiq) */
+  @Public() @Get("public-contact") @ApiExcludeEndpoint()
+  publicContact() {
+    return this.meta.publicContact();
   }
 
   @Public() @Get("oauth/callback") @ApiExcludeEndpoint()
