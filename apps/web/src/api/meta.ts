@@ -20,8 +20,8 @@ export interface MetaPageInfo {
 }
 
 export interface MetaStatus {
-  app: { appId: string | null; appIdSource: "env" | "db" | null; hasSecret: boolean; secretSource: "env" | "db" | null; verifyToken: string; verifySource: "env" | "db"; graphVersion: string; loginConfigId: string | null; loginConfigSource: "env" | "db" | null };
-  urls: { webhook: string; redirect: string; domain: string };
+  app: { appId: string | null; appIdSource: "env" | "db" | null; hasSecret: boolean; secretSource: "env" | "db" | null; verifyToken: string; verifySource: "env" | "db"; graphVersion: string; loginConfigId: string | null; loginConfigSource: "env" | "db" | null; contactEmail: string | null };
+  urls: { webhook: string; redirect: string; domain: string; privacy: string; dataDeletion: string };
   settings: { dedupeByPhone: boolean; notifyTelegram: boolean; telegramEnabled: boolean };
   connection: { fbUserName: string | null; status: "ACTIVE" | "REAUTH"; connectedAt: string; connectedBy: string | null } | null;
   pages: MetaPageInfo[];
@@ -63,8 +63,9 @@ export interface MetaEvent {
   createdAt: string;
 }
 
+export const fetchPublicContact = async () => (await apiClient.get<{ email: string | null }>("/meta/public-contact")).data;
 export const fetchMetaStatus = async () => (await apiClient.get<MetaStatus>("/meta/status")).data;
-export const saveMetaApp = async (payload: { appId?: string; appSecret?: string; loginConfigId?: string; dedupeByPhone?: boolean; notifyTelegram?: boolean }) => (await apiClient.put("/meta/app", payload)).data;
+export const saveMetaApp = async (payload: { appId?: string; appSecret?: string; loginConfigId?: string; contactEmail?: string; dedupeByPhone?: boolean; notifyTelegram?: boolean }) => (await apiClient.put("/meta/app", payload)).data;
 export const regenerateMetaVerifyToken = async () => (await apiClient.post<{ verifyToken: string }>("/meta/app/verify-token")).data;
 export const startMetaOauth = async (returnUrl: string) => (await apiClient.post<{ url: string }>("/meta/oauth/start", { returnUrl })).data;
 export const disconnectMeta = async () => (await apiClient.delete("/meta/connection")).data;

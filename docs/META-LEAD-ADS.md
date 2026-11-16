@@ -14,7 +14,9 @@ Sozlash joyi: **call.wafagroup.uz → Sozlamalar → Integratsiyalar → Faceboo
 2. Ilovaga mahsulotlar qo'shing: **Facebook Login for Business** va **Webhooks**.
 3. **App settings → Basic**:
    - **App Domains**: `call.wafagroup.uz`
-   - **Privacy Policy URL** — majburiy (busiz ilova Live rejimga o'tmaydi).
+   - **Privacy Policy URL** — majburiy: `https://call.wafagroup.uz/privacy` (tizimdagi ochiq sahifa, uch tilda)
+   - **User data deletion** → «Data deletion instructions URL»: `https://call.wafagroup.uz/data-deletion`
+   - Bu sahifalarda ko'rsatiladigan aloqa emailini EDO kartochkasining 1-qadamida kiriting.
    - Shu sahifadagi **App ID** va **App Secret** ni EDO kartochkasining 1-qadamiga kiriting va saqlang.
 4. **Facebook Login for Business → Settings → Valid OAuth Redirect URIs**:
    `https://call.wafagroup.uz/api/meta/oauth/callback`

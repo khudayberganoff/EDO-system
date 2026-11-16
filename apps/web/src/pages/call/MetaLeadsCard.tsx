@@ -217,9 +217,10 @@ function AppSection({ data, onError, defaultOpen }: { data: MetaStatus; onError:
   const [appId, setAppId] = useState(data.app.appId ?? "");
   const [secret, setSecret] = useState("");
   const [configId, setConfigId] = useState(data.app.loginConfigId ?? "");
+  const [contactEmail, setContactEmail] = useState(data.app.contactEmail ?? "");
   const [saved, setSaved] = useState(false);
   const save = useMutation({
-    mutationFn: () => saveMetaApp({ ...(data.app.appIdSource !== "env" ? { appId } : {}), ...(secret && data.app.secretSource !== "env" ? { appSecret: secret } : {}), ...(data.app.loginConfigSource !== "env" ? { loginConfigId: configId } : {}) }),
+    mutationFn: () => saveMetaApp({ ...(data.app.appIdSource !== "env" ? { appId } : {}), ...(secret && data.app.secretSource !== "env" ? { appSecret: secret } : {}), ...(data.app.loginConfigSource !== "env" ? { loginConfigId: configId } : {}), contactEmail }),
     onSuccess: () => { setSecret(""); setSaved(true); setTimeout(() => setSaved(false), 2000); qc.invalidateQueries({ queryKey: ["meta"] }); },
     onError: (e) => onError(errText(e, t("meta.actionFailed"))),
   });
@@ -248,19 +249,27 @@ function AppSection({ data, onError, defaultOpen }: { data: MetaStatus; onError:
               <input type="password" autoComplete="new-password" value={secret} disabled={data.app.secretSource === "env"} onChange={(e) => setSecret(e.target.value.trim())} placeholder={data.app.hasSecret ? t("meta.secretSaved") : "••••••••••••••••"} className="input mt-1 font-mono" />
             </label>
           </div>
-          <label className="block text-xs text-slate-500">{t("meta.configId")}
-            <input value={configId} disabled={data.app.loginConfigSource === "env"} onChange={(e) => setConfigId(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className="input mt-1 font-mono sm:w-1/2" />
-            <span className="mt-1 block text-[11px] text-slate-400">{t("meta.configIdHint")}</span>
-          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-xs text-slate-500">{t("meta.configId")}
+              <input value={configId} disabled={data.app.loginConfigSource === "env"} onChange={(e) => setConfigId(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className="input mt-1 font-mono" />
+              <span className="mt-1 block text-[11px] text-slate-400">{t("meta.configIdHint")}</span>
+            </label>
+            <label className="block text-xs text-slate-500">{t("meta.contactEmail")}
+              <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value.trim())} className="input mt-1" />
+              <span className="mt-1 block text-[11px] text-slate-400">{t("meta.contactEmailHint")}</span>
+            </label>
+          </div>
           {(data.app.appIdSource === "env" || data.app.secretSource === "env") && <p className="text-xs text-slate-400">{t("meta.envHint")}</p>}
           <div className="flex items-center gap-3">
-            <button onClick={() => save.mutate()} disabled={save.isPending || (!secret && appId === (data.app.appId ?? "") && configId === (data.app.loginConfigId ?? ""))} className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">{t("calls.save")}</button>
+            <button onClick={() => save.mutate()} disabled={save.isPending || (!secret && appId === (data.app.appId ?? "") && configId === (data.app.loginConfigId ?? "") && contactEmail === (data.app.contactEmail ?? ""))} className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">{t("calls.save")}</button>
             {saved && <span className="flex items-center gap-1 text-xs text-emerald-600"><Check size={13} /> {t("meta.saved")}</span>}
           </div>
 
           <div className="space-y-2 rounded-lg bg-slate-50 p-3">
             <p className="text-xs font-medium text-slate-600">{t("meta.panelValues")}</p>
             <CopyRow label="App Domains" value={data.urls.domain} />
+            <CopyRow label="Privacy Policy URL" value={data.urls.privacy} />
+            <CopyRow label="User data deletion (URL)" value={data.urls.dataDeletion} />
             <CopyRow label="Valid OAuth Redirect URI" value={data.urls.redirect} />
             <CopyRow label="Webhook Callback URL" value={data.urls.webhook} />
             <CopyRow

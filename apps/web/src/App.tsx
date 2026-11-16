@@ -25,6 +25,7 @@ const BoardPage = page(() => import("./pages/BoardPage"), "BoardPage");
 const IncomingMailPage = page(() => import("./pages/IncomingMailPage"), "IncomingMailPage");
 const CallCenterPage = page(() => import("./pages/CallCenterPage"), "CallCenterPage");
 const ClientsPage = page(() => import("./pages/ClientsPage"), "ClientsPage");
+const PrivacyPage = page(() => import("./pages/PrivacyPage"), "PrivacyPage");
 import { IS_CALL_SITE } from "./utils/site";
 
 const queryClient = new QueryClient({
@@ -52,6 +53,9 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/verify/:id" element={<LetterVerifyPage />} />
+            {/* Ochiq sahifalar (Meta ilovasi talabi): maxfiylik siyosati va ma'lumotlarni o'chirish */}
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/data-deletion" element={<PrivacyPage />} />
 
             <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>
