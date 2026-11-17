@@ -96,7 +96,7 @@ async function migrate() {
       src.metaForm.findMany(),
       src.metaWebhookEvent.findMany(),
       src.modulePermission.findMany({ where: { module: { in: ["calls", "settings"] } } }),
-      src.appSetting.findMany({ where: { key: { in: ["telephony", "telephony_last", "meta_app", "meta_last_webhook", "telegram_bot_token"] } } }),
+      src.appSetting.findMany({ where: { key: { in: ["telephony", "telephony_last", "meta_app", "meta_last_webhook", "telegram_bot_token", "call_sla"] } } }),
     ]);
 
     // Xodimlar: administrator, rahbariyat, operator - faol; Call-markaz yozuvlarida uchraydigan boshqalar - nofaol
@@ -116,6 +116,7 @@ async function migrate() {
     await copy("Xodim-tashkilot", userOrgs, (d) => dst.userOrganization.createMany({ data: d, skipDuplicates: true }));
     await copy("Ruxsatlar (calls, settings)", perms, (d) => dst.modulePermission.createMany({ data: d, skipDuplicates: true }));
     await copy("Lidlar", leads, (d) => dst.callLead.createMany({ data: d, skipDuplicates: true }));
+    await copy("Bayram kunlari", await src.holiday.findMany(), (d) => dst.holiday.createMany({ data: d, skipDuplicates: true }));
     await copy("Lid bosqichlari tarixi", stageLogs.map((s) => (s.userId && !userIds.has(s.userId) ? { ...s, userId: null } : s)), (d) => dst.callLeadStageLog.createMany({ data: d, skipDuplicates: true }));
     await copy("Qo'ng'iroqlar (ATS)", jsonSafe(calls, ["raw"]), (d) => dst.phoneCall.createMany({ data: d, skipDuplicates: true }));
     await copy("CRM qo'ng'iroq natijalari", logs, (d) => dst.callLog.createMany({ data: d, skipDuplicates: true }));

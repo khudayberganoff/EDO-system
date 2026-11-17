@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CallsService } from "./calls.service";
-import { CreateCallLogDto, CreateLeadDto, SetClientPhoneDto, UpdateLeadDto } from "./dto/calls.dto";
+import { CreateCallLogDto, CreateLeadDto, HolidayDto, SetClientPhoneDto, SlaSettingsDto, UpdateLeadDto } from "./dto/calls.dto";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 
 @ApiTags("calls") @ApiBearerAuth() @Controller("calls")
@@ -33,6 +33,21 @@ export class CallsController {
 
   @Post("leads") @ApiOperation({ summary: "Yangi lid qo'shish" })
   createLead(@Body() dto: CreateLeadDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.createLead(user, dto); }
+
+  @Get("sla-settings") @ApiOperation({ summary: "Ish vaqti, javob/natija muddatlari va bayram kunlari" })
+  slaSettings(@CurrentUser() user: AuthenticatedUser) { return this.calls.slaSettings(user); }
+
+  @Put("sla-settings") @ApiOperation({ summary: "Ish vaqti va muddatlarni o'zgartirish (administrator)" })
+  saveSla(@Body() dto: SlaSettingsDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.saveSlaSettings(user, dto); }
+
+  @Post("holidays") @ApiOperation({ summary: "Bayram yoki ko'chirilgan ish kunini qo'shish (administrator)" })
+  addHoliday(@Body() dto: HolidayDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.addHoliday(user, dto); }
+
+  @Post("holidays/defaults") @ApiOperation({ summary: "O'zbekiston bayramlarini (sanasi o'zgarmas) yil uchun qo'shish" })
+  addDefaultHolidays(@Query("year") year: string, @CurrentUser() user: AuthenticatedUser) { return this.calls.addDefaultHolidays(user, Number(year)); }
+
+  @Delete("holidays/:id") @ApiOperation({ summary: "Bayram kunini o'chirish (administrator)" })
+  removeHoliday(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.calls.removeHoliday(user, id); }
 
   @Get("leads/:id/history") @ApiOperation({ summary: "Lid bosqichlari tarixi (vaqt va kim o'tkazgani)" })
   leadHistory(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.calls.leadHistory(user, id); }

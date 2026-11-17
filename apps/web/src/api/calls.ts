@@ -49,6 +49,9 @@ export interface LeadSla {
   resolved: boolean;
   responseOverdue: boolean;
   resolveOverdue: boolean;
+  /** Muddatgacha qolgan ish soatlari (manfiy - kechikkan) */
+  responseLeftHours: number | null;
+  resolveLeftHours: number | null;
   responseHours: number | null;
   resolveHours: number | null;
 }
@@ -59,7 +62,27 @@ export interface LeadStageLog {
   toStage: LeadStage;
   createdAt: string;
   user: { fullName: string; position: string | null } | null;
+  /** Oldingi bosqichda turgan ish soatlari */
+  spentHours: number | null;
 }
+
+/** Ish vaqti, muddatlar va bayram kunlari */
+export interface SlaSettings {
+  workStart: string;
+  workEnd: string;
+  responseHours: number;
+  resolveHours: number;
+  workingNow: boolean;
+  holidays: Holiday[];
+}
+export interface Holiday { id: string; date: string; name: string; type: "HOLIDAY" | "WORKDAY" }
+
+export const fetchSlaSettings = async () => (await apiClient.get<SlaSettings>("/calls/sla-settings")).data;
+export const saveSlaSettings = async (payload: Partial<Pick<SlaSettings, "workStart" | "workEnd" | "responseHours" | "resolveHours">>) =>
+  (await apiClient.put("/calls/sla-settings", payload)).data;
+export const addHoliday = async (payload: { date: string; name: string; type: "HOLIDAY" | "WORKDAY" }) => (await apiClient.post<Holiday>("/calls/holidays", payload)).data;
+export const addDefaultHolidays = async (year: number) => (await apiClient.post<{ added: number }>(`/calls/holidays/defaults?year=${year}`)).data;
+export const removeHoliday = async (id: string) => (await apiClient.delete(`/calls/holidays/${id}`)).data;
 
 export async function fetchLeadHistory(id: string) {
   const { data } = await apiClient.get<LeadStageLog[]>(`/calls/leads/${id}/history`);

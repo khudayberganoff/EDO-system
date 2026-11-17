@@ -8,7 +8,9 @@ import { normalizePhone } from "../telephony/telephony-parser";
 import { AuditAction } from "../common/enums";
 import { CreateCallLogDto, CreateLeadDto, SetClientPhoneDto, UpdateLeadDto, type LeadStage } from "./dto/calls.dto";
 
-import { RESOLVED_STAGES, leadSla } from "./lead-sla";
+import { DEFAULT_SLA, RESOLVED_STAGES, UZ_FIXED_HOLIDAYS, businessHoursBetween, isWorkingTime, leadSla, makeCalendar, type SlaConfig, type WorkCalendar } from "./lead-sla";
+
+const SLA_KEY = "call_sla";
 
 type Actor = { id: string; role: string; organizationId: string };
 type CrmKey = "wafa_leasing" | "vafo_moliya";
@@ -241,20 +243,93 @@ export class CallsService {
         phoneCalls: { orderBy: { startedAt: "desc" }, take: 1, select: { direction: true, status: true, startedAt: true } },
       },
     });
-    // Har bir lid uchun ish muddatlari: 24 soatda javob, 72 soatda natija (dam olish kunlarisiz)
+    // Har bir lid uchun ish muddatlari (faqat ish vaqti, dam olish va bayram kunlarisiz)
+    const { cfg, cal } = await this.slaCalendar();
     const now = new Date();
-    return rows.map((l) => ({ ...l, sla: leadSla(l, now) }));
+    return rows.map((l) => ({ ...l, sla: leadSla(l, cfg, cal, now) }));
+  }
+
+  // ---------- Ish vaqti, muddatlar va bayram kunlari ----------
+
+  private slaCache: { at: number; cfg: SlaConfig; cal: WorkCalendar } | null = null;
+
+  /** Ish vaqti sozlamasi va bayram kunlari (30 soniya keshlanadi). */
+  private async slaCalendar() {
+    if (this.slaCache && Date.now() - this.slaCache.at < 30_000) return this.slaCache;
+    const [row, holidays] = await Promise.all([
+      this.prisma.appSetting.findUnique({ where: { key: SLA_KEY } }),
+      this.prisma.holiday.findMany({ select: { date: true, type: true } }),
+    ]);
+    let cfg: SlaConfig = { ...DEFAULT_SLA };
+    try { if (row) cfg = { ...cfg, ...JSON.parse(row.value) }; } catch { /* standart */ }
+    this.slaCache = { at: Date.now(), cfg, cal: makeCalendar(cfg, holidays) };
+    return this.slaCache;
+  }
+
+  async slaSettings(actor: Actor) {
+    await this.assertAccess(actor.role, "view");
+    const { cfg, cal } = await this.slaCalendar();
+    const holidays = await this.prisma.holiday.findMany({ where: { date: { gte: new Date(Date.UTC(new Date().getUTCFullYear() - 1, 0, 1)) } }, orderBy: { date: "asc" } });
+    return { ...cfg, workingNow: isWorkingTime(new Date(), cal), holidays };
+  }
+
+  private assertSettingsAdmin(actor: Actor) {
+    if (actor.role !== "ADMIN") throw new ForbiddenException("Ish vaqti va bayram kunlarini faqat administrator o'zgartiradi.");
+  }
+
+  async saveSlaSettings(actor: Actor, dto: Partial<SlaConfig>) {
+    this.assertSettingsAdmin(actor);
+    const { cfg } = await this.slaCalendar();
+    const next = { ...cfg, ...dto };
+    const m = (s: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+    if (!m(next.workStart) || !m(next.workEnd) || next.workEnd <= next.workStart) throw new BadRequestException("Ish vaqti noto'g'ri (masalan 09:00 - 18:00).");
+    await this.prisma.appSetting.upsert({ where: { key: SLA_KEY }, create: { key: SLA_KEY, value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } });
+    this.slaCache = null;
+    return next;
+  }
+
+  async addHoliday(actor: Actor, dto: { date: string; name: string; type?: string }) {
+    this.assertSettingsAdmin(actor);
+    const date = new Date(`${dto.date.slice(0, 10)}T00:00:00.000Z`);
+    if (isNaN(+date)) throw new BadRequestException("Sana noto'g'ri.");
+    const exists = await this.prisma.holiday.findUnique({ where: { date } });
+    if (exists) throw new BadRequestException(`Bu sana allaqachon belgilangan: ${exists.name}.`);
+    const h = await this.prisma.holiday.create({ data: { date, name: dto.name.trim(), type: dto.type === "WORKDAY" ? "WORKDAY" : "HOLIDAY" } });
+    this.slaCache = null;
+    return h;
+  }
+
+  async removeHoliday(actor: Actor, id: string) {
+    this.assertSettingsAdmin(actor);
+    await this.prisma.holiday.delete({ where: { id } }).catch(() => { throw new NotFoundException("Topilmadi."); });
+    this.slaCache = null;
+    return { deleted: true };
+  }
+
+  /** O'zbekistonning sanasi o'zgarmas bayramlarini tanlangan yil uchun qo'shadi (borlari o'tkazib yuboriladi). */
+  async addDefaultHolidays(actor: Actor, year: number) {
+    this.assertSettingsAdmin(actor);
+    if (!Number.isInteger(year) || year < 2020 || year > 2100) throw new BadRequestException("Yil noto'g'ri.");
+    const r = await this.prisma.holiday.createMany({
+      data: UZ_FIXED_HOLIDAYS.map((h) => ({ date: new Date(`${year}-${h.md}T00:00:00.000Z`), name: h.name, type: "HOLIDAY" })),
+      skipDuplicates: true,
+    });
+    this.slaCache = null;
+    return { added: r.count };
   }
 
   /** Lid bosqichlari tarixi: qachon, qaysi bosqichdan qaysisiga va kim o'tkazgani. */
   async leadHistory(actor: Actor, id: string) {
     await this.assertAccess(actor.role, "view");
     await this.findLead(actor, id);
-    return this.prisma.callLeadStageLog.findMany({
+    const logs = await this.prisma.callLeadStageLog.findMany({
       where: { leadId: id },
       orderBy: { createdAt: "asc" },
       select: { id: true, fromStage: true, toStage: true, createdAt: true, user: { select: { fullName: true, position: true } } },
     });
+    // Oldingi bosqichda qancha ish vaqti turgani
+    const { cal } = await this.slaCalendar();
+    return logs.map((l, i) => ({ ...l, spentHours: i ? businessHoursBetween(logs[i - 1].createdAt, l.createdAt, cal) : null }));
   }
 
   /** Call-markazda lid qo'shish va o'chirish faqat tizim administratoriga ruxsat etiladi. */
