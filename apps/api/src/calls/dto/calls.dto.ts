@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength, IsArray, ArrayMaxSize } from "class-validator";
+import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength, IsArray, ArrayMaxSize, Matches, Max } from "class-validator";
 
 export const CALL_OUTCOMES = ["ANSWERED", "NO_ANSWER", "BUSY", "PROMISE", "REFUSED", "WRONG_NUMBER", "CALLBACK"] as const;
 export type CallOutcome = (typeof CALL_OUTCOMES)[number];
@@ -59,4 +59,17 @@ export class SetClientPhoneDto {
   @IsString() @MaxLength(100) clientId!: string;
   /** Bo'sh qator - qo'lda kiritilgan raqamni o'chiradi */
   @IsString() @MaxLength(50) phone!: string;
+}
+
+export class SlaSettingsDto {
+  @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) workStart?: string;
+  @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/) workEnd?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(500) responseHours?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(1000) resolveHours?: number;
+}
+
+export class HolidayDto {
+  @IsDateString() date!: string;
+  @IsString() @MinLength(2) @MaxLength(100) name!: string;
+  @IsOptional() @IsIn(["HOLIDAY", "WORKDAY"]) type?: string;
 }
