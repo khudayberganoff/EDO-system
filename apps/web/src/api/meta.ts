@@ -27,6 +27,8 @@ export interface MetaStatus {
   pages: MetaPageInfo[];
   stats: { today: number; total: number; pending: number; lastLeadAt: string | null };
   lastError: { message: string | null; at: string } | null;
+  /** Meta'dan oxirgi kelgan webhook so'rovi: qabul qilindimi yoki nima uchun rad etildi */
+  lastWebhook: { at: string; ok: boolean; error: string | null } | null;
   stages: string[];
   organizations: { id: string; name: string }[];
   users: { id: string; fullName: string; role: string }[];

@@ -10,6 +10,7 @@ import { META_TARGETS, formatTashkent, mapMetaLead, type MetaLeadData, type Meta
 
 const CONFIG_KEY = "meta_app";
 const TOKEN_PURPOSE = "meta-token";
+const LAST_WEBHOOK_KEY = "meta_last_webhook";
 const SECRET_PURPOSE = "meta-app-secret";
 /** Lid tushishi mumkin bo'lgan bosqichlar (sana talab qiladigan "Uchrashuv" va "Qayta bog'lanish"dan tashqari) */
 export const META_STAGES = ["NEW", "INFO_GIVEN", "VISITED", "CONTRACT", "UNQUALIFIED"];
@@ -174,6 +175,9 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
     const now = new Date(Date.now() + 5 * 3600_000);
     now.setUTCHours(0, 0, 0, 0);
     const startOfDay = new Date(now.getTime() - 5 * 3600_000); // Toshkent vaqti bo'yicha bugun
+    const lastHookRow = await this.prisma.appSetting.findUnique({ where: { key: LAST_WEBHOOK_KEY } });
+    let lastWebhook: { at: string; ok: boolean; error: string | null } | null = null;
+    try { lastWebhook = lastHookRow ? JSON.parse(lastHookRow.value) : null; } catch { lastWebhook = null; }
     const [today, total, pending, lastErr, orgs, users] = await Promise.all([
       this.prisma.metaWebhookEvent.count({ where: { status: "done", createdAt: { gte: startOfDay } } }),
       this.prisma.callLead.count({ where: { metaLeadgenId: { not: null } } }),
@@ -204,6 +208,7 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
         formsTotal: p.forms.length, formsEnabled: p.forms.filter((f) => f.enabled === true || (f.enabled !== false && p.allForms)).length,
       })),
       stats: { today, total, pending, lastLeadAt },
+      lastWebhook,
       lastError: lastErr ? { message: lastErr.error, at: lastErr.updatedAt } : null,
       stages: META_STAGES,
       organizations: orgs,
@@ -403,9 +408,17 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
    */
   async receiveWebhook(raw: Buffer | undefined, signature: string | undefined, body: any) {
     const a = await this.app();
-    if (!a.appSecret || !raw) throw new ForbiddenException();
+    if (!a.appSecret || !raw) {
+      await this.rememberWebhook(false, "App Secret saqlanmagan - so'rov qabul qilinmadi");
+      throw new ForbiddenException();
+    }
     const expected = `sha256=${crypto.createHmac("sha256", a.appSecret).update(raw).digest("hex")}`;
-    if (!safeEqual(signature?.trim().toLowerCase(), expected)) throw new ForbiddenException("Imzo noto'g'ri.");
+    if (!safeEqual(signature?.trim().toLowerCase(), expected)) {
+      // Ko'pincha EDO'ga kiritilgan App Secret Meta ilovasinikiga mos emasligini bildiradi
+      await this.rememberWebhook(false, "Imzo mos kelmadi - EDO'dagi App Secret Meta ilovasidagiga mos emas");
+      throw new ForbiddenException("Imzo noto'g'ri.");
+    }
+    await this.rememberWebhook(true);
     if (body?.object !== "page") return { ok: true };
 
     let queued = 0;
@@ -429,6 +442,12 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
     }
     if (queued) setImmediate(() => void this.drain());
     return { ok: true };
+  }
+
+  /** Oxirgi webhook so'rovi natijasi (qabul qilindi / rad etildi) - kartochkada tashxis uchun ko'rsatiladi. */
+  private async rememberWebhook(ok: boolean, error?: string) {
+    const value = JSON.stringify({ at: new Date().toISOString(), ok, error: error ?? null });
+    await this.prisma.appSetting.upsert({ where: { key: LAST_WEBHOOK_KEY }, create: { key: LAST_WEBHOOK_KEY, value }, update: { value } }).catch(() => undefined);
   }
 
   // ==================== Navbatni qayta ishlash ====================

@@ -111,6 +111,14 @@ export function MetaLeadsCard() {
           <Stat label={t("meta.statPending")} value={String(data.stats.pending)} />
         </div>
       )}
+      {data.connection && (
+        <p className={clsx("mb-4 rounded-lg px-3 py-2 text-xs", !data.lastWebhook ? "bg-slate-50 text-slate-500" : data.lastWebhook.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700")}>
+          <b>{t("meta.lastWebhook")}:</b>{" "}
+          {!data.lastWebhook
+            ? t("meta.noWebhookYet")
+            : `${fmt(data.lastWebhook.at)} · ${data.lastWebhook.ok ? t("meta.webhookOk") : `${t("meta.webhookRejected")}: ${data.lastWebhook.error ?? ""}`}`}
+        </p>
+      )}
       {data.lastError?.message && (
         <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700"><b>{t("meta.lastError")}</b> ({fmt(data.lastError.at)}): {data.lastError.message}</p>
       )}
