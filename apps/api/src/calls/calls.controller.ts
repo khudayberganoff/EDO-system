@@ -34,6 +34,9 @@ export class CallsController {
   @Post("leads") @ApiOperation({ summary: "Yangi lid qo'shish" })
   createLead(@Body() dto: CreateLeadDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.createLead(user, dto); }
 
+  @Get("leads/:id/history") @ApiOperation({ summary: "Lid bosqichlari tarixi (vaqt va kim o'tkazgani)" })
+  leadHistory(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) { return this.calls.leadHistory(user, id); }
+
   @Patch("leads/:id") @ApiOperation({ summary: "Lidni o'zgartirish yoki bosqichga ko'chirish" })
   updateLead(@Param("id") id: string, @Body() dto: UpdateLeadDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.updateLead(user, id, dto); }
 

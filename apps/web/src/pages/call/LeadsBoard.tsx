@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Facebook, Instagram, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, Clock, Facebook, History, Instagram, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
 import clsx from "clsx";
-import { createLead, deleteLead, fetchLeads, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage } from "../../api/calls";
+import { createLead, deleteLead, fetchLeadHistory, fetchLeads, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage } from "../../api/calls";
+import { businessHoursBetween, splitHours } from "../../utils/leadSla";
 import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
 import { LEAD_STAGES, TONE_CLASSES, stageTitleKey } from "../../utils/leadStages";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -31,11 +32,13 @@ const toLocalInput = (iso?: string | null) => {
 const tomorrow10 = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return toLocalInput(d.toISOString()); };
 
 /** Lidlar Kanban'i: 7 bosqich, kartochkani sudrab bosqichdan bosqichga o'tkazish. */
-export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
+export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: boolean }) {
   const { t } = useLanguage();
   const fmtDT = useFmtDT();
   const qc = useQueryClient();
-  const { data: leads = [], isLoading } = useQuery({ queryKey: ["calls", "leads"], queryFn: fetchLeads });
+  // Muddatlar (24 / 72 soat) ko'rsatkichlari yangilanib turishi uchun ro'yxat har daqiqada qayta olinadi
+  const { data: leads = [], isLoading } = useQuery({ queryKey: ["calls", "leads"], queryFn: fetchLeads, refetchInterval: 60_000 });
+  const now = useNow();
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<LeadStage | null>(null);
   const [editing, setEditing] = useState<Lead | "new" | null>(null);
@@ -59,6 +62,24 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
     return m;
   }, [leads]);
 
+  // Muddat ko'rsatkichlari: javob kutayotganlar, kechikkanlar, o'rtacha vaqtlar (oxirgi 30 kun)
+  const stats = useMemo(() => {
+    const list = leads.filter((l) => l.sla);
+    const since = Date.now() - 30 * 86_400_000;
+    const recent = list.filter((l) => +new Date(l.createdAt) >= since);
+    const avg = (xs: (number | null | undefined)[]) => {
+      const v = xs.filter((x): x is number => typeof x === "number");
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+    };
+    return {
+      waiting: list.filter((l) => !l.sla!.responded).length,
+      lateResponse: list.filter((l) => l.sla!.responseOverdue).length,
+      lateResolve: list.filter((l) => l.sla!.resolveOverdue).length,
+      avgResponse: avg(recent.map((l) => l.sla!.responseHours)),
+      avgResolve: avg(recent.map((l) => l.sla!.resolveHours)),
+    };
+  }, [leads]);
+
   function drop(stage: LeadStage) {
     const lead = leads.find((l) => l.id === dragId);
     setDragId(null); setOverStage(null);
@@ -71,13 +92,26 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-slate-500">{t("calls.leads.help")}</p>
-        {canEdit && (
+        {/* Lid qo'shish va o'chirish - faqat tizim administratori */}
+        {isAdmin && (
           <button onClick={() => setEditing("new")} className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">
             <Plus size={16} /> {t("calls.leads.new")}
           </button>
         )}
       </div>
       {error && <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+
+      <div className="mb-4 flex flex-wrap gap-2 text-xs">
+        <span className={clsx("flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium", stats.lateResponse ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-600")}>
+          {stats.lateResponse ? <AlertTriangle size={13} /> : <Clock size={13} />}
+          {t("calls.sla.waiting", { n: stats.waiting })}{stats.lateResponse ? ` · ${t("calls.sla.lateCount", { n: stats.lateResponse })}` : ""}
+        </span>
+        <span className={clsx("flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium", stats.lateResolve ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600")}>
+          {stats.lateResolve ? <AlertTriangle size={13} /> : <Clock size={13} />} {t("calls.sla.resolveLate", { n: stats.lateResolve })}
+        </span>
+        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600" title={t("calls.sla.avgHint")}>{t("calls.sla.avgResponse")}: <b>{stats.avgResponse === null ? "—" : fmtHours(stats.avgResponse, t)}</b></span>
+        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600" title={t("calls.sla.avgHint")}>{t("calls.sla.avgResolve")}: <b>{stats.avgResolve === null ? "—" : fmtHours(stats.avgResolve, t)}</b></span>
+      </div>
 
       <div className="overflow-x-auto pb-2">
         <div className="grid min-w-[1180px] grid-cols-7 gap-3">
@@ -104,7 +138,7 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
                     onDragStart={() => canEdit && setDragId(l.id)}
                     onDragEnd={() => { setDragId(null); setOverStage(null); }}
                     onClick={() => setEditing(l)}
-                    className={clsx("cursor-pointer rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-brand-400", dragId === l.id ? "opacity-40" : "border-slate-200")}
+                    className={clsx("cursor-pointer rounded-xl border bg-white p-3 text-left shadow-sm transition hover:border-brand-400", dragId === l.id ? "opacity-40" : l.sla?.responseOverdue || l.sla?.resolveOverdue ? "border-rose-400 ring-1 ring-rose-200" : "border-slate-200")}
                   >
                     <div className="text-sm font-medium text-slate-900">{l.name}</div>
                     {l.phone && (
@@ -113,6 +147,7 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
                     {notePreview(l) && <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-slate-500">{notePreview(l)}</p>}
                     {l.stage === "MEETING" && l.meetingAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-sky-700"><CalendarClock size={12} /> {fmtDT(l.meetingAt)}</div>}
                     {l.stage === "CALLBACK" && l.callbackAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700"><CalendarClock size={12} /> {fmtDT(l.callbackAt)}</div>}
+                    <SlaBadge lead={l} now={now} />
                     {l.phoneCalls?.[0] && (
                       <div className={clsx("mt-1.5 flex items-center gap-1 text-[11px]", l.phoneCalls[0].direction === "IN" && l.phoneCalls[0].status !== "ANSWERED" ? "font-medium text-rose-600" : "text-slate-500")}>
                         {l.phoneCalls[0].direction === "OUT" ? <PhoneOutgoing size={11} /> : l.phoneCalls[0].status === "ANSWERED" ? <PhoneIncoming size={11} /> : <PhoneMissed size={11} />}
@@ -150,7 +185,7 @@ export function LeadsBoard({ canEdit }: { canEdit: boolean }) {
           }}
         />
       )}
-      {editing && <LeadModal lead={editing === "new" ? null : editing} canEdit={canEdit} onClose={() => setEditing(null)} onSaved={() => { invalidate(); setEditing(null); }} />}
+      {editing && <LeadModal lead={editing === "new" ? null : editing} canEdit={canEdit} isAdmin={isAdmin} onClose={() => setEditing(null)} onSaved={() => { invalidate(); setEditing(null); }} />}
     </div>
   );
 }
@@ -182,7 +217,7 @@ function StageDateModal({ lead, stage, onClose, onSave }: { lead: Lead; stage: L
   );
 }
 
-function LeadModal({ lead, canEdit, onClose, onSaved }: { lead: Lead | null; canEdit: boolean; onClose: () => void; onSaved: () => void }) {
+function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | null; canEdit: boolean; isAdmin: boolean; onClose: () => void; onSaved: () => void }) {
   const { t } = useLanguage();
   const fmtDT = useFmtDT();
   const [form, setForm] = useState({
@@ -251,12 +286,13 @@ function LeadModal({ lead, canEdit, onClose, onSaved }: { lead: Lead | null; can
               {lead.metaLeadgenId ? `${t("meta.assignee")}: ${lead.owner?.fullName ?? t("meta.noAssignee")}` : `${t("calls.leads.addedBy")}: ${lead.owner ? `${lead.owner.fullName}${lead.owner.position ? ` (${lead.owner.position})` : ""}` : t("calls.ipTelephonyAuto")}`} · {fmtDT(lead.createdAt)}
             </p>
           )}
+          {lead && <LeadHistory leadId={lead.id} />}
           {lead && <LeadCalls leadId={lead.id} />}
         </div>
         {error && <p className="mt-3 text-xs text-rose-600">{error}</p>}
         {canEdit && (
           <div className="mt-5 flex items-center justify-between gap-2">
-            {lead ? (
+            {lead && isAdmin ? (
               <button onClick={() => window.confirm(t("calls.leads.deleteConfirm")) && remove.mutate()} className="flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700"><Trash2 size={15} /> {t("calls.leads.delete")}</button>
             ) : <span />}
             <div className="flex gap-2">
@@ -291,6 +327,97 @@ function LeadCalls({ leadId }: { leadId: string }) {
             {(c.hasRecording || c.recordingUrl) && <RecordingPlayer callId={c.id} />}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+type TFn = ReturnType<typeof useLanguage>["t"];
+
+/** Daqiqada bir marta yangilanadigan "hozir" - muddat hisoblagichlari uchun */
+function useNow() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+/** Ish soatlari: 48 soatgacha - "24 soat", undan ko'pi - "3 kun 5 soat" / "3 kun" */
+function fmtHours(hours: number, t: TFn) {
+  const total = Math.max(0, Math.round(hours));
+  if (total < 48) return t("calls.sla.h", { h: total });
+  const { days, hours: h } = splitHours(total);
+  return h ? t("calls.sla.dh", { d: days, h }) : t("calls.sla.d", { d: days });
+}
+
+/**
+ * Lid kartochkasidagi muddat belgisi: 24 soatda javob (shanba-yakshanbasiz), so'ng 72 soatda natija -
+ * uchrashuv belgilash yoki "Sifatsiz lead". Muddat o'tsa - qizil ogohlantirish.
+ */
+function SlaBadge({ lead, now }: { lead: Lead; now: number }) {
+  const { t } = useLanguage();
+  const s = lead.sla;
+  if (!s) return null;
+  if (!s.responded) {
+    const due = +new Date(s.responseDueAt);
+    if (now > due) {
+      return (
+        <div className="mt-2 flex items-start gap-1 rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold leading-tight text-white">
+          <AlertTriangle size={12} className="mt-px shrink-0" /> {t("calls.sla.noResponse", { time: fmtHours(businessHoursBetween(due, now), t) })}
+        </div>
+      );
+    }
+    const left = businessHoursBetween(now, due);
+    return (
+      <div className={clsx("mt-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium", left <= 4 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")}>
+        <Clock size={12} /> {t("calls.sla.respondIn", { time: fmtHours(left, t) })}
+      </div>
+    );
+  }
+  if (!s.resolved) {
+    const due = +new Date(s.resolveDueAt);
+    if (now > due) {
+      return (
+        <div className="mt-2 flex items-start gap-1 rounded-md bg-rose-100 px-2 py-1 text-[11px] font-semibold leading-tight text-rose-700">
+          <AlertTriangle size={12} className="mt-px shrink-0" /> {t("calls.sla.resolveOverdue")}
+        </div>
+      );
+    }
+    const left = businessHoursBetween(now, due);
+    return (
+      <div className={clsx("mt-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px]", left <= 12 ? "bg-amber-50 text-amber-700" : "bg-slate-50 text-slate-500")}>
+        <Clock size={12} /> {t("calls.sla.resolveIn", { time: fmtHours(left, t) })}
+      </div>
+    );
+  }
+  return null;
+}
+
+/** Lid bosqichlari tarixi: har bir o'tish vaqti, kim o'tkazgani va oldingi bosqichda qancha turgani. */
+function LeadHistory({ leadId }: { leadId: string }) {
+  const { t } = useLanguage();
+  const fmtDT = useFmtDT();
+  const { data = [] } = useQuery({ queryKey: ["calls", "lead-history", leadId], queryFn: () => fetchLeadHistory(leadId) });
+  if (!data.length) return null;
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400"><History size={12} /> {t("calls.sla.history")}</div>
+      <div className="space-y-1">
+        {data.map((h, i) => {
+          const prev = data[i - 1];
+          const spent = prev ? businessHoursBetween(+new Date(prev.createdAt), +new Date(h.createdAt)) : null;
+          return (
+            <div key={h.id} className="rounded-lg bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
+              <span className="text-slate-400">{fmtDT(h.createdAt)}</span>{" · "}
+              {h.fromStage ? <>{t(stageTitleKey(h.fromStage))} → </> : `${t("calls.sla.created")}: `}
+              <b className="font-medium text-slate-800">{t(stageTitleKey(h.toStage))}</b>
+              {" · "}{h.user ? h.user.fullName : t("calls.sla.auto")}
+              {spent !== null && <span className="text-slate-400"> · {t("calls.sla.spent", { time: fmtHours(spent, t) })}</span>}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

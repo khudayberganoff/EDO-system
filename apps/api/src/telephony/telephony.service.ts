@@ -157,6 +157,7 @@ export class TelephonyService implements OnModuleInit, OnModuleDestroy {
           source: "IP-telefoniya",
           note: `Kiruvchi qo'ng'iroq (${STATUS_UZ[p.status]}), ${p.startedAt.toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent", dateStyle: "short", timeStyle: "short" })}`,
           stage: "NEW",
+          stageLogs: { create: { toStage: "NEW" } },
         },
       });
       leadId = lead.id;
@@ -190,6 +191,14 @@ export class TelephonyService implements OnModuleInit, OnModuleDestroy {
           },
         })
       : await this.prisma.phoneCall.create({ data: { externalId: p.externalId, ...data } });
+
+    // Lidga qilingan chiquvchi qo'ng'iroq yoki javob berilgan qo'ng'iroq - lidga birinchi javob (24 soatlik muddat uchun)
+    if (leadId && (saved.direction === "OUT" || saved.status === "ANSWERED")) {
+      await this.prisma.callLead.updateMany({
+        where: { id: leadId, respondedAt: null, createdAt: { lte: saved.startedAt } },
+        data: { respondedAt: saved.startedAt },
+      });
+    }
     this.logger.log(`Qo'ng'iroq ${existing ? "yangilandi" : "saqlandi"}: ${p.direction} ${p.phone} ${p.status}`);
 
     // Dastlabki hodisa "javobsiz" edi (lid yaratilgan), keyin javob berilgani ma'lum bo'ldi - bu avtomatik lid ortiqcha

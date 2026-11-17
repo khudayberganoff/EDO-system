@@ -8,6 +8,8 @@ import { normalizePhone } from "../telephony/telephony-parser";
 import { AuditAction } from "../common/enums";
 import { CreateCallLogDto, CreateLeadDto, SetClientPhoneDto, UpdateLeadDto, type LeadStage } from "./dto/calls.dto";
 
+import { RESOLVED_STAGES, leadSla } from "./lead-sla";
+
 type Actor = { id: string; role: string; organizationId: string };
 type CrmKey = "wafa_leasing" | "vafo_moliya";
 
@@ -230,7 +232,7 @@ export class CallsService {
   async leads(actor: Actor) {
     await this.assertAccess(actor.role, "view");
     const { orgIds } = await this.scope(actor);
-    return this.prisma.callLead.findMany({
+    const rows = await this.prisma.callLead.findMany({
       where: { organizationId: { in: orgIds } },
       orderBy: { updatedAt: "desc" },
       take: 500,
@@ -239,10 +241,30 @@ export class CallsService {
         phoneCalls: { orderBy: { startedAt: "desc" }, take: 1, select: { direction: true, status: true, startedAt: true } },
       },
     });
+    // Har bir lid uchun ish muddatlari: 24 soatda javob, 72 soatda natija (dam olish kunlarisiz)
+    const now = new Date();
+    return rows.map((l) => ({ ...l, sla: leadSla(l, now) }));
+  }
+
+  /** Lid bosqichlari tarixi: qachon, qaysi bosqichdan qaysisiga va kim o'tkazgani. */
+  async leadHistory(actor: Actor, id: string) {
+    await this.assertAccess(actor.role, "view");
+    await this.findLead(actor, id);
+    return this.prisma.callLeadStageLog.findMany({
+      where: { leadId: id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, fromStage: true, toStage: true, createdAt: true, user: { select: { fullName: true, position: true } } },
+    });
+  }
+
+  /** Call-markazda lid qo'shish va o'chirish faqat tizim administratoriga ruxsat etiladi. */
+  private assertAdmin(actor: Actor, what: string) {
+    if (actor.role !== "ADMIN") throw new ForbiddenException(`Lid ${what} faqat tizim administratori bajara oladi.`);
   }
 
   async createLead(actor: Actor, dto: CreateLeadDto) {
     await this.assertAccess(actor.role, "edit");
+    this.assertAdmin(actor, "qo'shishni");
     const stage = dto.stage ?? "NEW";
     const meetingAt = dto.meetingAt ? new Date(dto.meetingAt) : null;
     const callbackAt = dto.callbackAt ? new Date(dto.callbackAt) : null;
@@ -267,6 +289,9 @@ export class CallsService {
         stage,
         meetingAt,
         callbackAt,
+        respondedAt: stage !== "NEW" ? new Date() : null,
+        resolvedAt: RESOLVED_STAGES.includes(stage) ? new Date() : null,
+        stageLogs: { create: { toStage: stage, userId: actor.id } },
       },
       include: { owner: { select: { id: true, fullName: true, position: true } } },
     });
@@ -282,15 +307,23 @@ export class CallsService {
     const callbackAt = dto.callbackAt !== undefined ? new Date(dto.callbackAt) : lead.callbackAt;
     this.checkStageDates(stage, meetingAt, callbackAt);
 
+    const changed = !!dto.stage && dto.stage !== lead.stage;
+    const now = new Date();
     return this.prisma.callLead.update({
       where: { id },
       data: {
+        // Bosqich o'zgarishi vaqti va kim o'tkazgani tarixga yoziladi; birinchi javob va natija vaqtlari belgilanadi
+        ...(changed ? {
+          stageLogs: { create: { fromStage: lead.stage, toStage: stage, userId: actor.id } },
+          respondedAt: lead.respondedAt ?? (lead.stage === "NEW" ? now : lead.stageChangedAt),
+          resolvedAt: lead.resolvedAt ?? (RESOLVED_STAGES.includes(stage) ? now : undefined),
+        } : {}),
         name: dto.name?.trim(),
         phone: dto.phone === undefined ? undefined : dto.phone.trim() || null,
         source: dto.source === undefined ? undefined : dto.source.trim() || null,
         note: dto.note === undefined ? undefined : dto.note.trim() || null,
         stage,
-        stageChangedAt: dto.stage && dto.stage !== lead.stage ? new Date() : undefined,
+        stageChangedAt: changed ? now : undefined,
         meetingAt,
         callbackAt,
       },
@@ -300,10 +333,8 @@ export class CallsService {
 
   async removeLead(actor: Actor, id: string) {
     await this.assertAccess(actor.role, "edit");
-    const lead = await this.findLead(actor, id);
-    if (lead.ownerId && lead.ownerId !== actor.id && !["ADMIN", "MANAGER"].includes(actor.role)) {
-      throw new ForbiddenException("Lidni faqat uni qo'shgan xodim yoki rahbariyat o'chira oladi.");
-    }
+    this.assertAdmin(actor, "o'chirishni");
+    await this.findLead(actor, id);
     await this.prisma.callLead.delete({ where: { id } });
     await this.auditLog.record({ userId: actor.id, action: AuditAction.DELETE, metadata: { kind: "callLead", leadId: id } });
     return { deleted: true };
