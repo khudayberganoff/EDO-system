@@ -23,6 +23,8 @@ export interface Lead {
   /** Rad etish sabablari (tanlansa lid "Sifatsiz lead"ga o'tadi) va mijoz so'ragan muddat */
   lossReasons?: LossReason[];
   lossTerm?: string | null;
+  /** Rad etish bo'yicha qo'shimcha izoh */
+  lossNote?: string | null;
   /** Birinchi javob va natija (uchrashuv / sifatsiz) vaqtlari */
   respondedAt?: string | null;
   resolvedAt?: string | null;
@@ -38,7 +40,7 @@ export interface Lead {
   phoneCalls?: { direction: "IN" | "OUT"; status: "ANSWERED" | "MISSED" | "BUSY" | "FAILED"; startedAt: string }[];
 }
 
-export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm">>;
+export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm" | "lossNote">>;
 
 export interface LeadSla {
   responseDueAt: string;

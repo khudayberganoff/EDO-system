@@ -145,13 +145,14 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                     {l.phone && (
                       <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-emerald-700 hover:underline"><Phone size={11} /> {l.phone}</a>
                     )}
-                    {l.stage === "UNQUALIFIED" && !!l.lossReasons?.length && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {l.lossReasons.map((r) => (
+                    {l.stage === "UNQUALIFIED" && (!!l.lossReasons?.length || !!l.lossNote) && (
+                      <div className="mt-1.5 flex flex-wrap gap-1" title={l.lossNote ?? undefined}>
+                        {(l.lossReasons ?? []).map((r) => (
                           <span key={r} className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
                             {t(`calls.loss.short.${r}` as TranslationKey)}{r === "TERM" && l.lossTerm ? `: ${l.lossTerm}` : ""}
                           </span>
                         ))}
+                        {l.lossNote && <span className="line-clamp-2 w-full text-[11px] italic text-rose-700/90">«{l.lossNote}»</span>}
                       </div>
                     )}
                     {notePreview(l) && <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-slate-500">{notePreview(l)}</p>}
@@ -233,13 +234,14 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
   const [form, setForm] = useState({
     name: lead?.name ?? "", phone: lead?.phone ?? "", source: lead?.source ?? "", note: lead?.note ?? "",
     stage: (lead?.stage ?? "NEW") as LeadStage, meetingAt: toLocalInput(lead?.meetingAt), callbackAt: toLocalInput(lead?.callbackAt),
-    lossReasons: (lead?.lossReasons ?? []) as LossReason[], lossTerm: lead?.lossTerm ?? "",
+    lossReasons: (lead?.lossReasons ?? []) as LossReason[], lossTerm: lead?.lossTerm ?? "", lossNote: lead?.lossNote ?? "",
   });
   // Rad etish sababi belgilansa - bosqich avtomatik "Sifatsiz lead"; hammasi olib tashlansa - oldingi bosqichga qaytadi
   const toggleReason = (r: LossReason, on: boolean) => setForm((f) => {
     const lossReasons = on ? [...new Set([...f.lossReasons, r])] : f.lossReasons.filter((x) => x !== r);
     const fallback = lead && lead.stage !== "UNQUALIFIED" ? lead.stage : "NEW";
-    const stage: LeadStage = lossReasons.length ? "UNQUALIFIED" : f.lossReasons.length && f.stage === "UNQUALIFIED" ? fallback : f.stage;
+    const lossy = lossReasons.length || f.lossNote.trim();
+    const stage: LeadStage = lossy ? "UNQUALIFIED" : f.lossReasons.length && f.stage === "UNQUALIFIED" ? fallback : f.stage;
     return { ...f, lossReasons, stage, lossTerm: r === "TERM" && !on ? "" : f.lossTerm };
   });
   const [error, setError] = useState<string | null>(null);
@@ -249,7 +251,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
     mutationFn: () => {
       const payload: LeadInput = {
         name: form.name.trim(), phone: form.phone.trim(), source: form.source.trim(), note: form.note.trim(), stage: form.stage,
-        lossReasons: form.lossReasons, lossTerm: form.lossTerm.trim(),
+        lossReasons: form.lossReasons, lossTerm: form.lossTerm.trim(), lossNote: form.lossNote.trim(),
         ...(form.meetingAt ? { meetingAt: new Date(form.meetingAt).toISOString() } : {}),
         ...(form.callbackAt ? { callbackAt: new Date(form.callbackAt).toISOString() } : {}),
       };
@@ -283,8 +285,14 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
             </select>
           </label>
           <LossReasonsField
-            value={form.lossReasons} term={form.lossTerm} disabled={!canEdit}
+            value={form.lossReasons} term={form.lossTerm} note={form.lossNote} disabled={!canEdit}
             onToggle={toggleReason}
+            onNote={(v) => setForm((f) => {
+              // Izoh yozilsa ham lid "Sifatsiz lead"ga o'tadi; o'chirilsa va sabab yo'q bo'lsa - oldingi bosqichga qaytadi
+              const fallback = lead && lead.stage !== "UNQUALIFIED" ? lead.stage : "NEW";
+              const stage: LeadStage = v.trim() || f.lossReasons.length ? "UNQUALIFIED" : f.lossNote.trim() && f.stage === "UNQUALIFIED" ? fallback : f.stage;
+              return { ...f, lossNote: v, stage };
+            })}
             onTerm={(v) => setForm((f) => ({ ...f, lossTerm: v, ...(v.trim() && !f.lossReasons.includes("TERM") ? { lossReasons: [...f.lossReasons, "TERM"] as LossReason[], stage: "UNQUALIFIED" as LeadStage } : {}) }))}
           />
           {(needMeeting || form.meetingAt) && (
@@ -451,13 +459,14 @@ function LeadHistory({ leadId }: { leadId: string }) {
  * Rad etish sabablari (belgilash bilan): garov, ustama, islomiy moliya va muddat (mijoz so'ragan muddat kiritiladi).
  * Kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi.
  */
-function LossReasonsField({ value, term, disabled, onToggle, onTerm }: {
-  value: LossReason[]; term: string; disabled: boolean;
-  onToggle: (r: LossReason, on: boolean) => void; onTerm: (v: string) => void;
+function LossReasonsField({ value, term, note, disabled, onToggle, onTerm, onNote }: {
+  value: LossReason[]; term: string; note: string; disabled: boolean;
+  onToggle: (r: LossReason, on: boolean) => void; onTerm: (v: string) => void; onNote: (v: string) => void;
 }) {
+  const active = value.length > 0 || !!note.trim();
   const { t } = useLanguage();
   return (
-    <div className={clsx("rounded-lg border p-3", value.length ? "border-rose-200 bg-rose-50/60" : "border-slate-200 bg-slate-50/60")}>
+    <div className={clsx("rounded-lg border p-3", active ? "border-rose-200 bg-rose-50/60" : "border-slate-200 bg-slate-50/60")}>
       <div className="text-xs font-semibold text-slate-700">{t("calls.loss.title")}</div>
       <div className="mb-2 text-[11px] text-slate-500">{t("calls.loss.hint")}</div>
       <div className="space-y-1.5">
@@ -477,7 +486,12 @@ function LossReasonsField({ value, term, disabled, onToggle, onTerm }: {
           </div>
         ))}
       </div>
-      {value.length > 0 && <div className="mt-2 text-[11px] font-medium text-rose-700">{t("calls.loss.willMove")}</div>}
+      <textarea
+        value={note} disabled={disabled} maxLength={1000} rows={2} onChange={(e) => onNote(e.target.value)}
+        placeholder={t("calls.loss.notePlaceholder")}
+        className="mt-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+      />
+      {active && <div className="mt-1 text-[11px] font-medium text-rose-700">{t("calls.loss.willMove")}</div>}
     </div>
   );
 }
