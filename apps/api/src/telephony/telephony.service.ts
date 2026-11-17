@@ -5,6 +5,7 @@ import * as path from "path";
 import { NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { parseCall, samePhone, type ParsedCall } from "./telephony-parser";
+import { siteMode } from "../common/site-mode";
 
 export const RECORDINGS_DIR = path.resolve(process.cwd(), "uploads", ".private", "recordings");
 export const AUDIO_TYPES: Record<string, string> = {
@@ -36,6 +37,7 @@ export class TelephonyService implements OnModuleInit, OnModuleDestroy {
   constructor(private prisma: PrismaService) {}
 
   onModuleInit() {
+    if (siteMode() === "edo") return; // alohida EDO serverida IP-telefoniya yo'q
     // Disk to'lib qolmasligi uchun muddati o'tgan yozuvlar har 6 soatda tozalanadi
     setTimeout(() => void this.cleanupRecordings(), 60_000).unref();
     this.timer = setInterval(() => void this.cleanupRecordings(), 6 * 3600_000);

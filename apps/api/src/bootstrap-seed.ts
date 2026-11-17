@@ -3,6 +3,7 @@ import * as bcrypt from "bcryptjs";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { Role } from "./common/enums";
+import { siteMode } from "./common/site-mode";
 
 const execFileAsync = promisify(execFile);
 
@@ -43,11 +44,14 @@ async function seedInitialUsers(): Promise<void> {
     const userCount = await prisma.user.count();
     if (userCount > 0) return; // baza allaqachon to'ldirilgan
 
-    const accounts = [
-      { fullName: "Tizim Administratori", email: "admin@wafagroup.uz", password: "Admin123!", role: Role.ADMIN },
-      { fullName: "Bo'lim Boshlig'i", email: "manager@wafagroup.uz", password: "Manager123!", role: Role.MANAGER },
-      { fullName: "Xodim Xodimov", email: "employee@wafagroup.uz", password: "Employee123!", role: Role.EMPLOYEE },
-    ];
+    // Alohida Call-markaz bazasida faqat administrator (u operatorlarni o'zi qo'shadi; birinchi kirishda parol almashtiriladi)
+    const accounts = siteMode() === "call"
+      ? [{ fullName: "Tizim Administratori", email: "admin@wafagroup.uz", password: "Admin123!", role: Role.ADMIN }]
+      : [
+          { fullName: "Tizim Administratori", email: "admin@wafagroup.uz", password: "Admin123!", role: Role.ADMIN },
+          { fullName: "Bo'lim Boshlig'i", email: "manager@wafagroup.uz", password: "Manager123!", role: Role.MANAGER },
+          { fullName: "Xodim Xodimov", email: "employee@wafagroup.uz", password: "Employee123!", role: Role.EMPLOYEE },
+        ];
 
     for (const acc of accounts) {
       await prisma.user.upsert({
@@ -58,6 +62,7 @@ async function seedInitialUsers(): Promise<void> {
           email: acc.email,
           passwordHash: await bcrypt.hash(acc.password, 10),
           role: acc.role,
+          mustChangePassword: siteMode() === "call",
         },
       });
     }

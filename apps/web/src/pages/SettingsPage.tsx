@@ -10,7 +10,13 @@ import { LOCALE_OF } from "../i18n/callsTranslations";
 import type { TranslationKey } from "../i18n/translations";
 import { fetchPermissions, setPermission, fetchUsers, createUser, updateUser, resetUserPassword, fetchUserDetails, type SystemUser, type PermissionRow, type PersonPayload } from "../api/settings";
 
-const ROLES = ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER", "OPERATOR"] as const;
+/**
+ * Har bir tizimning o'z rollari: Call-markaz - administrator, rahbariyat, operator, kuzatuvchi;
+ * EDO - administrator, rahbariyat, xodim, kuzatuvchi (operator EDO'da ishlamaydi).
+ */
+const ROLES = IS_CALL_SITE ? (["ADMIN", "MANAGER", "OPERATOR", "OBSERVER"] as const) : (["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"] as const);
+/** Ro'yxatda foydalanuvchining hozirgi roli boshqa tizimniki bo'lsa ham ko'rinib tursin */
+const rolesWith = (current?: string) => (current && !(ROLES as readonly string[]).includes(current) ? [...ROLES, current] : [...ROLES]);
 const ROLE_KEYS: Record<string, TranslationKey> = {
   ADMIN: "settings.role.ADMIN",
   MANAGER: "settings.role.MANAGER",
@@ -144,7 +150,7 @@ function UsersTab() {
                     onChange={(e) => update.mutate({ id: u.id, payload: { role: e.target.value } })}
                     className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm"
                   >
-                    {ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
+                    {rolesWith(u.role).map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
                   </select>
                 </td>
                 <td className="px-4 py-3">
@@ -626,6 +632,8 @@ function PermissionsTab() {
   });
 
   if (isLoading) return <p className="text-slate-400">{t("calls.loading")}</p>;
+  // Faqat shu tizimning rollari (Call-markazda xodim, EDO'da operator ustuni yo'q)
+  const roles = (data?.roles ?? []).filter((r) => (ROLES as readonly string[]).includes(r));
 
   return (
     <>
@@ -639,13 +647,13 @@ function PermissionsTab() {
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 text-left">{t("settings.colModule")}</th>
-              {data?.roles.map((r) => (
+              {roles.map((r) => (
                 <th key={r} className="px-4 py-3 text-center" colSpan={2}>{roleLabel(r)}</th>
               ))}
             </tr>
             <tr className="text-[11px] normal-case">
               <th />
-              {data?.roles.map((r) => (
+              {roles.map((r) => (
                 <>
                   <th key={`${r}-v`} className="px-2 py-2 font-normal text-slate-400">{t("settings.view")}</th>
                   <th key={`${r}-e`} className="px-2 py-2 font-normal text-slate-400">{t("settings.edit")}</th>
@@ -657,7 +665,7 @@ function PermissionsTab() {
             {data?.modules.filter((m: PermissionRow) => !IS_CALL_SITE || m.module === "calls").map((m: PermissionRow) => (
               <tr key={m.module} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-800">{MODULE_KEYS[m.module] ? t(MODULE_KEYS[m.module]) : m.label}</td>
-                {data.roles.map((role) => {
+                {roles.map((role) => {
                   const perm = m.roles[role];
                   return (
                     <>
