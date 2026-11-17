@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from "class-validator";
+import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength, IsArray, ArrayMaxSize } from "class-validator";
 
 export const CALL_OUTCOMES = ["ANSWERED", "NO_ANSWER", "BUSY", "PROMISE", "REFUSED", "WRONG_NUMBER", "CALLBACK"] as const;
 export type CallOutcome = (typeof CALL_OUTCOMES)[number];
@@ -23,24 +23,33 @@ export class CreateCallLogDto {
 export const LEAD_STAGES = ["NEW", "INFO_GIVEN", "CALLBACK", "MEETING", "VISITED", "CONTRACT", "UNQUALIFIED"] as const;
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
+/** Lidni rad etish sabablari: garov to'g'ri kelmadi, ustama qimmat, islomiy moliya xohlamadi, muddat */
+export const LOSS_REASONS = ["COLLATERAL", "MARKUP", "ISLAMIC", "TERM"] as const;
+
 export class CreateLeadDto {
   @IsString() @MinLength(2) @MaxLength(200) name!: string;
   @IsOptional() @IsString() @MaxLength(50) phone?: string;
   @IsOptional() @IsString() @MaxLength(100) source?: string;
-  @IsOptional() @IsString() @MaxLength(2000) note?: string;
+  @IsOptional() @IsString() @MaxLength(10000) note?: string;
   @IsOptional() @IsIn(LEAD_STAGES as unknown as string[]) stage?: LeadStage;
   @IsOptional() @IsDateString() meetingAt?: string;
   @IsOptional() @IsDateString() callbackAt?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
+  @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
 }
 
 export class UpdateLeadDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(200) name?: string;
   @IsOptional() @IsString() @MaxLength(50) phone?: string;
   @IsOptional() @IsString() @MaxLength(100) source?: string;
-  @IsOptional() @IsString() @MaxLength(2000) note?: string;
+  /** Facebook lidlari izohi uzun bo'lishi mumkin (arizadagi barcha javoblar) */
+  @IsOptional() @IsString() @MaxLength(10000) note?: string;
   @IsOptional() @IsIn(LEAD_STAGES as unknown as string[]) stage?: LeadStage;
   @IsOptional() @IsDateString() meetingAt?: string;
   @IsOptional() @IsDateString() callbackAt?: string;
+  /** Rad etish sabablari - kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi */
+  @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
+  @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
 }
 
 export class SetClientPhoneDto {

@@ -265,7 +265,9 @@ export class CallsService {
   async createLead(actor: Actor, dto: CreateLeadDto) {
     await this.assertAccess(actor.role, "edit");
     this.assertAdmin(actor, "qo'shishni");
-    const stage = dto.stage ?? "NEW";
+    const lossReasons = [...new Set(dto.lossReasons ?? [])];
+    // Rad etish sababi tanlangan lid - "Sifatsiz lead"
+    const stage: LeadStage = lossReasons.length ? "UNQUALIFIED" : dto.stage ?? "NEW";
     const meetingAt = dto.meetingAt ? new Date(dto.meetingAt) : null;
     const callbackAt = dto.callbackAt ? new Date(dto.callbackAt) : null;
     this.checkStageDates(stage, meetingAt, callbackAt);
@@ -289,6 +291,8 @@ export class CallsService {
         stage,
         meetingAt,
         callbackAt,
+        lossReasons,
+        lossTerm: lossReasons.includes("TERM") ? dto.lossTerm?.trim() || null : null,
         respondedAt: stage !== "NEW" ? new Date() : null,
         resolvedAt: RESOLVED_STAGES.includes(stage) ? new Date() : null,
         stageLogs: { create: { toStage: stage, userId: actor.id } },
@@ -302,12 +306,18 @@ export class CallsService {
   async updateLead(actor: Actor, id: string, dto: UpdateLeadDto) {
     await this.assertAccess(actor.role, "edit");
     const lead = await this.findLead(actor, id);
-    const stage = (dto.stage ?? lead.stage) as LeadStage;
+    // Rad etish sabablari: kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi;
+    // lid boshqa bosqichga qaytarilsa, eski sabablar tozalanadi
+    let lossReasons = dto.lossReasons === undefined ? undefined : [...new Set(dto.lossReasons)];
+    const stage = (lossReasons?.length ? "UNQUALIFIED" : dto.stage ?? lead.stage) as LeadStage;
+    if (stage !== "UNQUALIFIED" && (lossReasons?.length || lead.lossReasons.length)) lossReasons = [];
+    const reasonsNow = lossReasons ?? lead.lossReasons;
+    const lossTerm = !reasonsNow.includes("TERM") ? (lead.lossTerm || dto.lossTerm ? null : undefined) : dto.lossTerm === undefined ? undefined : dto.lossTerm.trim() || null;
     const meetingAt = dto.meetingAt !== undefined ? new Date(dto.meetingAt) : lead.meetingAt;
     const callbackAt = dto.callbackAt !== undefined ? new Date(dto.callbackAt) : lead.callbackAt;
     this.checkStageDates(stage, meetingAt, callbackAt);
 
-    const changed = !!dto.stage && dto.stage !== lead.stage;
+    const changed = stage !== lead.stage;
     const now = new Date();
     return this.prisma.callLead.update({
       where: { id },
@@ -318,6 +328,8 @@ export class CallsService {
           respondedAt: lead.respondedAt ?? (lead.stage === "NEW" ? now : lead.stageChangedAt),
           resolvedAt: lead.resolvedAt ?? (RESOLVED_STAGES.includes(stage) ? now : undefined),
         } : {}),
+        lossReasons,
+        lossTerm,
         name: dto.name?.trim(),
         phone: dto.phone === undefined ? undefined : dto.phone.trim() || null,
         source: dto.source === undefined ? undefined : dto.source.trim() || null,
