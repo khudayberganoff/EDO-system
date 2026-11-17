@@ -6,6 +6,7 @@ import { escapeHtml } from "../telegram/telegram-task-parser";
 import { decryptSecret, encryptSecret, safeEqual } from "../common/secret-box";
 import { samePhone } from "../telephony/telephony-parser";
 import { siteMode } from "../common/site-mode";
+import { RESOLVED_STAGES } from "../calls/lead-sla";
 import { DEFAULT_SCOPES, GraphError, dialogBase, graph, graphAll, graphVersion } from "./meta-graph";
 import { META_TARGETS, formatTashkent, mapMetaLead, type MetaLeadData, type MetaQuestion } from "./meta-lead-mapper";
 
@@ -587,7 +588,13 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const lead = await this.prisma.callLead.create({
-        data: { organizationId, ownerId: assigneeId, name: m.name, phone: m.phone, source: m.source, note: note.slice(0, 10_000), stage, metaLeadgenId: String(data.id), ...metaFields },
+        data: {
+          organizationId, ownerId: assigneeId, name: m.name, phone: m.phone, source: m.source, note: note.slice(0, 10_000), stage, metaLeadgenId: String(data.id), ...metaFields,
+          // Sozlamada "Yangi lead"dan boshqa bosqich tanlangan bo'lsa - javob/natija vaqti darhol belgilanadi
+          ...(stage !== "NEW" ? { respondedAt: new Date() } : {}),
+          ...(RESOLVED_STAGES.includes(stage) ? { resolvedAt: new Date() } : {}),
+          stageLogs: { create: { toStage: stage } },
+        },
       });
       await this.notify(lead.id, m, assigneeId, false);
       return lead.id;

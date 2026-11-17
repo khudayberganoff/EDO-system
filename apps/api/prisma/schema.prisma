@@ -90,6 +90,7 @@ model User {
   boardRated       BoardTask[]       @relation("BoardTaskRater")
   callLogs         CallLog[]         @relation("CallOperator")
   callLeads        CallLead[]        @relation("CallLeadOwner")
+  leadStageLogs    CallLeadStageLog[] @relation("LeadStageLogUser")
   clientPhones     ClientPhone[]     @relation("ClientPhoneEditor")
   boardComments    BoardComment[]    @relation("BoardCommentAuthor")
   boards           Board[]           @relation("BoardOwner")
@@ -807,6 +808,12 @@ model CallLead {
   owner          User?        @relation("CallLeadOwner", fields: [ownerId], references: [id])
   phoneCalls     PhoneCall[]
   stageChangedAt DateTime     @default(now())
+  /// Birinchi javob vaqti (bosqich "Yangi lead"dan o'zgartirildi yoki qo'ng'iroq qilindi) - 24 soatlik muddat uchun
+  respondedAt    DateTime?
+  /// Natija vaqti (uchrashuv belgilandi yoki "Sifatsiz lead") - 72 soatlik muddat uchun
+  resolvedAt     DateTime?
+  /// Bosqichlar tarixi: har bir o'tish vaqti va kim o'tkazgani
+  stageLogs      CallLeadStageLog[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -958,4 +965,20 @@ model MetaWebhookEvent {
 
   @@index([status, nextAttemptAt])
   @@index([createdAt])
+}
+
+/// Lid bosqichlari tarixi: lid qaysi bosqichdan qaysi bosqichga, qachon va kim tomonidan o'tkazilgani.
+model CallLeadStageLog {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      CallLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  /// Lid yaratilganda bo'sh
+  fromStage String?
+  toStage   String
+  /// Avtomatik (IP-telefoniya, Facebook) o'tishlarda bo'sh
+  userId    String?
+  user      User?    @relation("LeadStageLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
 }

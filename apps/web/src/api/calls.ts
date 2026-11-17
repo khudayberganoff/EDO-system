@@ -16,6 +16,11 @@ export interface Lead {
   stageChangedAt: string;
   createdAt: string;
   owner: { id: string; fullName: string; position?: string | null } | null;
+  /** Birinchi javob va natija (uchrashuv / sifatsiz) vaqtlari */
+  respondedAt?: string | null;
+  resolvedAt?: string | null;
+  /** Ish muddatlari: 24 soatda javob, 72 soatda natija (dam olish kunlarisiz) */
+  sla?: LeadSla;
   /** Facebook / Instagram lid formasidan kelgan bo'lsa */
   metaLeadgenId?: string | null;
   metaFormName?: string | null;
@@ -27,6 +32,30 @@ export interface Lead {
 }
 
 export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt">>;
+
+export interface LeadSla {
+  responseDueAt: string;
+  resolveDueAt: string;
+  responded: boolean;
+  resolved: boolean;
+  responseOverdue: boolean;
+  resolveOverdue: boolean;
+  responseHours: number | null;
+  resolveHours: number | null;
+}
+
+export interface LeadStageLog {
+  id: string;
+  fromStage: LeadStage | null;
+  toStage: LeadStage;
+  createdAt: string;
+  user: { fullName: string; position: string | null } | null;
+}
+
+export async function fetchLeadHistory(id: string) {
+  const { data } = await apiClient.get<LeadStageLog[]>(`/calls/leads/${id}/history`);
+  return data;
+}
 
 export async function fetchLeads() {
   const { data } = await apiClient.get<Lead[]>("/calls/leads");

@@ -84,6 +84,7 @@ async function migrate() {
   const dst = new PrismaClient({ datasources: { db: { url: TARGET_URL } } });
   try {
     console.log("2) Ma'lumotlar o'qilmoqda (EDO bazasi)...");
+    const stageLogs = await src.callLeadStageLog.findMany().catch(() => []); // eski bazada jadval bo'lmasligi mumkin
     const [orgs, leads, calls, logs, phones, conns, pages, forms, events, perms, settings] = await Promise.all([
       src.organization.findMany(),
       src.callLead.findMany(),
@@ -115,6 +116,7 @@ async function migrate() {
     await copy("Xodim-tashkilot", userOrgs, (d) => dst.userOrganization.createMany({ data: d, skipDuplicates: true }));
     await copy("Ruxsatlar (calls, settings)", perms, (d) => dst.modulePermission.createMany({ data: d, skipDuplicates: true }));
     await copy("Lidlar", leads, (d) => dst.callLead.createMany({ data: d, skipDuplicates: true }));
+    await copy("Lid bosqichlari tarixi", stageLogs.map((s) => (s.userId && !userIds.has(s.userId) ? { ...s, userId: null } : s)), (d) => dst.callLeadStageLog.createMany({ data: d, skipDuplicates: true }));
     await copy("Qo'ng'iroqlar (ATS)", jsonSafe(calls, ["raw"]), (d) => dst.phoneCall.createMany({ data: d, skipDuplicates: true }));
     await copy("CRM qo'ng'iroq natijalari", logs, (d) => dst.callLog.createMany({ data: d, skipDuplicates: true }));
     await copy("Mijoz telefonlari (qo'lda)", phones, (d) => dst.clientPhone.createMany({ data: d, skipDuplicates: true }));

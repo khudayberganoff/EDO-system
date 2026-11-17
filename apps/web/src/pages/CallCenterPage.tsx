@@ -32,7 +32,7 @@ export function CallCenterPage() {
           ))}
         </div>
       </div>
-      {tab === "leads" && <LeadsBoard canEdit={canEdit} />}
+      {tab === "leads" && <LeadsBoard canEdit={canEdit} isAdmin={user?.role === "ADMIN"} />}
       {tab === "calls" && <PhoneCallsTab />}
       {tab === "calendar" && <CallCalendar onOpen={() => setTab("leads")} />}
     </div>
