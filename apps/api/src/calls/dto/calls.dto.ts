@@ -36,6 +36,7 @@ export class CreateLeadDto {
   @IsOptional() @IsDateString() callbackAt?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
   @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
+  @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
 }
 
 export class UpdateLeadDto {
@@ -50,6 +51,7 @@ export class UpdateLeadDto {
   /** Rad etish sabablari - kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi */
   @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
   @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
+  @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
 }
 
 export class SetClientPhoneDto {

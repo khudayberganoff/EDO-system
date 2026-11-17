@@ -266,8 +266,9 @@ export class CallsService {
     await this.assertAccess(actor.role, "edit");
     this.assertAdmin(actor, "qo'shishni");
     const lossReasons = [...new Set(dto.lossReasons ?? [])];
-    // Rad etish sababi tanlangan lid - "Sifatsiz lead"
-    const stage: LeadStage = lossReasons.length ? "UNQUALIFIED" : dto.stage ?? "NEW";
+    const lossNote = dto.lossNote?.trim() || null;
+    // Rad etish sababi tanlangan yoki izohi yozilgan lid - "Sifatsiz lead"
+    const stage: LeadStage = lossReasons.length || lossNote ? "UNQUALIFIED" : dto.stage ?? "NEW";
     const meetingAt = dto.meetingAt ? new Date(dto.meetingAt) : null;
     const callbackAt = dto.callbackAt ? new Date(dto.callbackAt) : null;
     this.checkStageDates(stage, meetingAt, callbackAt);
@@ -293,6 +294,7 @@ export class CallsService {
         callbackAt,
         lossReasons,
         lossTerm: lossReasons.includes("TERM") ? dto.lossTerm?.trim() || null : null,
+        lossNote,
         respondedAt: stage !== "NEW" ? new Date() : null,
         resolvedAt: RESOLVED_STAGES.includes(stage) ? new Date() : null,
         stageLogs: { create: { toStage: stage, userId: actor.id } },
@@ -309,8 +311,12 @@ export class CallsService {
     // Rad etish sabablari: kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi;
     // lid boshqa bosqichga qaytarilsa, eski sabablar tozalanadi
     let lossReasons = dto.lossReasons === undefined ? undefined : [...new Set(dto.lossReasons)];
-    const stage = (lossReasons?.length ? "UNQUALIFIED" : dto.stage ?? lead.stage) as LeadStage;
-    if (stage !== "UNQUALIFIED" && (lossReasons?.length || lead.lossReasons.length)) lossReasons = [];
+    let lossNote = dto.lossNote === undefined ? undefined : dto.lossNote.trim() || null;
+    const stage = (lossReasons?.length || lossNote ? "UNQUALIFIED" : dto.stage ?? lead.stage) as LeadStage;
+    if (stage !== "UNQUALIFIED") {
+      if (lossReasons?.length || lead.lossReasons.length) lossReasons = [];
+      if (lossNote || lead.lossNote) lossNote = null;
+    }
     const reasonsNow = lossReasons ?? lead.lossReasons;
     const lossTerm = !reasonsNow.includes("TERM") ? (lead.lossTerm || dto.lossTerm ? null : undefined) : dto.lossTerm === undefined ? undefined : dto.lossTerm.trim() || null;
     const meetingAt = dto.meetingAt !== undefined ? new Date(dto.meetingAt) : lead.meetingAt;
@@ -330,6 +336,7 @@ export class CallsService {
         } : {}),
         lossReasons,
         lossTerm,
+        lossNote,
         name: dto.name?.trim(),
         phone: dto.phone === undefined ? undefined : dto.phone.trim() || null,
         source: dto.source === undefined ? undefined : dto.source.trim() || null,
