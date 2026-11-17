@@ -2,6 +2,10 @@ import { apiClient } from "./client";
 
 // ---------- Lidlar (Kanban) ----------
 
+/** Garov to'g'ri kelmadi | Ustama qimmatlik qildi | Islomiy moliya xohlamadi | Muddat */
+export type LossReason = "COLLATERAL" | "MARKUP" | "ISLAMIC" | "TERM";
+export const LOSS_REASONS: LossReason[] = ["COLLATERAL", "MARKUP", "ISLAMIC", "TERM"];
+
 export type LeadStage = "NEW" | "INFO_GIVEN" | "CALLBACK" | "MEETING" | "VISITED" | "CONTRACT" | "UNQUALIFIED";
 
 export interface Lead {
@@ -16,6 +20,9 @@ export interface Lead {
   stageChangedAt: string;
   createdAt: string;
   owner: { id: string; fullName: string; position?: string | null } | null;
+  /** Rad etish sabablari (tanlansa lid "Sifatsiz lead"ga o'tadi) va mijoz so'ragan muddat */
+  lossReasons?: LossReason[];
+  lossTerm?: string | null;
   /** Birinchi javob va natija (uchrashuv / sifatsiz) vaqtlari */
   respondedAt?: string | null;
   resolvedAt?: string | null;
@@ -31,7 +38,7 @@ export interface Lead {
   phoneCalls?: { direction: "IN" | "OUT"; status: "ANSWERED" | "MISSED" | "BUSY" | "FAILED"; startedAt: string }[];
 }
 
-export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt">>;
+export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm">>;
 
 export interface LeadSla {
   responseDueAt: string;

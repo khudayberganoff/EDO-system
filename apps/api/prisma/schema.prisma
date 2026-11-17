@@ -814,6 +814,10 @@ model CallLead {
   resolvedAt     DateTime?
   /// Bosqichlar tarixi: har bir o'tish vaqti va kim o'tkazgani
   stageLogs      CallLeadStageLog[]
+  /// Rad etish sabablari (tanlansa lid "Sifatsiz lead"ga o'tadi): COLLATERAL | MARKUP | ISLAMIC | TERM
+  lossReasons    String[]     @default([])
+  /// Muddat sababi uchun: mijoz so'ragan muddat (erkin matn, masalan "60 oy")
+  lossTerm       String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

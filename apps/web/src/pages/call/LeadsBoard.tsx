@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CalendarClock, Clock, Facebook, History, Instagram, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
 import clsx from "clsx";
-import { createLead, deleteLead, fetchLeadHistory, fetchLeads, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage } from "../../api/calls";
+import { LOSS_REASONS, createLead, deleteLead, fetchLeadHistory, fetchLeads, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage, type LossReason } from "../../api/calls";
 import { businessHoursBetween, splitHours } from "../../utils/leadSla";
 import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
 import { LEAD_STAGES, TONE_CLASSES, stageTitleKey } from "../../utils/leadStages";
 import { useLanguage } from "../../i18n/LanguageContext";
 import { LOCALE_OF } from "../../i18n/callsTranslations";
+import type { TranslationKey } from "../../i18n/translations";
 
 /** Joriy tilga mos "sana, vaqt" formatlovchi */
 function useFmtDT() {
@@ -144,6 +145,15 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                     {l.phone && (
                       <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-emerald-700 hover:underline"><Phone size={11} /> {l.phone}</a>
                     )}
+                    {l.stage === "UNQUALIFIED" && !!l.lossReasons?.length && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {l.lossReasons.map((r) => (
+                          <span key={r} className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
+                            {t(`calls.loss.short.${r}` as TranslationKey)}{r === "TERM" && l.lossTerm ? `: ${l.lossTerm}` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {notePreview(l) && <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-slate-500">{notePreview(l)}</p>}
                     {l.stage === "MEETING" && l.meetingAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-sky-700"><CalendarClock size={12} /> {fmtDT(l.meetingAt)}</div>}
                     {l.stage === "CALLBACK" && l.callbackAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700"><CalendarClock size={12} /> {fmtDT(l.callbackAt)}</div>}
@@ -223,6 +233,14 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
   const [form, setForm] = useState({
     name: lead?.name ?? "", phone: lead?.phone ?? "", source: lead?.source ?? "", note: lead?.note ?? "",
     stage: (lead?.stage ?? "NEW") as LeadStage, meetingAt: toLocalInput(lead?.meetingAt), callbackAt: toLocalInput(lead?.callbackAt),
+    lossReasons: (lead?.lossReasons ?? []) as LossReason[], lossTerm: lead?.lossTerm ?? "",
+  });
+  // Rad etish sababi belgilansa - bosqich avtomatik "Sifatsiz lead"; hammasi olib tashlansa - oldingi bosqichga qaytadi
+  const toggleReason = (r: LossReason, on: boolean) => setForm((f) => {
+    const lossReasons = on ? [...new Set([...f.lossReasons, r])] : f.lossReasons.filter((x) => x !== r);
+    const fallback = lead && lead.stage !== "UNQUALIFIED" ? lead.stage : "NEW";
+    const stage: LeadStage = lossReasons.length ? "UNQUALIFIED" : f.lossReasons.length && f.stage === "UNQUALIFIED" ? fallback : f.stage;
+    return { ...f, lossReasons, stage, lossTerm: r === "TERM" && !on ? "" : f.lossTerm };
   });
   const [error, setError] = useState<string | null>(null);
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -231,6 +249,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
     mutationFn: () => {
       const payload: LeadInput = {
         name: form.name.trim(), phone: form.phone.trim(), source: form.source.trim(), note: form.note.trim(), stage: form.stage,
+        lossReasons: form.lossReasons, lossTerm: form.lossTerm.trim(),
         ...(form.meetingAt ? { meetingAt: new Date(form.meetingAt).toISOString() } : {}),
         ...(form.callbackAt ? { callbackAt: new Date(form.callbackAt).toISOString() } : {}),
       };
@@ -263,6 +282,11 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
               {LEAD_STAGES.map((s) => <option key={s.stage} value={s.stage}>{t(s.title)}</option>)}
             </select>
           </label>
+          <LossReasonsField
+            value={form.lossReasons} term={form.lossTerm} disabled={!canEdit}
+            onToggle={toggleReason}
+            onTerm={(v) => setForm((f) => ({ ...f, lossTerm: v, ...(v.trim() && !f.lossReasons.includes("TERM") ? { lossReasons: [...f.lossReasons, "TERM"] as LossReason[], stage: "UNQUALIFIED" as LeadStage } : {}) }))}
+          />
           {(needMeeting || form.meetingAt) && (
             <label className="block text-xs text-slate-500">{t("calls.leads.meetingAt")}{needMeeting ? " *" : ""}<input type="datetime-local" value={form.meetingAt} disabled={!canEdit} onChange={(e) => set("meetingAt", e.target.value)} className="input mt-1" /></label>
           )}
@@ -419,6 +443,41 @@ function LeadHistory({ leadId }: { leadId: string }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Rad etish sabablari (belgilash bilan): garov, ustama, islomiy moliya va muddat (mijoz so'ragan muddat kiritiladi).
+ * Kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi.
+ */
+function LossReasonsField({ value, term, disabled, onToggle, onTerm }: {
+  value: LossReason[]; term: string; disabled: boolean;
+  onToggle: (r: LossReason, on: boolean) => void; onTerm: (v: string) => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div className={clsx("rounded-lg border p-3", value.length ? "border-rose-200 bg-rose-50/60" : "border-slate-200 bg-slate-50/60")}>
+      <div className="text-xs font-semibold text-slate-700">{t("calls.loss.title")}</div>
+      <div className="mb-2 text-[11px] text-slate-500">{t("calls.loss.hint")}</div>
+      <div className="space-y-1.5">
+        {LOSS_REASONS.map((r) => (
+          <div key={r} className="flex flex-wrap items-center gap-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" className="h-4 w-4 accent-rose-600" checked={value.includes(r)} disabled={disabled} onChange={(e) => onToggle(r, e.target.checked)} />
+              {t(`calls.loss.${r}` as TranslationKey)}
+            </label>
+            {r === "TERM" && (
+              <input
+                value={term} disabled={disabled} maxLength={50} onChange={(e) => onTerm(e.target.value)}
+                placeholder={t("calls.loss.termPlaceholder")}
+                className="min-w-[160px] flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      {value.length > 0 && <div className="mt-2 text-[11px] font-medium text-rose-700">{t("calls.loss.willMove")}</div>}
     </div>
   );
 }
