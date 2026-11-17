@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap, BadRequestException } from 
 import * as crypto from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { escapeHtml } from "./telegram-task-parser";
+import { siteMode } from "../common/site-mode";
 
 const TOKEN_SETTING = "telegram_bot_token";
 /** Odatda api.telegram.org; sinov yoki mahalliy Bot API serveri uchun TELEGRAM_API_BASE bilan almashtiriladi. */
@@ -129,6 +130,12 @@ export class TelegramService implements OnApplicationBootstrap {
   async setup() {
     const me = await this.call("getMe");
     this.botUsername = me.username ?? null;
+    // Alohida Call-markaz serveri botdan faqat xabar yuborish uchun foydalanadi. Webhook (vazifa qo'shish
+    // buyruqlari) EDO serverida qoladi - aks holda bir bot ikki serverda bo'lib, EDO'dagi buyruqlar to'xtab qolardi.
+    if (siteMode() === "call") {
+      this.logger.log(`Telegram bot @${this.botUsername}: faqat xabar yuborish (Call-markaz serveri).`);
+      return;
+    }
     const base = this.publicBaseUrl();
     if (!base.startsWith("https://")) {
       this.logger.warn(`Webhook ulanmadi: PUBLIC_APP_URL https:// bilan boshlanishi kerak (hozir: ${base})`);

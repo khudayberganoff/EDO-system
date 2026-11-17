@@ -7,7 +7,7 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { AppModule } from "./app.module";
 import { runBootstrapSeed } from "./bootstrap-seed";
-import { isCallHost, isCallSiteApiPath } from "./common/site-mode";
+import { isCallHost, isCallOnlyApiPath, isCallSiteApiPath, siteMode } from "./common/site-mode";
 
 async function bootstrap() {
   // Maxfiy kalitsiz ishlab bo'lmaydi: aks holda tokenlarni istalgan kishi yasay olardi
@@ -76,6 +76,10 @@ async function bootstrap() {
     if (isCallHost(host) && req.path.startsWith("/api") && !req.path.startsWith("/api/docs") && !isCallSiteApiPath(req.path)) {
       return res.status(404).json({ statusCode: 404, message: "Bu manzilda mavjud emas." });
     }
+    // Alohida EDO serverida Call-markaz API'lari yo'q (Call-markaz o'z serverida ishlaydi)
+    if (siteMode() === "edo" && isCallOnlyApiPath(req.path)) {
+      return res.status(404).json({ statusCode: 404, message: "Call-markaz alohida tizimda ishlaydi." });
+    }
     next();
   });
 
@@ -108,7 +112,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
   await app.listen(port);
-  console.log(`EDO API ${port}-portda ishga tushdi. Docs: /api/docs`);
+  console.log(`${siteMode() === "call" ? "Call-markaz" : "EDO"} API ${port}-portda ishga tushdi (SITE_MODE=${siteMode()}). Docs: /api/docs`);
 
   // Port ochilgandan keyin - shunda platforma serverni "tirik" deb hisoblaydi
   void runBootstrapSeed();

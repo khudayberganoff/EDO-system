@@ -5,6 +5,7 @@ import { TelegramService } from "../telegram/telegram.service";
 import { escapeHtml } from "../telegram/telegram-task-parser";
 import { decryptSecret, encryptSecret, safeEqual } from "../common/secret-box";
 import { samePhone } from "../telephony/telephony-parser";
+import { siteMode } from "../common/site-mode";
 import { DEFAULT_SCOPES, GraphError, dialogBase, graph, graphAll, graphVersion } from "./meta-graph";
 import { META_TARGETS, formatTashkent, mapMetaLead, type MetaLeadData, type MetaQuestion } from "./meta-lead-mapper";
 
@@ -56,6 +57,7 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
   constructor(private prisma: PrismaService, private telegram: TelegramService) {}
 
   onModuleInit() {
+    if (siteMode() === "edo") return; // alohida EDO serverida Facebook Lead Ads yo'q
     // Navbatdagi (qayta urinish kutayotgan yoki server o'chiq paytda qolib ketgan) xabarlar har 15 soniyada ko'riladi
     this.timer = setInterval(() => void this.drain(), 15_000);
     this.timer.unref();

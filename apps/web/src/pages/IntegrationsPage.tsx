@@ -50,7 +50,7 @@ export function IntegrationsPage() {
 
       <TelegramBotCard />
       <EimzoCard />
-      <TelephonyCard />
+      {/* IP-telefoniya - Call-markaz tizimiga tegishli (call saytida Sozlamalar -> Integratsiyalar) */}
 
       {/* Qisqacha qo'llanma */}
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
