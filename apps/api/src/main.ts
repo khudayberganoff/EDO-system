@@ -4,10 +4,13 @@ import compression = require("compression");
 import { ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { AppModule } from "./app.module";
 import { runBootstrapSeed } from "./bootstrap-seed";
 import { isCallHost, isCallOnlyApiPath, isCallSiteApiPath, siteMode } from "./common/site-mode";
+
+const CALL_TITLE = "WAFA Call-markaz";
+const CALL_DESCRIPTION = "WAFA GROUP Call-markaz: lidlar, qo'ng'iroqlar va uchrashuvlar";
 
 async function bootstrap() {
   // Maxfiy kalitsiz ishlab bo'lmaydi: aks holda tokenlarni istalgan kishi yasay olardi
@@ -87,6 +90,7 @@ async function bootstrap() {
   // bo'lsa (Render kabi bir xizmatli deploy), SPA marshrutlash uchun
   // /api va /uploads dan boshqa barcha so'rovlarni index.html'ga yo'naltiramiz.
   const webDistPath = join(__dirname, "..", "..", "web", "dist");
+  let callIndexHtml: string | null = null;
   if (existsSync(webDistPath)) {
     app.use((req: any, res: any, next: any) => {
       if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
@@ -97,6 +101,17 @@ async function bootstrap() {
       }
       // index.html keshlanmaydi: yangi versiya chiqqanda brauzer darhol yangi (xeshli) fayllarni oladi
       res.setHeader("Cache-Control", "no-cache");
+      // Call-markaz saytida sahifa nomi (Telegram/brauzer sarlavhasi va havola ko'rinishi) - "WAFA Call-markaz"
+      if (isCallHost(req.headers["x-forwarded-host"] ?? req.headers.host)) {
+        callIndexHtml ??= readFileSync(join(webDistPath, "index.html"), "utf8")
+          .replace(/<title>[^<]*<\/title>/, `<title>${CALL_TITLE}</title>`)
+          .replace(/(<meta property="og:title" content=")[^"]*/, `$1${CALL_TITLE}`)
+          .replace(/(<meta property="og:description" content=")[^"]*/, `$1${CALL_DESCRIPTION}`)
+          .replace(/(<meta name="description" content=")[^"]*/, `$1${CALL_DESCRIPTION}`)
+          .replace(/(<meta name="apple-mobile-web-app-title" content=")[^"]*/, `$1${CALL_TITLE}`);
+        res.type("html").send(callIndexHtml);
+        return;
+      }
       res.sendFile(join(webDistPath, "index.html"));
     });
   }

@@ -11,7 +11,7 @@ Call-markaz (call.wafagroup.uz) EDO'dan butunlay ajratiladi:
 
 Kod bitta (bitta Docker image), tizim turi `SITE_MODE` o'zgaruvchisi bilan tanlanadi:
 
-- `SITE_MODE=call` - faqat Call-markaz: lidlar, qo'ng'iroqlar, CRM mijozlari, kalendar, sozlamalar, IP-telefoniya, Facebook Lead Ads. EDO API'lari yopiq. Telegram bot faqat xabar yuborish uchun ishlatiladi (webhook EDO'da qoladi).
+- `SITE_MODE=call` - faqat Call-markaz: lidlar, qo'ng'iroqlar, CRM mijozlari, kalendar, sozlamalar, IP-telefoniya, Facebook Lead Ads. EDO API'lari yopiq. Call-markazning o'z Telegram boti ("WAFA Call-markaz") Sozlamalar → Integratsiyalar'da ulanadi va webhook'i `/api/calls/telegram/webhook`; u ulanmaguncha xabarlar EDO boti orqali (faqat yuborish) ketadi.
 - `SITE_MODE=edo` - faqat EDO: Call-markaz API'lari (`/api/calls`, `/api/telephony`, `/api/meta`) yopiq, operator roli yo'q.
 - berilmasa (`both`) - eski umumiy rejim (o'tish davrida shu ishlaydi).
 

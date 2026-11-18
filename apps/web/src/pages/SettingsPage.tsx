@@ -4,6 +4,7 @@ import { Users, ShieldCheck, Plus, X, Check, Ban, KeyRound, Copy, Info, Mail, Ph
 import { IS_CALL_SITE } from "../utils/site";
 import { TelephonyCard } from "./IntegrationsPage";
 import { MetaLeadsCard } from "./call/MetaLeadsCard";
+import { CallTelegramCard } from "./call/CallTelegram";
 import { SlaSettingsCard } from "./call/SlaSettingsCard";
 import { useSearchParams } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -76,7 +77,7 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {tab === "users" ? <UsersTab /> : tab === "permissions" ? <PermissionsTab /> : tab === "worktime" ? <SlaSettingsCard /> : <><MetaLeadsCard /><TelephonyCard /></>}
+      {tab === "users" ? <UsersTab /> : tab === "permissions" ? <PermissionsTab /> : tab === "worktime" ? <SlaSettingsCard /> : <><MetaLeadsCard /><CallTelegramCard /><TelephonyCard /></>}
     </div>
   );
 }

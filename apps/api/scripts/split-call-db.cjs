@@ -96,7 +96,7 @@ async function migrate() {
       src.metaForm.findMany(),
       src.metaWebhookEvent.findMany(),
       src.modulePermission.findMany({ where: { module: { in: ["calls", "settings"] } } }),
-      src.appSetting.findMany({ where: { key: { in: ["telephony", "telephony_last", "meta_app", "meta_last_webhook", "telegram_bot_token", "call_sla"] } } }),
+      src.appSetting.findMany({ where: { key: { in: ["telephony", "telephony_last", "meta_app", "meta_last_webhook", "telegram_bot_token", "call_sla", "call_telegram_bot_token", "call_telegram_base"] } } }),
     ]);
 
     // Xodimlar: administrator, rahbariyat, operator - faol; Call-markaz yozuvlarida uchraydigan boshqalar - nofaol
@@ -131,6 +131,7 @@ async function migrate() {
 
     const settingsX = settings.map((s) => {
       if (s.key === "telegram_bot_token") return { ...s, value: reencrypt(s.value, "telegram-token") };
+      if (s.key === "call_telegram_bot_token") return { ...s, value: reencrypt(s.value, "call-telegram-token") };
       if (s.key === "meta_app") {
         try {
           const cfg = JSON.parse(s.value);
