@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Briefcase, CalendarClock, Clock, Facebook, History, Instagram, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, Briefcase, CalendarClock, Clock, Facebook, History, Instagram, LayoutList, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Rows3, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { LOSS_REASONS, createLead, deleteLead, fetchLeadHistory, fetchLeads, fetchSlaSettings, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage, type LossReason } from "../../api/calls";
 import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
@@ -46,6 +46,14 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
   // Uchrashuv/qayta bog'lanish bosqichiga ko'chirishda sana so'raladi
   const [pendingMove, setPendingMove] = useState<{ lead: Lead; stage: LeadStage } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Kartochka ko'rinishi: ixcham (bir qator - ism va muddat) yoki batafsil. Tanlov brauzerda eslab qolinadi.
+  const [compact, setCompact] = useState<boolean>(() => {
+    try { return localStorage.getItem("leads.view") !== "full"; } catch { return true; }
+  });
+  const toggleView = () => setCompact((c) => {
+    try { localStorage.setItem("leads.view", c ? "full" : "compact"); } catch { /* saqlab bo'lmasa ham ishlayveradi */ }
+    return !c;
+  });
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["calls", "leads"] }); qc.invalidateQueries({ queryKey: ["calls", "calendar"] }); };
   const move = useMutation({
@@ -93,12 +101,17 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-slate-500">{t("calls.leads.help")}</p>
+        <div className="flex shrink-0 items-center gap-2">
+        <button onClick={toggleView} title={compact ? t("calls.leads.viewFull") : t("calls.leads.viewCompact")} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50">
+          {compact ? <LayoutList size={16} /> : <Rows3 size={16} />} {compact ? t("calls.leads.viewFull") : t("calls.leads.viewCompact")}
+        </button>
         {/* Lid qo'shish va o'chirish - faqat tizim administratori */}
         {isAdmin && (
           <button onClick={() => setEditing("new")} className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700">
             <Plus size={16} /> {t("calls.leads.new")}
           </button>
         )}
+        </div>
       </div>
       {error && <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
@@ -137,7 +150,23 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                   <div className="mt-1.5 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium">{items.length}</div>
                 </div>
 
-                {items.map((l) => (
+                {items.map((l) => compact ? (
+                  <div
+                    key={l.id}
+                    draggable={canEdit}
+                    onDragStart={() => canEdit && setDragId(l.id)}
+                    onDragEnd={() => { setDragId(null); setOverStage(null); }}
+                    onClick={() => setEditing(l)}
+                    title={compactTitle(l, t)}
+                    className={clsx("flex cursor-pointer items-center gap-1.5 rounded-lg border bg-white px-2 py-1.5 text-left shadow-sm transition hover:border-brand-400", dragId === l.id ? "opacity-40" : l.sla?.responseOverdue || l.sla?.resolveOverdue ? "border-rose-400 bg-rose-50/40" : "border-slate-200")}
+                  >
+                    {l.metaLeadgenId
+                      ? (l.metaPlatform === "ig" ? <Instagram size={12} className="shrink-0 text-[#E1306C]" /> : <Facebook size={12} className="shrink-0 text-[#1877F2]" />)
+                      : <Phone size={12} className="shrink-0 text-emerald-600" />}
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900">{l.name}</span>
+                    <SlaPill lead={l} dayLen={dayLen} />
+                  </div>
+                ) : (
                   <div
                     key={l.id}
                     draggable={canEdit}
@@ -193,7 +222,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
 
                 {/* Bo'sh joylar (kartochka tashlash uchun) */}
                 {Array.from({ length: items.length === 0 ? 2 : 1 }).map((_, i) => (
-                  <div key={i} className={clsx("h-[72px] rounded-xl border border-dashed transition", overStage === col.stage ? "border-brand-500 bg-brand-50" : "border-slate-200")} />
+                  <div key={i} className={clsx(compact ? "h-9 rounded-lg" : "h-[72px] rounded-xl", "border border-dashed transition", overStage === col.stage ? "border-brand-500 bg-brand-50" : "border-slate-200")} />
                 ))}
               </div>
             );
@@ -403,12 +432,50 @@ const dayLenOf = (cfg?: { workStart: string; workEnd: string }) => {
 };
 
 /** Ish soatlari: bir ish kunidan kam - "5 soat", ko'p - "2 ish kuni 3 soat" */
-function fmtHours(hours: number, t: TFn, dayLen = 9) {
+function fmtHours(hours: number, t: TFn, dayLen = 9, short = false) {
   const total = Math.max(0, Math.round(hours));
-  if (total < dayLen) return t("calls.sla.h", { h: total });
+  if (total < dayLen) return t(short ? "calls.sla.hShort" : "calls.sla.h", { h: total });
   const days = Math.floor(total / dayLen);
   const h = Math.round(total - days * dayLen);
-  return h ? t("calls.sla.dh", { d: days, h }) : t("calls.sla.d", { d: days });
+  return h ? t(short ? "calls.sla.dhShort" : "calls.sla.dh", { d: days, h }) : t(short ? "calls.sla.dShort" : "calls.sla.d", { d: days });
+}
+
+/** Ixcham kartochka ustiga sichqoncha olib borilganda ko'rinadigan qisqa ma'lumot */
+function compactTitle(l: Lead, t: TFn) {
+  return [
+    l.name,
+    l.phone,
+    l.projectAsset,
+    l.metaLeadgenId ? (l.metaCampaignName ?? l.metaFormName ?? "Meta Ads") : l.source,
+    l.owner?.fullName,
+    l.stage === "UNQUALIFIED" ? (l.lossReasons ?? []).map((r) => t(`calls.loss.short.${r}` as TranslationKey)).join(", ") : "",
+  ].filter(Boolean).join("\n");
+}
+
+/** Ixcham kartochkadagi kichik muddat belgisi: qizil - muddat o'tgan, sariq - oz qolgan, aks holda qolgan vaqt. */
+function SlaPill({ lead, dayLen }: { lead: Lead; dayLen: number }) {
+  const { t } = useLanguage();
+  const s = lead.sla;
+  if (!s) return null;
+  const pill = (cls: string, text: string, title: string, alert = false) => (
+    <span title={title} className={clsx("flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none", cls)}>
+      {alert && <AlertTriangle size={10} />}{text}
+    </span>
+  );
+  if (!s.responded && s.responseLeftHours !== null) {
+    if (s.responseOverdue) {
+      const h = -s.responseLeftHours;
+      return pill("bg-rose-600 text-white", fmtHours(h, t, dayLen, true), t("calls.sla.noResponse", { time: fmtHours(h, t, dayLen) }), true);
+    }
+    const h = s.responseLeftHours;
+    return pill(h <= 4 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600", fmtHours(h, t, dayLen, true), t("calls.sla.respondIn", { time: fmtHours(h, t, dayLen) }));
+  }
+  if (!s.resolved && s.resolveLeftHours !== null) {
+    if (s.resolveOverdue) return pill("bg-rose-100 text-rose-700", fmtHours(-s.resolveLeftHours, t, dayLen, true), t("calls.sla.resolveOverdue"), true);
+    const h = s.resolveLeftHours;
+    return pill(h <= 9 ? "bg-amber-50 text-amber-700" : "bg-slate-50 text-slate-400", fmtHours(h, t, dayLen, true), t("calls.sla.resolveIn", { time: fmtHours(h, t, dayLen) }));
+  }
+  return null;
 }
 
 /**
