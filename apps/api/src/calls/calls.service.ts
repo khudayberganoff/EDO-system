@@ -301,7 +301,7 @@ export class CallsService {
   async dialSettings(actor: Actor) {
     await this.assertAccess(actor.role, "view");
     const row = await this.prisma.appSetting.findUnique({ where: { key: DIAL_KEY } });
-    let cfg = { format: "intl", prefix: "" };
+    let cfg = { format: "local", prefix: "" };
     try { if (row) cfg = { ...cfg, ...JSON.parse(row.value) }; } catch { /* standart */ }
     return cfg;
   }
