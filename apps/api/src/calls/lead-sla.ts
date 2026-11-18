@@ -2,7 +2,7 @@
  * Lidlar bo'yicha ish muddatlari (SLA). Vaqt faqat ISH VAQTIDA hisoblanadi (Toshkent vaqti):
  * ish kunlari (dushanba-juma, ish kuniga ko'chirilgan kunlar bilan), bayram kunlarisiz, kuniga ish soatlari
  * oralig'ida (standart 09:00-18:00). Muddatlar:
- *  - yangi lidga javob (bosqich o'zgartirildi yoki qo'ng'iroq qilindi) - standart 24 ish soati;
+ *  - yangi lidga javob (bosqich o'zgartirildi yoki qo'ng'iroq qilindi) - standart 8 ish soati (1 ish kuni);
  *  - natija: uchrashuv belgilanishi (yoki undan keyingi bosqich) yoki "Sifatsiz lead" - standart 72 ish soati.
  */
 export const RESOLVED_STAGES = ["MEETING", "VISITED", "CONTRACT", "UNQUALIFIED"];
@@ -17,7 +17,7 @@ export interface SlaConfig {
   resolveHours: number;
 }
 
-export const DEFAULT_SLA: SlaConfig = { workStart: "09:00", workEnd: "18:00", responseHours: 24, resolveHours: 72 };
+export const DEFAULT_SLA: SlaConfig = { workStart: "09:00", workEnd: "18:00", responseHours: 8, resolveHours: 72 };
 
 /** Ish kalendari: ish soatlari va bayram / ko'chirilgan ish kunlari ("YYYY-MM-DD") */
 export interface WorkCalendar {
