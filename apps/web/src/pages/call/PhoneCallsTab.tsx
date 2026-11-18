@@ -6,6 +6,7 @@ import { fetchPhoneCalls, fetchRecordingLink, type PhoneCall } from "../../api/c
 import { useLanguage } from "../../i18n/LanguageContext";
 import { LOCALE_OF } from "../../i18n/callsTranslations";
 import type { TranslationKey } from "../../i18n/translations";
+import { useTelHref } from "../../utils/dial";
 
 export const CALL_STATUS: Record<PhoneCall["status"], { label: TranslationKey; tone: string }> = {
   ANSWERED: { label: "calls.status.ANSWERED", tone: "bg-emerald-100 text-emerald-800" },
@@ -15,7 +16,6 @@ export const CALL_STATUS: Record<PhoneCall["status"], { label: TranslationKey; t
 };
 export const fmtDur = (s: number) => (s > 0 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "—");
 const fmtDT = (d: string, locale: string) => new Date(d).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
-const telHref = (p: string) => `tel:${p.replace(/[^\d+]/g, "")}`;
 
 const FILTERS = [
   { key: "", label: "calls.calls.filterAll" },
@@ -26,6 +26,7 @@ const FILTERS = [
 
 /** IP-telefoniya (ATS) orqali kelgan va ketgan barcha qo'ng'iroqlar - har 15 soniyada yangilanadi. */
 export function PhoneCallsTab() {
+  const telHref = useTelHref();
   const { t, language } = useLanguage();
   const locale = LOCALE_OF[language];
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("");

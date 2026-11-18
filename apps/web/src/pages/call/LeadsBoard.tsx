@@ -8,6 +8,7 @@ import { LEAD_STAGES, TONE_CLASSES, stageTitleKey } from "../../utils/leadStages
 import { useLanguage } from "../../i18n/LanguageContext";
 import { LOCALE_OF } from "../../i18n/callsTranslations";
 import type { TranslationKey } from "../../i18n/translations";
+import { useTelHref } from "../../utils/dial";
 
 /** Joriy tilga mos "sana, vaqt" formatlovchi */
 function useFmtDT() {
@@ -21,7 +22,6 @@ const notePreview = (l: Lead) => {
   const first = l.note.split("\n\n")[0];
   return first.startsWith("Forma:") || first.startsWith("Platforma:") ? "" : first;
 };
-const telHref = (p: string) => `tel:${p.replace(/[^\d+]/g, "")}`;
 /** ISO -> <input type="datetime-local"> qiymati (mahalliy vaqt) */
 const toLocalInput = (iso?: string | null) => {
   if (!iso) return "";
@@ -33,6 +33,7 @@ const tomorrow10 = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.s
 
 /** Lidlar Kanban'i: 7 bosqich, kartochkani sudrab bosqichdan bosqichga o'tkazish. */
 export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: boolean }) {
+  const telHref = useTelHref();
   const { t } = useLanguage();
   const fmtDT = useFmtDT();
   const qc = useQueryClient();
@@ -165,6 +166,10 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                         ? (l.metaPlatform === "ig" ? <Instagram size={12} className="shrink-0 text-[#E1306C]" /> : <Facebook size={12} className="shrink-0 text-[#1877F2]" />)
                         : <Phone size={12} className="shrink-0 text-emerald-600" />}
                       <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900">{l.name}</span>
+                      {/* Ism o'rniga raqam yozilgan lid: qo'ng'iroq belgisi */}
+                      {l.phone && digitsOnly(l.phone) === digitsOnly(l.name) && (
+                        <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} title={l.phone} className="shrink-0 rounded p-0.5 text-emerald-700 hover:bg-emerald-50"><Phone size={12} /></a>
+                      )}
                       <SlaPill lead={l} dayLen={dayLen} />
                     </div>
                     {/* Ism o'rniga raqam yozilgan bo'lsa (Meta arizasida ism bo'lmasa) raqam ikki marta ko'rsatilmaydi */}

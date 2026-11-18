@@ -6,6 +6,7 @@ import { fetchCalendar, type CalendarEvent, type CalendarEventType } from "../..
 import { useLanguage } from "../../i18n/LanguageContext";
 import { LOCALE_OF } from "../../i18n/callsTranslations";
 import type { TranslationKey } from "../../i18n/translations";
+import { useTelHref } from "../../utils/dial";
 
 const TYPES: Record<CalendarEventType, { label: TranslationKey; chip: string; dot: string }> = {
   MEETING: { label: "calls.cal.MEETING", chip: "bg-sky-100 text-sky-800", dot: "bg-sky-500" },
@@ -25,7 +26,6 @@ const MONTHS = {
 
 const p2 = (n: number) => String(n).padStart(2, "0");
 const dayKey = (d: Date) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
-const telHref = (p: string) => `tel:${p.replace(/[^\d+]/g, "")}`;
 
 /** Voqealarni .ics (iCalendar) faylga aylantiradi - Google/Outlook/telefon kalendariga qo'shish uchun. */
 function buildIcs(events: CalendarEvent[], label: (e: CalendarEvent) => string): string {
@@ -52,6 +52,7 @@ function buildIcs(events: CalendarEvent[], label: (e: CalendarEvent) => string):
 
 /** Kalendar: lidlarning uchrashuvi va qayta bog'lanishi. */
 export function CallCalendar({ onOpen }: { onOpen: (e: CalendarEvent) => void }) {
+  const telHref = useTelHref();
   const { t, language } = useLanguage();
   const locale = LOCALE_OF[language];
   const timeOf = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });

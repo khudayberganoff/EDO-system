@@ -6,6 +6,7 @@ import { fetchCrmClients, setClientPhone, type CrmClient } from "../../api/calls
 import { useLanguage } from "../../i18n/LanguageContext";
 import { LOCALE_OF } from "../../i18n/callsTranslations";
 import type { TranslationKey } from "../../i18n/translations";
+import { useTelHref } from "../../utils/dial";
 
 const FILTERS = [
   { key: "all", label: "calls.clients.filterAll" },
@@ -19,7 +20,6 @@ const SORTS = [
   { key: "name", label: "calls.clients.sortName" },
 ] as const satisfies readonly { key: string; label: TranslationKey }[];
 
-const telHref = (p: string) => `tel:${p.replace(/[^\d+]/g, "")}`;
 
 /** Joriy tilga mos summa, sana va "necha kundan keyin" formatlari */
 function useFormatters() {
@@ -35,6 +35,7 @@ function useFormatters() {
 
 /** CRM'dagi majburiyati bor mijozlar: to'lov sanalari, qarz va telefon (CRM ro'yxatidan yoki qo'lda qo'shilgan). */
 export function ClientsTab({ canEdit }: { canEdit: boolean }) {
+  const telHref = useTelHref();
   const { t, money, fmtDate, rel } = useFormatters();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
   const [sort, setSort] = useState<(typeof SORTS)[number]["key"]>("payment");
