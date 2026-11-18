@@ -80,6 +80,14 @@ export class SlaSettingsDto {
   @IsOptional() @IsInt() @Min(1) @Max(1000) resolveHours?: number;
 }
 
+/** Qo'ng'iroq havolasidagi raqam formati (MicroSIP/ATS qaysi ko'rinishni qabul qilsa) */
+export const DIAL_FORMATS = ["plus", "intl", "local"] as const;
+export class DialSettingsDto {
+  @IsOptional() @IsIn(DIAL_FORMATS as unknown as string[]) format?: string;
+  /** Raqam oldiga qo'shiladigan prefiks (masalan tashqi liniya uchun 9) */
+  @IsOptional() @Matches(/^[0-9*#]{0,6}$/, { message: "Prefiks faqat raqamlar, * va # (6 belgigacha)." }) prefix?: string;
+}
+
 export class HolidayDto {
   @IsDateString() date!: string;
   @IsString() @MinLength(2) @MaxLength(100) name!: string;

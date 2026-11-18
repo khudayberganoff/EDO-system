@@ -11,6 +11,7 @@ import { CreateCallLogDto, CreateLeadDto, SetClientPhoneDto, UpdateLeadDto, type
 import { DEFAULT_SLA, RESOLVED_STAGES, UZ_FIXED_HOLIDAYS, businessHoursBetween, isWorkingTime, leadSla, makeCalendar, type SlaConfig, type WorkCalendar } from "./lead-sla";
 
 const SLA_KEY = "call_sla";
+const DIAL_KEY = "call_dial";
 
 /** Loyiha maydonlari (DTO'dan): berilmaganlari o'zgarmaydi; oldindan to'lov "yo'q" bo'lsa summa tozalanadi */
 function projectFields(dto: { projectAsset?: string; projectAmount?: number | null; projectTermMonths?: number | null; projectHasDownPayment?: boolean | null; projectDownPayment?: number | null }) {
@@ -294,6 +295,22 @@ export class CallsService {
 
   private assertSettingsAdmin(actor: Actor) {
     if (actor.role !== "ADMIN") throw new ForbiddenException("Ish vaqti va bayram kunlarini faqat administrator o'zgartiradi.");
+  }
+
+  /** Qo'ng'iroq havolasidagi raqam formati: plus (+998...), intl (998...), local (90...) va ixtiyoriy prefiks. */
+  async dialSettings(actor: Actor) {
+    await this.assertAccess(actor.role, "view");
+    const row = await this.prisma.appSetting.findUnique({ where: { key: DIAL_KEY } });
+    let cfg = { format: "intl", prefix: "" };
+    try { if (row) cfg = { ...cfg, ...JSON.parse(row.value) }; } catch { /* standart */ }
+    return cfg;
+  }
+
+  async saveDialSettings(actor: Actor, dto: { format?: string; prefix?: string }) {
+    this.assertSettingsAdmin(actor);
+    const next = { ...(await this.dialSettings(actor)), ...dto };
+    await this.prisma.appSetting.upsert({ where: { key: DIAL_KEY }, create: { key: DIAL_KEY, value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } });
+    return next;
   }
 
   async saveSlaSettings(actor: Actor, dto: Partial<SlaConfig>) {

@@ -96,7 +96,7 @@ async function migrate() {
       src.metaForm.findMany(),
       src.metaWebhookEvent.findMany(),
       src.modulePermission.findMany({ where: { module: { in: ["calls", "settings"] } } }),
-      src.appSetting.findMany({ where: { key: { in: ["telephony", "telephony_last", "meta_app", "meta_last_webhook", "telegram_bot_token", "call_sla", "call_telegram_bot_token", "call_telegram_base"] } } }),
+      src.appSetting.findMany({ where: { key: { in: ["telephony", "telephony_last", "meta_app", "meta_last_webhook", "telegram_bot_token", "call_sla", "call_telegram_bot_token", "call_telegram_base", "call_dial"] } } }),
     ]);
 
     // Xodimlar: administrator, rahbariyat, operator - faol; Call-markaz yozuvlarida uchraydigan boshqalar - nofaol

@@ -227,3 +227,9 @@ export async function setClientPhone(payload: { crmOrg: string; clientId: string
   const { data } = await apiClient.put<{ phone: string | null }>("/calls/clients/phone", payload);
   return data;
 }
+
+/** Qo'ng'iroq havolasidagi raqam formati (MicroSIP / ATS qaysi ko'rinishni qabul qilsa) */
+export type DialFormat = "plus" | "intl" | "local";
+export interface DialSettings { format: DialFormat; prefix: string }
+export const fetchDialSettings = async () => (await apiClient.get<DialSettings>("/calls/dial-settings")).data;
+export const saveDialSettings = async (payload: Partial<DialSettings>) => (await apiClient.put<DialSettings>("/calls/dial-settings", payload)).data;

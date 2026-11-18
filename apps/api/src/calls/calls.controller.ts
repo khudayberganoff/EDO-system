@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CallsService } from "./calls.service";
-import { CreateCallLogDto, CreateLeadDto, HolidayDto, SetClientPhoneDto, SlaSettingsDto, UpdateLeadDto } from "./dto/calls.dto";
+import { CreateCallLogDto, CreateLeadDto, DialSettingsDto, HolidayDto, SetClientPhoneDto, SlaSettingsDto, UpdateLeadDto } from "./dto/calls.dto";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 
 @ApiTags("calls") @ApiBearerAuth() @Controller("calls")
@@ -39,6 +39,12 @@ export class CallsController {
 
   @Put("sla-settings") @ApiOperation({ summary: "Ish vaqti va muddatlarni o'zgartirish (administrator)" })
   saveSla(@Body() dto: SlaSettingsDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.saveSlaSettings(user, dto); }
+
+  @Get("dial-settings") @ApiOperation({ summary: "Qo'ng'iroq havolasidagi raqam formati (MicroSIP)" })
+  dialSettings(@CurrentUser() user: AuthenticatedUser) { return this.calls.dialSettings(user); }
+
+  @Put("dial-settings") @ApiOperation({ summary: "Raqam terish formatini o'zgartirish (administrator)" })
+  saveDial(@Body() dto: DialSettingsDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.saveDialSettings(user, dto); }
 
   @Post("holidays") @ApiOperation({ summary: "Bayram yoki ko'chirilgan ish kunini qo'shish (administrator)" })
   addHoliday(@Body() dto: HolidayDto, @CurrentUser() user: AuthenticatedUser) { return this.calls.addHoliday(user, dto); }
