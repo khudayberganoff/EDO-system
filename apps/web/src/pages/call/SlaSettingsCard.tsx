@@ -24,7 +24,7 @@ export function SlaSettingsCard() {
   const { t, language } = useLanguage();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["calls", "sla-settings"], queryFn: fetchSlaSettings });
-  const [form, setForm] = useState({ workStart: "09:00", workEnd: "18:00", responseHours: 24, resolveHours: 72 });
+  const [form, setForm] = useState({ workStart: "09:00", workEnd: "18:00", responseHours: 8, resolveHours: 72 });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [holiday, setHoliday] = useState({ date: "", name: "", type: "HOLIDAY" as "HOLIDAY" | "WORKDAY" });

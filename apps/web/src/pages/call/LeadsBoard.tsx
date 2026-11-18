@@ -36,7 +36,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
   const { t } = useLanguage();
   const fmtDT = useFmtDT();
   const qc = useQueryClient();
-  // Muddatlar (24 / 72 soat) ko'rsatkichlari yangilanib turishi uchun ro'yxat har daqiqada qayta olinadi
+  // Muddatlar (javob / natija) ko'rsatkichlari yangilanib turishi uchun ro'yxat har daqiqada qayta olinadi
   const { data: leads = [], isLoading } = useQuery({ queryKey: ["calls", "leads"], queryFn: fetchLeads, refetchInterval: 60_000 });
   const { data: slaCfg } = useQuery({ queryKey: ["calls", "sla-settings"], queryFn: fetchSlaSettings, refetchInterval: 5 * 60_000 });
   const dayLen = dayLenOf(slaCfg);
@@ -158,13 +158,19 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                     onDragEnd={() => { setDragId(null); setOverStage(null); }}
                     onClick={() => setEditing(l)}
                     title={compactTitle(l, t)}
-                    className={clsx("flex cursor-pointer items-center gap-1.5 rounded-lg border bg-white px-2 py-1.5 text-left shadow-sm transition hover:border-brand-400", dragId === l.id ? "opacity-40" : l.sla?.responseOverdue || l.sla?.resolveOverdue ? "border-rose-400 bg-rose-50/40" : "border-slate-200")}
+                    className={clsx("cursor-pointer rounded-lg border bg-white px-2 py-1.5 text-left shadow-sm transition hover:border-brand-400", dragId === l.id ? "opacity-40" : l.sla?.responseOverdue || l.sla?.resolveOverdue ? "border-rose-400 bg-rose-50/40" : "border-slate-200")}
                   >
-                    {l.metaLeadgenId
-                      ? (l.metaPlatform === "ig" ? <Instagram size={12} className="shrink-0 text-[#E1306C]" /> : <Facebook size={12} className="shrink-0 text-[#1877F2]" />)
-                      : <Phone size={12} className="shrink-0 text-emerald-600" />}
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900">{l.name}</span>
-                    <SlaPill lead={l} dayLen={dayLen} />
+                    <div className="flex items-center gap-1.5">
+                      {l.metaLeadgenId
+                        ? (l.metaPlatform === "ig" ? <Instagram size={12} className="shrink-0 text-[#E1306C]" /> : <Facebook size={12} className="shrink-0 text-[#1877F2]" />)
+                        : <Phone size={12} className="shrink-0 text-emerald-600" />}
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900">{l.name}</span>
+                      <SlaPill lead={l} dayLen={dayLen} />
+                    </div>
+                    {/* Ism o'rniga raqam yozilgan bo'lsa (Meta arizasida ism bo'lmasa) raqam ikki marta ko'rsatilmaydi */}
+                    {l.phone && digitsOnly(l.phone) !== digitsOnly(l.name) && (
+                      <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} className="ml-[18px] block truncate text-[11px] leading-tight text-emerald-700 hover:underline">{l.phone}</a>
+                    )}
                   </div>
                 ) : (
                   <div

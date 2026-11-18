@@ -34,7 +34,7 @@ export interface Lead {
   /** Birinchi javob va natija (uchrashuv / sifatsiz) vaqtlari */
   respondedAt?: string | null;
   resolvedAt?: string | null;
-  /** Ish muddatlari: 24 soatda javob, 72 soatda natija (dam olish kunlarisiz) */
+  /** Ish muddatlari: 1 ish kunida (8 soat) javob, 72 ish soatida natija (faqat ish vaqti) */
   sla?: LeadSla;
   /** Facebook / Instagram lid formasidan kelgan bo'lsa */
   metaLeadgenId?: string | null;

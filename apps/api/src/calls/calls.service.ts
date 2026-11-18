@@ -275,6 +275,12 @@ export class CallsService {
     ]);
     let cfg: SlaConfig = { ...DEFAULT_SLA };
     try { if (row) cfg = { ...cfg, ...JSON.parse(row.value) }; } catch { /* standart */ }
+    // Bir martalik o'tish: javob muddati avval 24 ish soati edi, endi 1 ish kuni (8 soat).
+    // Administrator keyin o'zi o'zgartirgan qiymatga (respV2 belgisi bor) tegilmaydi.
+    if (row && !(cfg as SlaConfig & { respV2?: boolean }).respV2 && cfg.responseHours === 24) {
+      cfg = { ...cfg, responseHours: DEFAULT_SLA.responseHours };
+      await this.prisma.appSetting.update({ where: { key: SLA_KEY }, data: { value: JSON.stringify({ ...cfg, respV2: true }) } }).catch(() => undefined);
+    }
     this.slaCache = { at: Date.now(), cfg, cal: makeCalendar(cfg, holidays) };
     return this.slaCache;
   }
@@ -293,7 +299,7 @@ export class CallsService {
   async saveSlaSettings(actor: Actor, dto: Partial<SlaConfig>) {
     this.assertSettingsAdmin(actor);
     const { cfg } = await this.slaCalendar();
-    const next = { ...cfg, ...dto };
+    const next = { ...cfg, ...dto, respV2: true };
     const m = (s: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
     if (!m(next.workStart) || !m(next.workEnd) || next.workEnd <= next.workStart) throw new BadRequestException("Ish vaqti noto'g'ri (masalan 09:00 - 18:00).");
     await this.prisma.appSetting.upsert({ where: { key: SLA_KEY }, create: { key: SLA_KEY, value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } });
