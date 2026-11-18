@@ -7,6 +7,7 @@ import type { TranslationKey } from "../i18n/translations";
 import { LeadsBoard } from "./call/LeadsBoard";
 import { CallCalendar } from "./call/CallCalendar";
 import { PhoneCallsTab } from "./call/PhoneCallsTab";
+import { CallTelegramButton } from "./call/CallTelegram";
 
 type Tab = "leads" | "calls" | "calendar";
 const TABS: { key: Tab; label: TranslationKey }[] = [
@@ -24,7 +25,10 @@ export function CallCenterPage() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="font-display flex items-center gap-3 text-[30px] font-semibold tracking-tight text-brand-950"><Headset size={28} className="text-brand-700" /> {t("nav.calls")}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="font-display flex items-center gap-3 text-[30px] font-semibold tracking-tight text-brand-950"><Headset size={28} className="text-brand-700" /> {t("nav.calls")}</h1>
+          <CallTelegramButton />
+        </div>
         <p className="mt-1 text-sm text-slate-500">{t("calls.subtitle")}</p>
         <div className="mt-4 flex gap-1 border-b border-slate-200">
           {TABS.map((x) => (

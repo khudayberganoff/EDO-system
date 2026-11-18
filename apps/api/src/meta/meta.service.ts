@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import * as crypto from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
-import { TelegramService } from "../telegram/telegram.service";
+import { CallTelegramService } from "../telegram/call-telegram.service";
 import { escapeHtml } from "../telegram/telegram-task-parser";
 import { decryptSecret, encryptSecret, safeEqual } from "../common/secret-box";
 import { samePhone } from "../telephony/telephony-parser";
@@ -55,7 +55,7 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
   private draining = false;
   private drainAgain = false;
 
-  constructor(private prisma: PrismaService, private telegram: TelegramService) {}
+  constructor(private prisma: PrismaService, private telegram: CallTelegramService) {}
 
   onModuleInit() {
     if (siteMode() === "edo") return; // alohida EDO serverida Facebook Lead Ads yo'q
@@ -202,7 +202,7 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
         contactEmail: a.cfg.contactEmail ?? null,
       },
       urls: { webhook: `${base}/api/meta/webhook`, redirect: this.redirectUri(base), domain: new URL(base).hostname, privacy: `${base}/privacy`, dataDeletion: `${base}/data-deletion` },
-      settings: { dedupeByPhone: a.cfg.dedupeByPhone, notifyTelegram: a.cfg.notifyTelegram, telegramEnabled: this.telegram.isEnabled() },
+      settings: { dedupeByPhone: a.cfg.dedupeByPhone, notifyTelegram: a.cfg.notifyTelegram, telegramEnabled: this.telegram.canNotify() },
       connection: conn ? { fbUserName: conn.fbUserName, status: conn.status, connectedAt: conn.updatedAt, connectedBy: connectedBy?.fullName ?? null } : null,
       pages: pages.map((p) => ({
         pageId: p.pageId, pageName: p.pageName, subscribed: p.subscribed, allForms: p.allForms,
@@ -611,17 +611,8 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
   private async notify(leadId: string, m: ReturnType<typeof mapMetaLead>, assigneeId: string | null, repeat: boolean) {
     try {
       const cfg = await this.config();
-      if (!cfg.notifyTelegram || !this.telegram.isEnabled()) return;
-      let chats: string[] = [];
-      if (assigneeId) {
-        const u = await this.prisma.user.findUnique({ where: { id: assigneeId }, select: { telegramId: true, isActive: true } });
-        if (u?.telegramId && u.isActive) chats = [u.telegramId];
-      }
-      for (const role of ["OPERATOR", "ADMIN"]) {
-        if (chats.length) break;
-        const us = await this.prisma.user.findMany({ where: { role, isActive: true, telegramId: { not: null } }, select: { telegramId: true } });
-        chats = us.map((u) => u.telegramId!).filter(Boolean);
-      }
+      if (!cfg.notifyTelegram || !this.telegram.canNotify()) return;
+      const chats = await this.telegram.recipients({ userId: assigneeId, roles: ["OPERATOR", "ADMIN"] });
       if (!chats.length) return;
       const link = await this.callLink("/calls");
       const lines = [
@@ -631,7 +622,7 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
         ...m.answers.slice(0, 6).map((a) => `• ${escapeHtml(a)}`),
         link ? `<a href="${link}">Call-markazda ochish</a>` : "",
       ].filter(Boolean);
-      for (const chat of chats.slice(0, 20)) await this.telegram.sendMessage(chat, lines.join("\n"));
+      for (const chat of chats.slice(0, 20)) await this.telegram.notify(chat, lines.join("\n"));
     } catch (e: any) {
       this.logger.warn(`Telegram xabari yuborilmadi (lid ${leadId}): ${e?.message ?? e}`);
     }
@@ -648,11 +639,11 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
     if (!conn || conn.status === "REAUTH") return;
     await this.prisma.metaConnection.update({ where: { id: conn.id }, data: { status: "REAUTH" } });
     this.logger.warn(`Facebook tokeni bekor bo'ldi (${page.pageName}) - qayta ulash kerak`);
-    if (!this.telegram.isEnabled()) return;
-    const admins = await this.prisma.user.findMany({ where: { role: "ADMIN", isActive: true, telegramId: { not: null } }, select: { telegramId: true } });
+    if (!this.telegram.canNotify()) return;
+    const admins = await this.telegram.recipients({ roles: ["ADMIN"] });
     const link = await this.callLink("/settings?tab=integrations");
-    for (const a of admins) {
-      await this.telegram.sendMessage(a.telegramId!, `⚠️ <b>Facebook Lead Ads</b>: "${escapeHtml(page.pageName)}" sahifasi tokeni bekor bo'ldi, lidlar tushmayapti. Integratsiyani qayta ulang.${link ? `\n<a href="${link}">Sozlamalarni ochish</a>` : ""}`);
+    for (const chat of admins) {
+      await this.telegram.notify(chat, `⚠️ <b>Facebook Lead Ads</b>: "${escapeHtml(page.pageName)}" sahifasi tokeni bekor bo'ldi, lidlar tushmayapti. Integratsiyani qayta ulang.${link ? `\n<a href="${link}">Sozlamalarni ochish</a>` : ""}`);
     }
   }
 
