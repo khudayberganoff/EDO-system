@@ -8,7 +8,7 @@ import { useLanguage } from "../../i18n/LanguageContext";
 import type { TranslationKey } from "../../i18n/translations";
 import { dialNumber } from "../../utils/dial";
 
-const FORMATS: DialFormat[] = ["intl", "local", "plus"];
+const FORMATS: DialFormat[] = ["local", "intl", "plus"];
 const SAMPLE = "+998 90 123 45 67";
 
 /**
@@ -21,7 +21,7 @@ export function DialSettingsCard() {
   const qc = useQueryClient();
   const isAdmin = user?.role === "ADMIN";
   const { data } = useQuery({ queryKey: ["calls", "dial-settings"], queryFn: fetchDialSettings, enabled: isAdmin });
-  const [format, setFormat] = useState<DialFormat>("intl");
+  const [format, setFormat] = useState<DialFormat>("local");
   const [prefix, setPrefix] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
