@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength, IsArray, ArrayMaxSize, Matches, Max } from "class-validator";
+import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength, IsArray, ArrayMaxSize, Matches, Max, IsBoolean } from "class-validator";
 
 export const CALL_OUTCOMES = ["ANSWERED", "NO_ANSWER", "BUSY", "PROMISE", "REFUSED", "WRONG_NUMBER", "CALLBACK"] as const;
 export type CallOutcome = (typeof CALL_OUTCOMES)[number];
@@ -37,6 +37,12 @@ export class CreateLeadDto {
   @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
   @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
   @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
+  /** Loyiha haqida (bo'sh qator / null - tozalash) */
+  @IsOptional() @IsString() @MaxLength(200) projectAsset?: string;
+  @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectAmount?: number | null;
+  @IsOptional() @IsInt() @Min(1) @Max(600) projectTermMonths?: number | null;
+  @IsOptional() @IsBoolean() projectHasDownPayment?: boolean | null;
+  @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectDownPayment?: number | null;
 }
 
 export class UpdateLeadDto {
@@ -52,6 +58,12 @@ export class UpdateLeadDto {
   @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
   @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
   @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
+  /** Loyiha haqida (bo'sh qator / null - tozalash) */
+  @IsOptional() @IsString() @MaxLength(200) projectAsset?: string;
+  @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectAmount?: number | null;
+  @IsOptional() @IsInt() @Min(1) @Max(600) projectTermMonths?: number | null;
+  @IsOptional() @IsBoolean() projectHasDownPayment?: boolean | null;
+  @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectDownPayment?: number | null;
 }
 
 export class SetClientPhoneDto {

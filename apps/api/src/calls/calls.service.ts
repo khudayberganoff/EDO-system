@@ -12,6 +12,19 @@ import { DEFAULT_SLA, RESOLVED_STAGES, UZ_FIXED_HOLIDAYS, businessHoursBetween, 
 
 const SLA_KEY = "call_sla";
 
+/** Loyiha maydonlari (DTO'dan): berilmaganlari o'zgarmaydi; oldindan to'lov "yo'q" bo'lsa summa tozalanadi */
+function projectFields(dto: { projectAsset?: string; projectAmount?: number | null; projectTermMonths?: number | null; projectHasDownPayment?: boolean | null; projectDownPayment?: number | null }) {
+  const out: Record<string, unknown> = {};
+  if (dto.projectAsset !== undefined) out.projectAsset = dto.projectAsset.trim() || null;
+  if (dto.projectAmount !== undefined) out.projectAmount = dto.projectAmount;
+  if (dto.projectTermMonths !== undefined) out.projectTermMonths = dto.projectTermMonths;
+  if (dto.projectHasDownPayment !== undefined) out.projectHasDownPayment = dto.projectHasDownPayment;
+  if (dto.projectDownPayment !== undefined) out.projectDownPayment = dto.projectDownPayment;
+  if (dto.projectHasDownPayment === false || dto.projectHasDownPayment === null) out.projectDownPayment = null;
+  return out;
+}
+
+
 type Actor = { id: string; role: string; organizationId: string };
 type CrmKey = "wafa_leasing" | "vafo_moliya";
 
@@ -370,6 +383,7 @@ export class CallsService {
         lossReasons,
         lossTerm: lossReasons.includes("TERM") ? dto.lossTerm?.trim() || null : null,
         lossNote,
+        ...projectFields(dto),
         respondedAt: stage !== "NEW" ? new Date() : null,
         resolvedAt: RESOLVED_STAGES.includes(stage) ? new Date() : null,
         stageLogs: { create: { toStage: stage, userId: actor.id } },
@@ -412,6 +426,7 @@ export class CallsService {
         lossReasons,
         lossTerm,
         lossNote,
+        ...projectFields(dto),
         name: dto.name?.trim(),
         phone: dto.phone === undefined ? undefined : dto.phone.trim() || null,
         source: dto.source === undefined ? undefined : dto.source.trim() || null,

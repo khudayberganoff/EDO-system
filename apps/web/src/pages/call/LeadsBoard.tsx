@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarClock, Clock, Facebook, History, Instagram, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, Briefcase, CalendarClock, Clock, Facebook, History, Instagram, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { LOSS_REASONS, createLead, deleteLead, fetchLeadHistory, fetchLeads, fetchSlaSettings, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage, type LossReason } from "../../api/calls";
 import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
@@ -150,6 +150,17 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                     {l.phone && (
                       <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-emerald-700 hover:underline"><Phone size={11} /> {l.phone}</a>
                     )}
+                    {(l.projectAsset || l.projectAmount || l.projectTermMonths) && (
+                      <div className="mt-1.5 flex gap-1 text-[11px] leading-snug text-slate-600" title={[l.projectAsset, l.projectAmount ? fmtMoney(l.projectAmount, t) : "", l.projectTermMonths ? t("calls.project.months", { n: l.projectTermMonths }) : ""].filter(Boolean).join(" · ")}>
+                        <Briefcase size={11} className="mt-0.5 shrink-0 text-slate-400" />
+                        <div className="min-w-0">
+                          {l.projectAsset && <div className="truncate font-medium text-slate-700">{l.projectAsset}</div>}
+                          {(l.projectAmount || l.projectTermMonths) && (
+                            <div className="text-slate-500">{[l.projectAmount ? fmtShortMoney(l.projectAmount, t) : "", l.projectTermMonths ? t("calls.project.monthsShort", { n: l.projectTermMonths }) : ""].filter(Boolean).join(" · ")}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {l.stage === "UNQUALIFIED" && (!!l.lossReasons?.length || !!l.lossNote) && (
                       <div className="mt-1.5 flex flex-wrap gap-1" title={l.lossNote ?? undefined}>
                         {(l.lossReasons ?? []).map((r) => (
@@ -240,6 +251,13 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
     name: lead?.name ?? "", phone: lead?.phone ?? "", source: lead?.source ?? "", note: lead?.note ?? "",
     stage: (lead?.stage ?? "NEW") as LeadStage, meetingAt: toLocalInput(lead?.meetingAt), callbackAt: toLocalInput(lead?.callbackAt),
     lossReasons: (lead?.lossReasons ?? []) as LossReason[], lossTerm: lead?.lossTerm ?? "", lossNote: lead?.lossNote ?? "",
+    project: {
+      asset: lead?.projectAsset ?? "",
+      amount: lead?.projectAmount != null ? String(Math.round(lead.projectAmount)) : "",
+      term: lead?.projectTermMonths != null ? String(lead.projectTermMonths) : "",
+      hasDown: lead?.projectHasDownPayment ?? null,
+      down: lead?.projectDownPayment != null ? String(Math.round(lead.projectDownPayment)) : "",
+    } as ProjectForm,
   });
   // Rad etish sababi belgilansa - bosqich avtomatik "Sifatsiz lead"; hammasi olib tashlansa - oldingi bosqichga qaytadi
   const toggleReason = (r: LossReason, on: boolean) => setForm((f) => {
@@ -257,6 +275,11 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
       const payload: LeadInput = {
         name: form.name.trim(), phone: form.phone.trim(), source: form.source.trim(), note: form.note.trim(), stage: form.stage,
         lossReasons: form.lossReasons, lossTerm: form.lossTerm.trim(), lossNote: form.lossNote.trim(),
+        projectAsset: form.project.asset.trim(),
+        projectAmount: form.project.amount ? Number(form.project.amount) : null,
+        projectTermMonths: form.project.term ? Number(form.project.term) : null,
+        projectHasDownPayment: form.project.hasDown,
+        projectDownPayment: form.project.hasDown && form.project.down ? Number(form.project.down) : null,
         ...(form.meetingAt ? { meetingAt: new Date(form.meetingAt).toISOString() } : {}),
         ...(form.callbackAt ? { callbackAt: new Date(form.callbackAt).toISOString() } : {}),
       };
@@ -289,6 +312,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
               {LEAD_STAGES.map((s) => <option key={s.stage} value={s.stage}>{t(s.title)}</option>)}
             </select>
           </label>
+          <ProjectField value={form.project} disabled={!canEdit} onChange={(project) => setForm((f) => ({ ...f, project }))} />
           <LossReasonsField
             value={form.lossReasons} term={form.lossTerm} note={form.lossNote} disabled={!canEdit}
             onToggle={toggleReason}
@@ -492,6 +516,72 @@ function LossReasonsField({ value, term, note, disabled, onToggle, onTerm, onNot
         className="mt-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
       />
       {active && <div className="mt-1 text-[11px] font-medium text-rose-700">{t("calls.loss.willMove")}</div>}
+    </div>
+  );
+}
+
+/** Lid oynasidagi loyiha maydonlari (summalar - faqat raqamlar, so'mda) */
+type ProjectForm = { asset: string; amount: string; term: string; hasDown: boolean | null; down: string };
+
+const digitsOnly = (v: string) => v.replace(/\D/g, "").slice(0, 13);
+/** 150000000 -> "150 000 000" */
+const groupDigits = (v: string) => v.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+const fmtMoney = (n: number, t: TFn) => `${groupDigits(String(Math.round(n)))} ${t("calls.clients.currency")}`;
+/** Kartochka uchun qisqa: 150 mln, 1,2 mlrd */
+function fmtShortMoney(n: number, t: TFn) {
+  if (n >= 1e9) return t("calls.project.bln", { n: (n / 1e9).toFixed(1).replace(/\.0$/, "").replace(".", ",") });
+  if (n >= 1e6) return t("calls.project.mln", { n: (n / 1e6).toFixed(1).replace(/\.0$/, "").replace(".", ",") });
+  return fmtMoney(n, t);
+}
+
+/** "Loyiha haqida": aktiv nomi, moliyalashtirish summasi, muddati, oldindan to'lov (bor bo'lsa - summasi). */
+function ProjectField({ value, disabled, onChange }: { value: ProjectForm; disabled: boolean; onChange: (v: ProjectForm) => void }) {
+  const { t } = useLanguage();
+  const set = (patch: Partial<ProjectForm>) => onChange({ ...value, ...patch });
+  const pct = value.hasDown && value.down && value.amount && Number(value.amount) > 0 ? Math.round((Number(value.down) / Number(value.amount)) * 100) : null;
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700"><Briefcase size={13} className="text-brand-700" /> {t("calls.project.title")}</div>
+      <div className="space-y-2.5">
+        <label className="block text-xs text-slate-500">{t("calls.project.asset")}
+          <input value={value.asset} disabled={disabled} maxLength={200} onChange={(e) => set({ asset: e.target.value })} placeholder={t("calls.project.assetPlaceholder")} className="input mt-1" />
+        </label>
+        <div className="grid grid-cols-[1fr_140px] gap-3">
+          <label className="block text-xs text-slate-500">{t("calls.project.amount")}
+            <div className="relative mt-1">
+              <input value={groupDigits(value.amount)} disabled={disabled} inputMode="numeric" onChange={(e) => set({ amount: digitsOnly(e.target.value) })} placeholder="150 000 000" className="input pr-12" />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{t("calls.clients.currency")}</span>
+            </div>
+          </label>
+          <label className="block text-xs text-slate-500">{t("calls.project.term")}
+            <div className="relative mt-1">
+              <input value={value.term} disabled={disabled} inputMode="numeric" onChange={(e) => set({ term: digitsOnly(e.target.value).slice(0, 3) })} placeholder="36" className="input pr-10" />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{t("calls.project.monthUnit")}</span>
+            </div>
+          </label>
+        </div>
+        <div>
+          <div className="mb-1 text-xs text-slate-500">{t("calls.project.downPayment")}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {[true, false].map((v) => (
+              <button
+                key={String(v)} type="button" disabled={disabled}
+                onClick={() => set({ hasDown: value.hasDown === v ? null : v, ...(v ? {} : { down: "" }) })}
+                className={clsx("rounded-lg border px-3 py-1.5 text-sm transition", value.hasDown === v ? "border-brand-700 bg-brand-800 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-brand-400")}
+              >
+                {v ? t("calls.project.yes") : t("calls.project.no")}
+              </button>
+            ))}
+            {value.hasDown && (
+              <div className="relative min-w-[200px] flex-1">
+                <input value={groupDigits(value.down)} disabled={disabled} inputMode="numeric" onChange={(e) => set({ down: digitsOnly(e.target.value) })} placeholder={t("calls.project.downAmount")} className="input pr-12" />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{t("calls.clients.currency")}</span>
+              </div>
+            )}
+          </div>
+          {pct !== null && <div className="mt-1 text-[11px] text-slate-400">{t("calls.project.downPct", { p: pct })}</div>}
+        </div>
+      </div>
     </div>
   );
 }

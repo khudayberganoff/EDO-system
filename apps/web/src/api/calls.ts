@@ -25,6 +25,12 @@ export interface Lead {
   lossTerm?: string | null;
   /** Rad etish bo'yicha qo'shimcha izoh */
   lossNote?: string | null;
+  /** Loyiha haqida: aktiv, moliyalashtirish summasi (so'm), muddati (oy), oldindan to'lov */
+  projectAsset?: string | null;
+  projectAmount?: number | null;
+  projectTermMonths?: number | null;
+  projectHasDownPayment?: boolean | null;
+  projectDownPayment?: number | null;
   /** Birinchi javob va natija (uchrashuv / sifatsiz) vaqtlari */
   respondedAt?: string | null;
   resolvedAt?: string | null;
@@ -40,7 +46,7 @@ export interface Lead {
   phoneCalls?: { direction: "IN" | "OUT"; status: "ANSWERED" | "MISSED" | "BUSY" | "FAILED"; startedAt: string }[];
 }
 
-export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm" | "lossNote">>;
+export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm" | "lossNote" | "projectAsset" | "projectAmount" | "projectTermMonths" | "projectHasDownPayment" | "projectDownPayment">>;
 
 export interface LeadSla {
   responseDueAt: string;
