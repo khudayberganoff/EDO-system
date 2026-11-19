@@ -611,9 +611,10 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
   private async notify(leadId: string, m: ReturnType<typeof mapMetaLead>, assigneeId: string | null, repeat: boolean) {
     try {
       const cfg = await this.config();
-      if (!cfg.notifyTelegram || !this.telegram.canNotify()) return;
+      if (!cfg.notifyTelegram) return void (await this.telegram.rememberLeadNotify({ lead: m.name, result: "off" }));
+      if (!this.telegram.canNotify()) return void (await this.telegram.rememberLeadNotify({ lead: m.name, result: "noBot" }));
       const chats = await this.telegram.recipients({ userId: assigneeId, roles: ["OPERATOR", "ADMIN"] });
-      if (!chats.length) return;
+      if (!chats.length) return void (await this.telegram.rememberLeadNotify({ lead: m.name, result: "noRecipients" }));
       const link = await this.callLink("/calls");
       const lines = [
         repeat ? `🔁 <b>Mavjud lid yana ariza qoldirdi</b> · ${escapeHtml(m.source)}` : `🆕 <b>Yangi lid</b> · ${escapeHtml(m.source)}`,
@@ -622,7 +623,9 @@ export class MetaService implements OnModuleInit, OnModuleDestroy {
         ...m.answers.slice(0, 6).map((a) => `• ${escapeHtml(a)}`),
         link ? `<a href="${link}">Call-markazda ochish</a>` : "",
       ].filter(Boolean);
-      for (const chat of chats.slice(0, 20)) await this.telegram.notify(chat, lines.join("\n"));
+      let sent = 0;
+      for (const chat of chats.slice(0, 20)) if (await this.telegram.notify(chat, lines.join("\n"))) sent++;
+      await this.telegram.rememberLeadNotify({ lead: m.name, result: sent ? "sent" : "failed", sent, total: Math.min(chats.length, 20) });
     } catch (e: any) {
       this.logger.warn(`Telegram xabari yuborilmadi (lid ${leadId}): ${e?.message ?? e}`);
     }
