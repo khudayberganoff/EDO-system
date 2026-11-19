@@ -4,7 +4,9 @@
  * oralig'ida (standart 09:00-18:00). Muddatlar:
  *  - yangi lidga javob (bosqich o'zgartirildi yoki qo'ng'iroq qilindi) - standart 8 ish soati (1 ish kuni);
  *  - natija: uchrashuv belgilanishi (yoki undan keyingi bosqich) yoki "Sifatsiz lead" - standart 72 ish soati.
+ * "Ma'lumot berildi" bosqichidagi lidlarga muddat qo'llanmaydi: ular uchun qayta aloqa vaqti belgilanadi.
  */
+export const PAUSED_STAGES = ["INFO_GIVEN"];
 export const RESOLVED_STAGES = ["MEETING", "VISITED", "CONTRACT", "UNQUALIFIED"];
 
 export interface SlaConfig {
@@ -141,15 +143,16 @@ export function leadSla(
   const responseDue = addBusinessHours(lead.createdAt, cfg.responseHours, cal);
   const resolveDue = addBusinessHours(lead.createdAt, cfg.resolveHours, cal);
   const left = (due: Date) => (now <= due ? businessHoursBetween(now, due, cal) : -businessHoursBetween(due, now, cal));
+  const paused = PAUSED_STAGES.includes(lead.stage);
   return {
     responseDueAt: responseDue.toISOString(),
     resolveDueAt: resolveDue.toISOString(),
     responded: !!respondedAt,
     resolved: !!resolvedAt,
-    responseOverdue: !respondedAt && now > responseDue,
-    resolveOverdue: !resolvedAt && now > resolveDue,
-    responseLeftHours: respondedAt ? null : left(responseDue),
-    resolveLeftHours: resolvedAt ? null : left(resolveDue),
+    responseOverdue: !paused && !respondedAt && now > responseDue,
+    resolveOverdue: !paused && !resolvedAt && now > resolveDue,
+    responseLeftHours: paused || respondedAt ? null : left(responseDue),
+    resolveLeftHours: paused || resolvedAt ? null : left(resolveDue),
     responseHours: respondedAt ? businessHoursBetween(lead.createdAt, respondedAt, cal) : null,
     resolveHours: resolvedAt ? businessHoursBetween(lead.createdAt, resolvedAt, cal) : null,
   };
