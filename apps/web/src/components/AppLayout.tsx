@@ -279,7 +279,7 @@ export function AppLayout() {
               />
             ))}
 
-          {IS_CALL_SITE && can("calls") && <Item to="/clients" label={t("nav.clients")} icon={Contact} />}
+          {IS_CALL_SITE && can("clients") && <Item to="/clients" label={t("nav.clients")} icon={Contact} />}
           {IS_CALL_SITE && can("settings") && <Item to="/settings" label={t("nav.settings")} icon={Settings} />}
           {!IS_CALL_SITE && (<>
           {/* Yig'iladigan "Hujjatlar" bo'limi - Xat / Ogohlantirish / Ma'lumotnoma */}

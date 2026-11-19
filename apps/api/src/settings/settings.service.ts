@@ -12,6 +12,7 @@ export const MODULES = [
   { key: "board", label: "Vazifalar doskasi" },
   { key: "letters", label: "Xatlar" },
   { key: "calls", label: "Call-markaz" },
+  { key: "clients", label: "Mijozlar (CRM)" },
   { key: "hr", label: "Kadrlar" },
   { key: "deleted", label: "O'chirilgan" },
   { key: "integrations", label: "Tashqi tizimlar" },
@@ -28,6 +29,8 @@ const DEFAULTS: Record<string, { view: string[]; edit: string[] }> = {
   letters: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER"], edit: ["ADMIN", "MANAGER", "EMPLOYEE"] },
   // Call-markaz: qarzdorlarga qo'ng'iroq. Kuzatuvchi faqat ko'radi
   calls: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER", "OPERATOR"], edit: ["ADMIN", "MANAGER", "EMPLOYEE", "OPERATOR"] },
+  // Mijozlar (CRM): to'lov sanalari va qarzdorlik - Call-markaz saytidagi alohida bo'lim
+  clients: { view: ["ADMIN", "MANAGER", "EMPLOYEE", "OBSERVER", "OPERATOR"], edit: ["ADMIN", "MANAGER", "EMPLOYEE", "OPERATOR"] },
   // Kuzatuvchi kadrlar hujjatlarini faqat ko'radi
   hr: { view: ["ADMIN", "MANAGER", "OBSERVER"], edit: ["ADMIN", "MANAGER"] },
   deleted: { view: ["ADMIN", "MANAGER"], edit: ["ADMIN"] },

@@ -35,6 +35,7 @@ const MODULE_KEYS: Record<string, TranslationKey> = {
   board: "nav.board",
   letters: "nav.lettersGroup",
   calls: "nav.calls",
+  clients: "nav.clients",
   hr: "nav.hr",
   deleted: "nav.deleted",
   integrations: "nav.integrations",
@@ -665,7 +666,7 @@ function PermissionsTab() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {data?.modules.filter((m: PermissionRow) => !IS_CALL_SITE || m.module === "calls").map((m: PermissionRow) => (
+            {data?.modules.filter((m: PermissionRow) => (IS_CALL_SITE ? ["calls", "clients"].includes(m.module) : m.module !== "clients")).map((m: PermissionRow) => (
               <tr key={m.module} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-800">{MODULE_KEYS[m.module] ? t(MODULE_KEYS[m.module]) : m.label}</td>
                 {roles.map((role) => {

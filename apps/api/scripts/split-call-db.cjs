@@ -95,7 +95,7 @@ async function migrate() {
       src.metaPage.findMany(),
       src.metaForm.findMany(),
       src.metaWebhookEvent.findMany(),
-      src.modulePermission.findMany({ where: { module: { in: ["calls", "settings"] } } }),
+      src.modulePermission.findMany({ where: { module: { in: ["calls", "clients", "settings"] } } }),
       src.appSetting.findMany({ where: { key: { in: ["telephony", "telephony_last", "meta_app", "meta_last_webhook", "telegram_bot_token", "call_sla", "call_telegram_bot_token", "call_telegram_base", "call_dial", "call_telegram_last"] } } }),
     ]);
 
@@ -114,7 +114,7 @@ async function migrate() {
     await copy("Tashkilotlar", orgs, (d) => dst.organization.createMany({ data: d, skipDuplicates: true }));
     await copy("Xodimlar", users, (d) => dst.user.createMany({ data: d, skipDuplicates: true }));
     await copy("Xodim-tashkilot", userOrgs, (d) => dst.userOrganization.createMany({ data: d, skipDuplicates: true }));
-    await copy("Ruxsatlar (calls, settings)", perms, (d) => dst.modulePermission.createMany({ data: d, skipDuplicates: true }));
+    await copy("Ruxsatlar (calls, clients, settings)", perms, (d) => dst.modulePermission.createMany({ data: d, skipDuplicates: true }));
     await copy("Lidlar", leads, (d) => dst.callLead.createMany({ data: d, skipDuplicates: true }));
     await copy("Bayram kunlari", await src.holiday.findMany(), (d) => dst.holiday.createMany({ data: d, skipDuplicates: true }));
     await copy("Lid bosqichlari tarixi", stageLogs.map((s) => (s.userId && !userIds.has(s.userId) ? { ...s, userId: null } : s)), (d) => dst.callLeadStageLog.createMany({ data: d, skipDuplicates: true }));
