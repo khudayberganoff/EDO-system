@@ -241,10 +241,14 @@ export class CallsService {
     return lead;
   }
 
-  /** Bosqichga mos sana majburiy: uchrashuv - meetingAt, qayta bog'lanish - callbackAt. */
-  private checkStageDates(stage: LeadStage, meetingAt?: Date | null, callbackAt?: Date | null) {
+  /**
+   * Bosqichga mos sana majburiy: uchrashuv - meetingAt, qayta bog'lanish - callbackAt,
+   * "Ma'lumot berildi" - qayta aloqa vaqti (callbackAt; faqat shu bosqichga o'tkazilayotganda, eski lidlar tahrirlanaversin).
+   */
+  private checkStageDates(stage: LeadStage, meetingAt?: Date | null, callbackAt?: Date | null, prevStage?: string) {
     if (stage === "MEETING" && !meetingAt) throw new BadRequestException("Uchrashuv sanasi va vaqtini kiriting.");
     if (stage === "CALLBACK" && !callbackAt) throw new BadRequestException("Qayta bog'lanish sanasi va vaqtini kiriting.");
+    if (stage === "INFO_GIVEN" && prevStage !== "INFO_GIVEN" && !callbackAt) throw new BadRequestException("Qayta aloqa sanasi va vaqtini kiriting.");
   }
 
   async leads(actor: Actor) {
@@ -434,8 +438,9 @@ export class CallsService {
     const reasonsNow = lossReasons ?? lead.lossReasons;
     const lossTerm = !reasonsNow.includes("TERM") ? (lead.lossTerm || dto.lossTerm ? null : undefined) : dto.lossTerm === undefined ? undefined : dto.lossTerm.trim() || null;
     const meetingAt = dto.meetingAt !== undefined ? new Date(dto.meetingAt) : lead.meetingAt;
-    const callbackAt = dto.callbackAt !== undefined ? new Date(dto.callbackAt) : lead.callbackAt;
-    this.checkStageDates(stage, meetingAt, callbackAt);
+    // Bosqich almashtirilganda eski qayta aloqa vaqti hisobga olinmaydi - yangisi so'raladi
+    const callbackAt = dto.callbackAt !== undefined ? new Date(dto.callbackAt) : stage !== lead.stage && stage === "INFO_GIVEN" ? null : lead.callbackAt;
+    this.checkStageDates(stage, meetingAt, callbackAt, lead.stage);
 
     const changed = stage !== lead.stage;
     const now = new Date();
@@ -477,7 +482,7 @@ export class CallsService {
   // ---------- Kalendar ----------
 
   /**
-   * Kalendar voqealari: lidlarning uchrashuvi (MEETING bosqichi) va qayta bog'lanishi (CALLBACK bosqichi).
+   * Kalendar voqealari: lidlarning uchrashuvi (MEETING bosqichi) va qayta bog'lanishi (CALLBACK va "Ma'lumot berildi" bosqichlari).
    */
   async calendar(actor: Actor, from: Date, to: Date) {
     await this.assertAccess(actor.role, "view");
@@ -490,7 +495,7 @@ export class CallsService {
         organizationId: { in: orgIds },
         OR: [
           { stage: "MEETING", meetingAt: { gte: from, lt: to } },
-          { stage: "CALLBACK", callbackAt: { gte: from, lt: to } },
+          { stage: { in: ["CALLBACK", "INFO_GIVEN"] }, callbackAt: { gte: from, lt: to } },
         ],
       },
       include: { owner: { select: { fullName: true } } },

@@ -94,7 +94,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
     const lead = leads.find((l) => l.id === dragId);
     setDragId(null); setOverStage(null);
     if (!lead || lead.stage === stage || !canEdit) return;
-    if (stage === "MEETING" || stage === "CALLBACK") setPendingMove({ lead, stage });
+    if (stage === "MEETING" || stage === "CALLBACK" || stage === "INFO_GIVEN") setPendingMove({ lead, stage });
     else move.mutate({ id: lead.id, payload: { stage } });
   }
 
@@ -170,7 +170,8 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                       {l.phone && digitsOnly(l.phone) === digitsOnly(l.name) && (
                         <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} title={l.phone} className="shrink-0 rounded p-0.5 text-emerald-700 hover:bg-emerald-50"><Phone size={12} /></a>
                       )}
-                      <SlaPill lead={l} dayLen={dayLen} />
+                      {/* Uchrashuv / qayta aloqa vaqti bor bosqichda - shu vaqt, aks holda muddat belgisi (kechikish chegara rangida ko'rinadi) */}
+                      {stageDate(l) ? <StageDatePill lead={l} /> : <SlaPill lead={l} dayLen={dayLen} />}
                     </div>
                     {/* Ism o'rniga raqam yozilgan bo'lsa (Meta arizasida ism bo'lmasa) raqam ikki marta ko'rsatilmaydi */}
                     {l.phone && digitsOnly(l.phone) !== digitsOnly(l.name) && (
@@ -213,7 +214,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                     )}
                     {notePreview(l) && <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-slate-500">{notePreview(l)}</p>}
                     {l.stage === "MEETING" && l.meetingAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-sky-700"><CalendarClock size={12} /> {fmtDT(l.meetingAt)}</div>}
-                    {l.stage === "CALLBACK" && l.callbackAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700"><CalendarClock size={12} /> {fmtDT(l.callbackAt)}</div>}
+                    {(l.stage === "CALLBACK" || l.stage === "INFO_GIVEN") && l.callbackAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700"><CalendarClock size={12} /> {fmtDT(l.callbackAt)}</div>}
                     <SlaBadge lead={l} dayLen={dayLen} />
                     {l.phoneCalls?.[0] && (
                       <div className={clsx("mt-1.5 flex items-center gap-1 text-[11px]", l.phoneCalls[0].direction === "IN" && l.phoneCalls[0].status !== "ANSWERED" ? "font-medium text-rose-600" : "text-slate-500")}>
@@ -265,13 +266,14 @@ function errText(e: any): string | undefined {
 
 function StageDateModal({ lead, stage, onClose, onSave }: { lead: Lead; stage: LeadStage; onClose: () => void; onSave: (iso: string) => void }) {
   const { t } = useLanguage();
-  const [value, setValue] = useState(toLocalInput(stage === "MEETING" ? lead.meetingAt : lead.callbackAt) || tomorrow10());
+  // "Ma'lumot berildi"ga yangi o'tkazilganda eski qayta bog'lanish vaqti emas, ertangi kun taklif qilinadi
+  const [value, setValue] = useState(toLocalInput(stage === "MEETING" ? lead.meetingAt : stage === "INFO_GIVEN" ? null : lead.callbackAt) || tomorrow10());
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-semibold text-slate-900">{lead.name} → {t(stageTitleKey(stage))}</h3>
         <label className="mt-4 block text-xs text-slate-500">
-          {stage === "MEETING" ? t("calls.leads.meetingDateTime") : t("calls.leads.callbackWhen")} *
+          {stage === "MEETING" ? t("calls.leads.meetingDateTime") : stage === "INFO_GIVEN" ? t("calls.leads.followUpWhen") : t("calls.leads.callbackWhen")} *
           <input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} className="input mt-1" />
         </label>
         <p className="mt-2 text-xs text-slate-400">{t("calls.leads.shownInCalendar")}</p>
@@ -331,7 +333,8 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
   const remove = useMutation({ mutationFn: () => deleteLead(lead!.id), onSuccess: onSaved, onError: (e: any) => setError(errText(e) ?? t("calls.saveFailed")) });
 
   const needMeeting = form.stage === "MEETING";
-  const needCallback = form.stage === "CALLBACK";
+  // "Ma'lumot berildi"ga o'tkazilayotganda (yoki shu bosqichda yangi lid) qayta aloqa vaqti majburiy
+  const needCallback = form.stage === "CALLBACK" || (form.stage === "INFO_GIVEN" && lead?.stage !== "INFO_GIVEN");
   const ready = form.name.trim().length >= 2 && (!needMeeting || !!form.meetingAt) && (!needCallback || !!form.callbackAt);
 
   return (
@@ -368,7 +371,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
             <label className="block text-xs text-slate-500">{t("calls.leads.meetingAt")}{needMeeting ? " *" : ""}<input type="datetime-local" value={form.meetingAt} disabled={!canEdit} onChange={(e) => set("meetingAt", e.target.value)} className="input mt-1" /></label>
           )}
           {(needCallback || form.callbackAt) && (
-            <label className="block text-xs text-slate-500">{t("calls.leads.callbackAt")}{needCallback ? " *" : ""}<input type="datetime-local" value={form.callbackAt} disabled={!canEdit} onChange={(e) => set("callbackAt", e.target.value)} className="input mt-1" /></label>
+            <label className="block text-xs text-slate-500">{form.stage === "INFO_GIVEN" ? t("calls.leads.followUpWhen") : t("calls.leads.callbackAt")}{needCallback ? " *" : ""}<input type="datetime-local" value={form.callbackAt} disabled={!canEdit} onChange={(e) => set("callbackAt", e.target.value)} className="input mt-1" /></label>
           )}
           <label className="block text-xs text-slate-500">{t("calls.leads.note")}<textarea value={form.note} disabled={!canEdit} onChange={(e) => set("note", e.target.value)} rows={3} className="input mt-1" /></label>
           {lead?.metaLeadgenId && (
@@ -449,6 +452,33 @@ function fmtHours(hours: number, t: TFn, dayLen = 9, short = false) {
   const days = Math.floor(total / dayLen);
   const h = Math.round(total - days * dayLen);
   return h ? t(short ? "calls.sla.dhShort" : "calls.sla.dh", { d: days, h }) : t(short ? "calls.sla.dShort" : "calls.sla.d", { d: days });
+}
+
+/** Bosqich sanasi: uchrashuv vaqti yoki qayta aloqa ("Qayta bog'lanish", "Ma'lumot berildi") vaqti */
+function stageDate(l: Lead): string | null {
+  if (l.stage === "MEETING") return l.meetingAt ?? null;
+  if (l.stage === "CALLBACK" || l.stage === "INFO_GIVEN") return l.callbackAt ?? null;
+  return null;
+}
+
+/** Ixcham kartochkadagi sana: bugun bo'lsa "10:00", aks holda "20.11"; vaqti o'tgan qayta aloqa - qizil, bugungisi - sariq. */
+function StageDatePill({ lead }: { lead: Lead }) {
+  const { t } = useLanguage();
+  const fmtDT = useFmtDT();
+  const iso = stageDate(lead);
+  if (!iso) return null;
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  const now = new Date();
+  const past = d.getTime() < now.getTime() && lead.stage !== "MEETING";
+  const today = d.toDateString() === now.toDateString();
+  const title = `${lead.stage === "MEETING" ? t("calls.leads.meetingDateTime") : t("calls.leads.followUpWhen")}: ${fmtDT(iso)}`;
+  return (
+    <span title={title} className={clsx("flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded px-1 text-[10px] font-semibold leading-4", past ? "bg-rose-100 text-rose-700" : today ? "bg-amber-100 text-amber-800" : lead.stage === "MEETING" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-600")}>
+      {/* Joy tejash: bugungisi - faqat soat, boshqasi - faqat sana (to'liq vaqt sichqoncha olib borilganda) */}
+      {today ? `${p(d.getHours())}:${p(d.getMinutes())}` : `${p(d.getDate())}.${p(d.getMonth() + 1)}`}
+    </span>
+  );
 }
 
 /** Ixcham kartochka ustiga sichqoncha olib borilganda ko'rinadigan qisqa ma'lumot */
