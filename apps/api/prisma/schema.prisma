@@ -805,6 +805,8 @@ model CallLead {
   stage          String       @default("NEW")
   meetingAt      DateTime?
   callbackAt     DateTime?
+  /// Qayta aloqa eslatmasi Telegram'ga yuborilgan vaqt (callbackAt o'zgarsa tozalanadi)
+  callbackRemindedAt DateTime?
   /// IP-telefoniyadan avtomatik yaratilgan lidda bo'sh
   ownerId        String?
   owner          User?        @relation("CallLeadOwner", fields: [ownerId], references: [id])

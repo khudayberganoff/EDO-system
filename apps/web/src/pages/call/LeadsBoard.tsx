@@ -276,7 +276,7 @@ function StageDateModal({ lead, stage, onClose, onSave }: { lead: Lead; stage: L
           {stage === "MEETING" ? t("calls.leads.meetingDateTime") : stage === "INFO_GIVEN" ? t("calls.leads.followUpWhen") : t("calls.leads.callbackWhen")} *
           <input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} className="input mt-1" />
         </label>
-        <p className="mt-2 text-xs text-slate-400">{t("calls.leads.shownInCalendar")}</p>
+        <p className="mt-2 text-xs text-slate-400">{t("calls.leads.shownInCalendar")}{stage !== "MEETING" ? ` ${t("calls.leads.reminderHint")}` : ""}</p>
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">{t("calls.cancel")}</button>
           <button disabled={!value} onClick={() => onSave(new Date(value).toISOString())} className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{t("calls.save")}</button>
