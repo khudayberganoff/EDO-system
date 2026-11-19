@@ -334,7 +334,8 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
 
   const needMeeting = form.stage === "MEETING";
   // "Ma'lumot berildi"ga o'tkazilayotganda (yoki shu bosqichda yangi lid) qayta aloqa vaqti majburiy
-  const needCallback = form.stage === "CALLBACK" || (form.stage === "INFO_GIVEN" && lead?.stage !== "INFO_GIVEN");
+  // "Qayta bog'lanish" va "Ma'lumot berildi" bosqichlarida qayta aloqa vaqti doim ko'rinadi va majburiy
+  const needCallback = form.stage === "CALLBACK" || form.stage === "INFO_GIVEN";
   const ready = form.name.trim().length >= 2 && (!needMeeting || !!form.meetingAt) && (!needCallback || !!form.callbackAt);
 
   return (
@@ -355,6 +356,16 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
               {LEAD_STAGES.map((s) => <option key={s.stage} value={s.stage}>{t(s.title)}</option>)}
             </select>
           </label>
+          {/* Bosqich sanasi - bosqich tanlovining darhol ostida */}
+          {(needMeeting || form.meetingAt) && (
+            <label className="block text-xs text-slate-500">{t("calls.leads.meetingAt")}{needMeeting ? " *" : ""}<input type="datetime-local" value={form.meetingAt} disabled={!canEdit} onChange={(e) => set("meetingAt", e.target.value)} className="input mt-1" /></label>
+          )}
+          {needCallback && (
+            <label className="block text-xs text-slate-500">{form.stage === "INFO_GIVEN" ? t("calls.leads.followUpWhen") : t("calls.leads.callbackAt")} *
+              <input type="datetime-local" value={form.callbackAt} disabled={!canEdit} onChange={(e) => set("callbackAt", e.target.value)} className={clsx("input mt-1", !form.callbackAt && "border-amber-400")} />
+              <span className="mt-1 block text-[11px] text-slate-400">{t("calls.leads.reminderHint")}</span>
+            </label>
+          )}
           <ProjectField value={form.project} disabled={!canEdit} onChange={(project) => setForm((f) => ({ ...f, project }))} />
           <LossReasonsField
             value={form.lossReasons} term={form.lossTerm} note={form.lossNote} disabled={!canEdit}
@@ -367,12 +378,6 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
             })}
             onTerm={(v) => setForm((f) => ({ ...f, lossTerm: v, ...(v.trim() && !f.lossReasons.includes("TERM") ? { lossReasons: [...f.lossReasons, "TERM"] as LossReason[], stage: "UNQUALIFIED" as LeadStage } : {}) }))}
           />
-          {(needMeeting || form.meetingAt) && (
-            <label className="block text-xs text-slate-500">{t("calls.leads.meetingAt")}{needMeeting ? " *" : ""}<input type="datetime-local" value={form.meetingAt} disabled={!canEdit} onChange={(e) => set("meetingAt", e.target.value)} className="input mt-1" /></label>
-          )}
-          {(needCallback || form.callbackAt) && (
-            <label className="block text-xs text-slate-500">{form.stage === "INFO_GIVEN" ? t("calls.leads.followUpWhen") : t("calls.leads.callbackAt")}{needCallback ? " *" : ""}<input type="datetime-local" value={form.callbackAt} disabled={!canEdit} onChange={(e) => set("callbackAt", e.target.value)} className="input mt-1" /></label>
-          )}
           <label className="block text-xs text-slate-500">{t("calls.leads.note")}<textarea value={form.note} disabled={!canEdit} onChange={(e) => set("note", e.target.value)} rows={3} className="input mt-1" /></label>
           {lead?.metaLeadgenId && (
             <div className="space-y-0.5 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs text-slate-600">
