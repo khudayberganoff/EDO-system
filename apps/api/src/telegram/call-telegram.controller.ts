@@ -52,6 +52,9 @@ export class CallTelegramController {
   @ApiBearerAuth() @Roles(Role.ADMIN) @Post("config") @ApiOperation({ summary: "Bot tokenini saqlash (tekshiriladi, shifrlanadi, webhook ulanadi)" })
   save(@Body() dto: SaveCallBotDto, @Req() req: any) { return this.bot.saveToken(dto.token.trim(), dto.name, baseOf(req)); }
 
+  @ApiBearerAuth() @Roles(Role.ADMIN) @Post("test") @ApiOperation({ summary: "Sinov xabari (administratorning o'ziga)" })
+  test(@CurrentUser() user: AuthenticatedUser) { return this.bot.sendTest(user.id); }
+
   @ApiBearerAuth() @Roles(Role.ADMIN) @Delete("config")
   remove() { return this.bot.removeToken(); }
 }

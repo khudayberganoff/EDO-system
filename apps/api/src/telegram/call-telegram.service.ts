@@ -8,6 +8,7 @@ import { escapeHtml } from "./telegram-task-parser";
 
 const TOKEN_KEY = "call_telegram_bot_token";
 const BASE_KEY = "call_telegram_base";
+const LAST_KEY = "call_telegram_last";
 const PURPOSE = "call-telegram-token";
 const apiBase = () => (process.env.TELEGRAM_API_BASE || "https://api.telegram.org").replace(/\/+$/, "");
 
@@ -130,6 +131,9 @@ export class CallTelegramService implements OnApplicationBootstrap {
       linkedUsers: await this.prisma.user.count({ where: { telegramCallBot: true, telegramId: { not: null }, isActive: true } }),
       // Bot sozlanmagan bo'lsa xabarlar EDO boti orqali ketadi
       fallbackBot: !this.isEnabled() && this.main.isEnabled() ? this.main.getBotUsername() : null,
+      // Lid xabarlari boradigan xodimlar (lidga mas'ul biriktirilmagan bo'lsa) va oxirgi xabar natijasi
+      recipients: await this.recipientNames(),
+      lastNotify: await this.lastLeadNotify(),
     };
   }
 
@@ -259,16 +263,58 @@ export class CallTelegramService implements OnApplicationBootstrap {
   }
 
   /** Xabar yuboradi: o'z boti orqali, u sozlanmagan bo'lsa EDO boti orqali. */
-  async notify(chatId: string, html: string) {
-    if (!this.isEnabled()) { await this.main.sendMessage(chatId, html); return; }
+  async notify(chatId: string, html: string): Promise<boolean> {
+    if (!this.isEnabled()) return !!(await this.main.sendMessage(chatId, html));
     try {
       await this.call("sendMessage", { chat_id: chatId, text: html.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true });
+      return true;
     } catch (e: any) {
+      this.lastError = String(e?.message ?? e).slice(0, 300);
       // Xodim botni bloklagan yoki hali Start bosmagan - keyingi safar unga yozilmaydi
       if (e?.tgCode === 403 || /chat not found/i.test(String(e?.message))) {
         await this.prisma.user.updateMany({ where: { telegramId: chatId }, data: { telegramCallBot: false } }).catch(() => undefined);
       }
       this.logger.warn(`Xabar yuborilmadi (${chatId}): ${e?.message ?? e}`);
+      return false;
     }
+  }
+
+  /** Oxirgi xato (sababini sozlamalarda ko'rsatish uchun) */
+  private lastError: string | null = null;
+
+  /**
+   * Lid haqidagi oxirgi xabar natijasi: Sozlamalarda "nega xabar kelmadi" savoliga javob.
+   * result: sent - yuborildi, off - sozlamada o'chirilgan, noBot - bot yo'q, noRecipients - hech kim ulanmagan, failed - Telegram rad etdi.
+   */
+  async rememberLeadNotify(entry: { lead: string; result: "sent" | "off" | "noBot" | "noRecipients" | "failed"; sent?: number; total?: number }) {
+    const value = JSON.stringify({ ...entry, at: new Date().toISOString(), error: entry.result === "failed" ? this.lastError : null });
+    this.lastError = null;
+    await this.prisma.appSetting.upsert({ where: { key: LAST_KEY }, create: { key: LAST_KEY, value }, update: { value } }).catch(() => undefined);
+  }
+
+  private async lastLeadNotify() {
+    const row = await this.prisma.appSetting.findUnique({ where: { key: LAST_KEY } });
+    try { return row ? JSON.parse(row.value) : null; } catch { return null; }
+  }
+
+  /** Sinov xabari - administrator o'ziga yuboradi (bot va ulanish ishlayotganini tekshirish uchun). */
+  async sendTest(userId: string) {
+    if (!this.isEnabled()) throw new BadRequestException("Call-markaz boti hali ulanmagan.");
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true, telegramId: true, telegramCallBot: true } });
+    if (!u?.telegramId || !u.telegramCallBot) throw new BadRequestException("Avval o'z Telegram'ingizni botga ulang (\"Telegram'ni ulash\" tugmasi, keyin botda Start).");
+    const ok = await this.notify(u.telegramId, `🔔 <b>Sinov xabari</b>\nWAFA Call-markaz boti ishlayapti. Yangi lidlar haqidagi xabarlar shu yerga keladi.`);
+    if (!ok) throw new BadRequestException(`Telegram xabarni qabul qilmadi${this.lastError ? `: ${this.lastError}` : ""}. Botda /start ni qayta bosing.`);
+    return { ok: true };
+  }
+
+  /** Lid xabarlari kimlarga boradi (Sozlamalarda ko'rsatish uchun) */
+  private async recipientNames() {
+    const own = this.isEnabled();
+    const users = await this.prisma.user.findMany({
+      where: { isActive: true, telegramId: { not: null }, role: { in: ["OPERATOR", "ADMIN"] }, ...(own ? { telegramCallBot: true } : {}) },
+      select: { fullName: true, role: true },
+    });
+    const ops = users.filter((u) => u.role === "OPERATOR");
+    return (ops.length ? ops : users.filter((u) => u.role === "ADMIN")).map((u) => u.fullName);
   }
 }

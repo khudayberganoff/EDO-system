@@ -11,6 +11,10 @@ export interface CallTelegramConfig {
   linkedUsers: number;
   /** Bot sozlanmagan bo'lsa xabarlar shu EDO boti orqali ketadi */
   fallbackBot: string | null;
+  /** Lid xabarlari boradigan xodimlar (lidga mas'ul biriktirilmagan bo'lsa) */
+  recipients: string[];
+  /** Oxirgi lid xabari natijasi */
+  lastNotify: { at: string; lead: string; result: "sent" | "off" | "noBot" | "noRecipients" | "failed"; sent?: number; total?: number; error?: string | null } | null;
 }
 
 export const fetchCallTelegramStatus = async () => (await apiClient.get<CallTelegramStatus>("/calls/telegram/status")).data;
@@ -20,3 +24,4 @@ export const unlinkCallTelegram = async () => (await apiClient.delete("/calls/te
 export const fetchCallTelegramConfig = async () => (await apiClient.get<CallTelegramConfig>("/calls/telegram/config")).data;
 export const saveCallTelegramBot = async (payload: { token: string; name?: string }) => (await apiClient.post<CallTelegramConfig>("/calls/telegram/config", payload)).data;
 export const removeCallTelegramBot = async () => (await apiClient.delete<CallTelegramConfig>("/calls/telegram/config")).data;
+export const sendCallTelegramTest = async () => (await apiClient.post<{ ok: boolean }>("/calls/telegram/test")).data;

@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Send, X } from "lucide-react";
 import clsx from "clsx";
 import {
-  createCallTelegramLink, fetchCallTelegramConfig, fetchCallTelegramStatus, removeCallTelegramBot, saveCallTelegramBot, unlinkCallTelegram,
+  createCallTelegramLink, fetchCallTelegramConfig, fetchCallTelegramStatus, removeCallTelegramBot, saveCallTelegramBot, sendCallTelegramTest, unlinkCallTelegram,
 } from "../../api/callTelegram";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../i18n/LanguageContext";
+import { LOCALE_OF } from "../../i18n/callsTranslations";
+import type { TranslationKey } from "../../i18n/translations";
 
 const errText = (e: any, fallback: string) => {
   const m = e?.response?.data?.message;
@@ -19,7 +21,7 @@ const errText = (e: any, fallback: string) => {
  */
 export function CallTelegramCard() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const qc = useQueryClient();
   const isAdmin = user?.role === "ADMIN";
   const [token, setToken] = useState("");
@@ -33,6 +35,12 @@ export function CallTelegramCard() {
     onError: (e) => setError(errText(e, t("calls.saveFailed"))),
   });
   const remove = useMutation({ mutationFn: removeCallTelegramBot, onSuccess: refresh, onError: (e) => setError(errText(e, t("calls.saveFailed"))) });
+  const [testOk, setTestOk] = useState(false);
+  const test = useMutation({
+    mutationFn: sendCallTelegramTest,
+    onSuccess: () => { setError(null); setTestOk(true); setTimeout(() => setTestOk(false), 4000); refresh(); },
+    onError: (e) => setError(errText(e, t("calls.saveFailed"))),
+  });
   if (!isAdmin) return null;
   const code = (c: string) => <code className="rounded bg-slate-100 px-1">{c}</code>;
 
@@ -58,8 +66,19 @@ export function CallTelegramCard() {
               : <span className="text-amber-700">{t("ctg.noWebhook", { url: data.publicUrl || "—" })}</span>}
           </p>
           {data.webhook?.lastError && <p className="text-xs text-rose-600">Telegram: {data.webhook.lastError}</p>}
+          <p className="text-xs text-slate-500">
+            {t("ctg.recipients")}: {data.recipients.length ? <b className="text-slate-700">{data.recipients.join(", ")}</b> : <span className="font-medium text-amber-700">{t("ctg.noRecipients")}</span>}
+          </p>
+          {data.lastNotify && (
+            <p className={clsx("rounded-lg px-3 py-2 text-xs", data.lastNotify.result === "sent" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800")}>
+              {t("ctg.last")}: {new Date(data.lastNotify.at).toLocaleString(LOCALE_OF[language], { dateStyle: "short", timeStyle: "short" })} · <b>{data.lastNotify.lead}</b> · {t(`ctg.r.${data.lastNotify.result}` as TranslationKey, { n: data.lastNotify.sent ?? 0, total: data.lastNotify.total ?? 0 })}
+              {data.lastNotify.error ? ` (${data.lastNotify.error})` : ""}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-4 pt-1">
             <MyTelegramLink />
+            <button onClick={() => test.mutate()} disabled={test.isPending} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">{t("ctg.test")}</button>
+            {testOk && <span className="flex items-center gap-1 text-xs text-emerald-600"><Check size={13} /> {t("ctg.testSent")}</span>}
             <button onClick={() => window.confirm(t("ctg.removeConfirm")) && remove.mutate()} className="text-xs font-medium text-rose-600 hover:text-rose-700">{t("ctg.remove")}</button>
           </div>
         </div>
