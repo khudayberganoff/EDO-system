@@ -81,7 +81,7 @@ export class CallTelegramService implements OnApplicationBootstrap {
     return !!this.token && safeEqual(header, this.webhookSecret());
   }
 
-  private async publicBase(): Promise<string> {
+  async publicBase(): Promise<string> {
     const env = (process.env.CALL_PUBLIC_URL || "").trim().replace(/\/+$/, "");
     if (env) return env;
     const row = await this.prisma.appSetting.findUnique({ where: { key: BASE_KEY } });

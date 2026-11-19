@@ -465,6 +465,8 @@ export class CallsService {
         stageChangedAt: changed ? now : undefined,
         meetingAt,
         callbackAt,
+        // Qayta aloqa vaqti o'zgarsa - yangi vaqtda yana eslatiladi
+        callbackRemindedAt: (callbackAt?.getTime() ?? null) !== (lead.callbackAt?.getTime() ?? null) ? null : undefined,
       },
       include: { owner: { select: { id: true, fullName: true, position: true } } },
     });
