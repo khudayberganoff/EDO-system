@@ -50,10 +50,12 @@ export class CallsService {
   ) {}
 
   /** Bo'lim ruxsati serverda ham tekshiriladi (interfeys yashirishi yetarli emas). */
-  private async assertAccess(role: string, mode: "view" | "edit") {
+  private async assertAccess(role: string, mode: "view" | "edit", module: "calls" | "clients" = "calls") {
     const access = await this.settings.myAccess(role);
-    const a = access["calls"];
-    if (!(mode === "view" ? a?.canView : a?.canEdit)) throw new ForbiddenException("Call-markaz bo'limiga ruxsat yo'q.");
+    const a = access[module];
+    if (!(mode === "view" ? a?.canView : a?.canEdit)) {
+      throw new ForbiddenException(module === "clients" ? "Mijozlar (CRM) bo'limiga ruxsat yo'q." : "Call-markaz bo'limiga ruxsat yo'q.");
+    }
   }
 
   /** EDO tashkiloti nomi -> CRM'dagi kompaniya kaliti. */
@@ -563,7 +565,7 @@ export class CallsService {
    * qo'shilgan). Filtrlar: all | overdue | soon (7 kun ichida to'lov) | nophone.
    */
   async clients(actor: Actor, params: { q?: string; filter?: string; sort?: string }) {
-    await this.assertAccess(actor.role, "view");
+    await this.assertAccess(actor.role, "view", "clients");
     if (!this.crm.isEnabled()) return { enabled: false, items: [], counts: {} };
     const { crm } = await this.scope(actor);
     const contracts = (await Promise.all(crm.map((organization) => this.crm.searchContracts({ q: params.q, organization, overdueOnly: false, limit: 3000 })))).flat();
@@ -608,7 +610,7 @@ export class CallsService {
 
   /** Mijozga telefon raqamini qo'lda qo'shish/o'zgartirish (bo'sh raqam - qo'lda kiritilganini o'chiradi, CRM raqami qoladi). */
   async setClientPhone(actor: Actor, dto: SetClientPhoneDto) {
-    await this.assertAccess(actor.role, "edit");
+    await this.assertAccess(actor.role, "edit", "clients");
     const { crm } = await this.scope(actor);
     if (!crm.includes(dto.crmOrg)) throw new ForbiddenException("Bu kompaniya mijozlariga ruxsat yo'q.");
     const phone = dto.phone.trim();

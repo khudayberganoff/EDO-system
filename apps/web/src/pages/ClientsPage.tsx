@@ -1,13 +1,16 @@
 import { Contact } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { Navigate } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fetchMyAccess } from "../api/settings";
 import { ClientsTab } from "./call/ClientsTab";
 
-/** Mijozlar (CRM) - call saytida chap menyudagi alohida bo'lim. */
+/** Mijozlar (CRM) - call saytida chap menyudagi alohida bo'lim. Ko'rish/o'zgartirish "Rollar va ruxsatlar"dagi "Mijozlar (CRM)" bo'yicha. */
 export function ClientsPage() {
-  const { user } = useAuth();
   const { t } = useLanguage();
-  const canEdit = user?.role !== "OBSERVER";
+  const { data: access } = useQuery({ queryKey: ["settings", "my-access"], queryFn: fetchMyAccess, staleTime: 60_000 });
+  if (access && access.clients?.canView === false) return <Navigate to="/calls" replace />;
+  const canEdit = access?.clients?.canEdit ?? false;
 
   return (
     <div className="p-8">
