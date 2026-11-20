@@ -6,7 +6,7 @@ import { apiClient } from "./client";
 export type LossReason = "COLLATERAL" | "MARKUP" | "ISLAMIC" | "TERM";
 export const LOSS_REASONS: LossReason[] = ["COLLATERAL", "MARKUP", "ISLAMIC", "TERM"];
 
-export type LeadStage = "NEW" | "INFO_GIVEN" | "CALLBACK" | "MEETING" | "VISITED" | "CONTRACT" | "UNQUALIFIED";
+export type LeadStage = "NEW" | "INFO_GIVEN" | "CALLBACK" | "MEETING" | "VISITED" | "REVIEW" | "CONTRACT" | "UNQUALIFIED";
 
 export interface Lead {
   id: string;
@@ -27,6 +27,8 @@ export interface Lead {
   lossNote?: string | null;
   /** Loyiha haqida: aktiv, moliyalashtirish summasi (so'm), muddati (oy), oldindan to'lov */
   projectAsset?: string | null;
+  /** Loyiha maqsadi (erkin izoh) */
+  projectGoal?: string | null;
   projectAmount?: number | null;
   projectTermMonths?: number | null;
   projectHasDownPayment?: boolean | null;
@@ -46,7 +48,7 @@ export interface Lead {
   phoneCalls?: { direction: "IN" | "OUT"; status: "ANSWERED" | "MISSED" | "BUSY" | "FAILED"; startedAt: string }[];
 }
 
-export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm" | "lossNote" | "projectAsset" | "projectAmount" | "projectTermMonths" | "projectHasDownPayment" | "projectDownPayment">>;
+export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm" | "lossNote" | "projectAsset" | "projectGoal" | "projectAmount" | "projectTermMonths" | "projectHasDownPayment" | "projectDownPayment">>;
 
 export interface LeadSla {
   responseDueAt: string;

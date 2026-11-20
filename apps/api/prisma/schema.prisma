@@ -801,7 +801,7 @@ model CallLead {
   /// Qayerdan kelgan (Instagram, Telegram, tavsiya...) - erkin matn
   source         String?
   note           String?
-  /// NEW | INFO_GIVEN | CALLBACK | MEETING | VISITED | CONTRACT | UNQUALIFIED
+  /// NEW | INFO_GIVEN | CALLBACK | MEETING | VISITED | REVIEW | CONTRACT | UNQUALIFIED
   stage          String       @default("NEW")
   meetingAt      DateTime?
   callbackAt     DateTime?
@@ -827,6 +827,8 @@ model CallLead {
   /// Loyiha haqida: aktiv (masalan "Chevrolet Cobalt", "ekskavator"), moliyalashtirish summasi (so'm),
   /// muddati (oy), oldindan to'lov bormi va uning summasi (so'm)
   projectAsset          String?
+  /// Loyiha maqsadi: aktiv nima uchun kerak (erkin izoh)
+  projectGoal           String?
   projectAmount         Float?
   projectTermMonths     Int?
   projectHasDownPayment Boolean?

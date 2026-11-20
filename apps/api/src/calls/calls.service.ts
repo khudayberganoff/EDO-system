@@ -14,9 +14,10 @@ const SLA_KEY = "call_sla";
 const DIAL_KEY = "call_dial";
 
 /** Loyiha maydonlari (DTO'dan): berilmaganlari o'zgarmaydi; oldindan to'lov "yo'q" bo'lsa summa tozalanadi */
-function projectFields(dto: { projectAsset?: string; projectAmount?: number | null; projectTermMonths?: number | null; projectHasDownPayment?: boolean | null; projectDownPayment?: number | null }) {
+function projectFields(dto: { projectAsset?: string; projectGoal?: string; projectAmount?: number | null; projectTermMonths?: number | null; projectHasDownPayment?: boolean | null; projectDownPayment?: number | null }) {
   const out: Record<string, unknown> = {};
   if (dto.projectAsset !== undefined) out.projectAsset = dto.projectAsset.trim() || null;
+  if (dto.projectGoal !== undefined) out.projectGoal = dto.projectGoal.trim() || null;
   if (dto.projectAmount !== undefined) out.projectAmount = dto.projectAmount;
   if (dto.projectTermMonths !== undefined) out.projectTermMonths = dto.projectTermMonths;
   if (dto.projectHasDownPayment !== undefined) out.projectHasDownPayment = dto.projectHasDownPayment;

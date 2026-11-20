@@ -134,7 +134,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
       </div>
 
       <div className="overflow-x-auto pb-2">
-        <div className="grid min-w-[1180px] grid-cols-7 gap-3">
+        <div className="grid min-w-[1340px] grid-cols-8 gap-3">
           {LEAD_STAGES.map((col) => {
             const items = byStage.get(col.stage) ?? [];
             return (
@@ -295,6 +295,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
     lossReasons: (lead?.lossReasons ?? []) as LossReason[], lossTerm: lead?.lossTerm ?? "", lossNote: lead?.lossNote ?? "",
     project: {
       asset: lead?.projectAsset ?? "",
+      goal: lead?.projectGoal ?? "",
       amount: lead?.projectAmount != null ? String(Math.round(lead.projectAmount)) : "",
       term: lead?.projectTermMonths != null ? String(lead.projectTermMonths) : "",
       hasDown: lead?.projectHasDownPayment ?? null,
@@ -318,6 +319,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
         name: form.name.trim(), phone: form.phone.trim(), source: form.source.trim(), note: form.note.trim(), stage: form.stage,
         lossReasons: form.lossReasons, lossTerm: form.lossTerm.trim(), lossNote: form.lossNote.trim(),
         projectAsset: form.project.asset.trim(),
+        projectGoal: form.project.goal.trim(),
         projectAmount: form.project.amount ? Number(form.project.amount) : null,
         projectTermMonths: form.project.term ? Number(form.project.term) : null,
         projectHasDownPayment: form.project.hasDown,
@@ -634,7 +636,7 @@ function LossReasonsField({ value, term, note, disabled, onToggle, onTerm, onNot
 }
 
 /** Lid oynasidagi loyiha maydonlari (summalar - faqat raqamlar, so'mda) */
-type ProjectForm = { asset: string; amount: string; term: string; hasDown: boolean | null; down: string };
+type ProjectForm = { asset: string; goal: string; amount: string; term: string; hasDown: boolean | null; down: string };
 
 const digitsOnly = (v: string) => v.replace(/\D/g, "").slice(0, 13);
 /** 150000000 -> "150 000 000" */
@@ -658,6 +660,9 @@ function ProjectField({ value, disabled, onChange }: { value: ProjectForm; disab
       <div className="space-y-2.5">
         <label className="block text-xs text-slate-500">{t("calls.project.asset")}
           <input value={value.asset} disabled={disabled} maxLength={200} onChange={(e) => set({ asset: e.target.value })} placeholder={t("calls.project.assetPlaceholder")} className="input mt-1" />
+        </label>
+        <label className="block text-xs text-slate-500">{t("calls.project.goal")}
+          <textarea value={value.goal} disabled={disabled} maxLength={1000} rows={2} onChange={(e) => set({ goal: e.target.value })} placeholder={t("calls.project.goalPlaceholder")} className="input mt-1 resize-y" />
         </label>
         <div className="grid grid-cols-[1fr_140px] gap-3">
           <label className="block text-xs text-slate-500">{t("calls.project.amount")}
