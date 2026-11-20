@@ -7,7 +7,7 @@
  * "Ma'lumot berildi" bosqichidagi lidlarga muddat qo'llanmaydi: ular uchun qayta aloqa vaqti belgilanadi.
  */
 export const PAUSED_STAGES = ["INFO_GIVEN"];
-export const RESOLVED_STAGES = ["MEETING", "VISITED", "CONTRACT", "UNQUALIFIED"];
+export const RESOLVED_STAGES = ["MEETING", "VISITED", "REVIEW", "CONTRACT", "UNQUALIFIED"];
 
 export interface SlaConfig {
   /** Ish boshlanishi va tugashi, "HH:MM" */

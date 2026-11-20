@@ -134,7 +134,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
       </div>
 
       <div className="overflow-x-auto pb-2">
-        <div className="grid min-w-[1180px] grid-cols-7 gap-3">
+        <div className="grid min-w-[1340px] grid-cols-8 gap-3">
           {LEAD_STAGES.map((col) => {
             const items = byStage.get(col.stage) ?? [];
             return (
@@ -192,7 +192,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                       <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-emerald-700 hover:underline"><Phone size={11} /> {l.phone}</a>
                     )}
                     {(l.projectAsset || l.projectAmount || l.projectTermMonths) && (
-                      <div className="mt-1.5 flex gap-1 text-[11px] leading-snug text-slate-600" title={[l.projectAsset, l.projectAmount ? fmtMoney(l.projectAmount, t) : "", l.projectTermMonths ? t("calls.project.months", { n: l.projectTermMonths }) : ""].filter(Boolean).join(" · ")}>
+                      <div className="mt-1.5 flex gap-1 text-[11px] leading-snug text-slate-600" title={[l.projectAsset, l.projectPurpose, l.projectAmount ? fmtMoney(l.projectAmount, t) : "", l.projectTermMonths ? t("calls.project.months", { n: l.projectTermMonths }) : ""].filter(Boolean).join(" · ")}>
                         <Briefcase size={11} className="mt-0.5 shrink-0 text-slate-400" />
                         <div className="min-w-0">
                           {l.projectAsset && <div className="truncate font-medium text-slate-700">{l.projectAsset}</div>}
@@ -295,6 +295,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
     lossReasons: (lead?.lossReasons ?? []) as LossReason[], lossTerm: lead?.lossTerm ?? "", lossNote: lead?.lossNote ?? "",
     project: {
       asset: lead?.projectAsset ?? "",
+      purpose: lead?.projectPurpose ?? "",
       amount: lead?.projectAmount != null ? String(Math.round(lead.projectAmount)) : "",
       term: lead?.projectTermMonths != null ? String(lead.projectTermMonths) : "",
       hasDown: lead?.projectHasDownPayment ?? null,
@@ -318,6 +319,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
         name: form.name.trim(), phone: form.phone.trim(), source: form.source.trim(), note: form.note.trim(), stage: form.stage,
         lossReasons: form.lossReasons, lossTerm: form.lossTerm.trim(), lossNote: form.lossNote.trim(),
         projectAsset: form.project.asset.trim(),
+        projectPurpose: form.project.purpose.trim(),
         projectAmount: form.project.amount ? Number(form.project.amount) : null,
         projectTermMonths: form.project.term ? Number(form.project.term) : null,
         projectHasDownPayment: form.project.hasDown,
@@ -492,6 +494,7 @@ function compactTitle(l: Lead, t: TFn) {
     l.name,
     l.phone,
     l.projectAsset,
+    l.projectPurpose,
     l.metaLeadgenId ? (l.metaCampaignName ?? l.metaFormName ?? "Meta Ads") : l.source,
     l.owner?.fullName,
     l.stage === "UNQUALIFIED" ? (l.lossReasons ?? []).map((r) => t(`calls.loss.short.${r}` as TranslationKey)).join(", ") : "",
@@ -634,7 +637,7 @@ function LossReasonsField({ value, term, note, disabled, onToggle, onTerm, onNot
 }
 
 /** Lid oynasidagi loyiha maydonlari (summalar - faqat raqamlar, so'mda) */
-type ProjectForm = { asset: string; amount: string; term: string; hasDown: boolean | null; down: string };
+type ProjectForm = { asset: string; purpose: string; amount: string; term: string; hasDown: boolean | null; down: string };
 
 const digitsOnly = (v: string) => v.replace(/\D/g, "").slice(0, 13);
 /** 150000000 -> "150 000 000" */
@@ -658,6 +661,9 @@ function ProjectField({ value, disabled, onChange }: { value: ProjectForm; disab
       <div className="space-y-2.5">
         <label className="block text-xs text-slate-500">{t("calls.project.asset")}
           <input value={value.asset} disabled={disabled} maxLength={200} onChange={(e) => set({ asset: e.target.value })} placeholder={t("calls.project.assetPlaceholder")} className="input mt-1" />
+        </label>
+        <label className="block text-xs text-slate-500">{t("calls.project.purpose")}
+          <textarea value={value.purpose} disabled={disabled} maxLength={2000} rows={2} onChange={(e) => set({ purpose: e.target.value })} placeholder={t("calls.project.purposePlaceholder")} className="input mt-1" />
         </label>
         <div className="grid grid-cols-[1fr_140px] gap-3">
           <label className="block text-xs text-slate-500">{t("calls.project.amount")}
