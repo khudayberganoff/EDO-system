@@ -827,6 +827,8 @@ model CallLead {
   /// Loyiha haqida: aktiv (masalan "Chevrolet Cobalt", "ekskavator"), moliyalashtirish summasi (so'm),
   /// muddati (oy), oldindan to'lov bormi va uning summasi (so'm)
   projectAsset          String?
+  /// Loyiha maqsadi - erkin izoh (masalan "taksi xizmati uchun", "qurilish ishlari uchun")
+  projectPurpose        String?
   projectAmount         Float?
   projectTermMonths     Int?
   projectHasDownPayment Boolean?

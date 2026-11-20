@@ -8,6 +8,7 @@ export const LEAD_STAGES: { stage: LeadStage; title: TranslationKey; hint?: Tran
   { stage: "CALLBACK", title: "calls.stage.CALLBACK", hint: "calls.stage.CALLBACK.hint", tone: "blue" },
   { stage: "MEETING", title: "calls.stage.MEETING", tone: "blue" },
   { stage: "VISITED", title: "calls.stage.VISITED", tone: "blue" },
+  { stage: "REVIEW", title: "calls.stage.REVIEW", tone: "blue" },
   { stage: "CONTRACT", title: "calls.stage.CONTRACT", tone: "green" },
   { stage: "UNQUALIFIED", title: "calls.stage.UNQUALIFIED", hint: "calls.stage.UNQUALIFIED.hint", tone: "red" },
 ];

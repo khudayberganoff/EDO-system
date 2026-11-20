@@ -20,7 +20,7 @@ export class CreateCallLogDto {
   @IsOptional() @IsNumber() overdueAmount?: number;
 }
 
-export const LEAD_STAGES = ["NEW", "INFO_GIVEN", "CALLBACK", "MEETING", "VISITED", "CONTRACT", "UNQUALIFIED"] as const;
+export const LEAD_STAGES = ["NEW", "INFO_GIVEN", "CALLBACK", "MEETING", "VISITED", "REVIEW", "CONTRACT", "UNQUALIFIED"] as const;
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
 /** Lidni rad etish sabablari: garov to'g'ri kelmadi, ustama qimmat, islomiy moliya xohlamadi, muddat */
@@ -39,6 +39,7 @@ export class CreateLeadDto {
   @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
   /** Loyiha haqida (bo'sh qator / null - tozalash) */
   @IsOptional() @IsString() @MaxLength(200) projectAsset?: string;
+  @IsOptional() @IsString() @MaxLength(2000) projectPurpose?: string;
   @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectAmount?: number | null;
   @IsOptional() @IsInt() @Min(1) @Max(600) projectTermMonths?: number | null;
   @IsOptional() @IsBoolean() projectHasDownPayment?: boolean | null;
@@ -60,6 +61,7 @@ export class UpdateLeadDto {
   @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
   /** Loyiha haqida (bo'sh qator / null - tozalash) */
   @IsOptional() @IsString() @MaxLength(200) projectAsset?: string;
+  @IsOptional() @IsString() @MaxLength(2000) projectPurpose?: string;
   @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectAmount?: number | null;
   @IsOptional() @IsInt() @Min(1) @Max(600) projectTermMonths?: number | null;
   @IsOptional() @IsBoolean() projectHasDownPayment?: boolean | null;
