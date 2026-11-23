@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Briefcase, CalendarClock, Clock, Facebook, History, Instagram, LayoutList, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Rows3, Trash2, X } from "lucide-react";
+import { AlertTriangle, Pause, Briefcase, CalendarClock, Clock, Facebook, History, Instagram, LayoutList, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Rows3, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { LOSS_REASONS, createLead, deleteLead, fetchLeadHistory, fetchLeads, fetchSlaSettings, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage, type LossReason } from "../../api/calls";
 import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
@@ -171,7 +171,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                         <a href={telHref(l.phone)} onClick={(e) => e.stopPropagation()} title={l.phone} className="shrink-0 rounded p-0.5 text-emerald-700 hover:bg-emerald-50"><Phone size={12} /></a>
                       )}
                       {/* Uchrashuv / qayta aloqa vaqti bor bosqichda - shu vaqt, aks holda muddat belgisi (kechikish chegara rangida ko'rinadi) */}
-                      {stageDate(l) ? <StageDatePill lead={l} /> : <SlaPill lead={l} dayLen={dayLen} />}
+                      {stageDate(l) ? <StageDatePill lead={l} /> : <SlaPill lead={l} dayLen={dayLen} paused={slaCfg ? !slaCfg.workingNow : false} />}
                     </div>
                     {/* Ism o'rniga raqam yozilgan bo'lsa (Meta arizasida ism bo'lmasa) raqam ikki marta ko'rsatilmaydi */}
                     {l.phone && digitsOnly(l.phone) !== digitsOnly(l.name) && (
@@ -502,15 +502,21 @@ function compactTitle(l: Lead, t: TFn) {
 }
 
 /** Ixcham kartochkadagi kichik muddat belgisi: qizil - muddat o'tgan, sariq - oz qolgan, aks holda qolgan vaqt. */
-function SlaPill({ lead, dayLen }: { lead: Lead; dayLen: number }) {
+function SlaPill({ lead, dayLen, paused }: { lead: Lead; dayLen: number; paused: boolean }) {
   const { t } = useLanguage();
+  const fmtDT = useFmtDT();
   const s = lead.sla;
   if (!s) return null;
-  const pill = (cls: string, text: string, title: string, alert = false) => (
-    <span title={title} className={clsx("flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none", cls)}>
-      {alert && <AlertTriangle size={10} />}{text}
-    </span>
-  );
+  // Qolgan vaqt - ISH soatlari (09:00-18:00, dam olish va bayram kunlarisiz); ish vaqtidan tashqarida hisob to'xtaydi
+  const pill = (cls: string, text: string, title: string, alert = false) => {
+    const due = !s.responded ? s.responseDueAt : s.resolveDueAt;
+    const full = `${title}\n${t("calls.sla.dueAt", { at: fmtDT(due) })}\n${t("calls.sla.onlyWork")}${paused ? `\n${t("calls.sla.paused")}` : ""}`;
+    return (
+      <span title={full} className={clsx("flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none", cls)}>
+        {alert ? <AlertTriangle size={10} /> : paused ? <Pause size={9} /> : null}{text}
+      </span>
+    );
+  };
   if (!s.responded && s.responseLeftHours !== null) {
     if (s.responseOverdue) {
       const h = -s.responseLeftHours;
@@ -533,8 +539,16 @@ function SlaPill({ lead, dayLen }: { lead: Lead; dayLen: number }) {
  */
 function SlaBadge({ lead, dayLen }: { lead: Lead; dayLen: number }) {
   const { t } = useLanguage();
+  const fmtDT = useFmtDT();
   const s = lead.sla;
   if (!s) return null;
+  const node = slaBadgeNode(lead, dayLen, t);
+  if (!node) return null;
+  return <div title={`${t("calls.sla.dueAt", { at: fmtDT(!s.responded ? s.responseDueAt : s.resolveDueAt) })}\n${t("calls.sla.onlyWork")}`}>{node}</div>;
+}
+
+function slaBadgeNode(lead: Lead, dayLen: number, t: TFn) {
+  const s = lead.sla!;
   if (!s.responded && s.responseLeftHours !== null) {
     if (s.responseOverdue) {
       return (
