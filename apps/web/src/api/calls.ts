@@ -3,8 +3,9 @@ import { apiClient } from "./client";
 // ---------- Lidlar (Kanban) ----------
 
 /** Garov to'g'ri kelmadi | Ustama qimmatlik qildi | Islomiy moliya xohlamadi | Muddat */
-export type LossReason = "COLLATERAL" | "MARKUP" | "ISLAMIC" | "TERM";
-export const LOSS_REASONS: LossReason[] = ["COLLATERAL", "MARKUP", "ISLAMIC", "TERM"];
+export type LossReason = "COLLATERAL" | "MARKUP" | "ISLAMIC" | "PHONE_OFF" | "TERM" | "OTHER";
+/** Lid oynasidagi tartib: "Boshqa" - qo'shimcha izoh oldidan */
+export const LOSS_REASONS: LossReason[] = ["COLLATERAL", "MARKUP", "ISLAMIC", "PHONE_OFF", "TERM", "OTHER"];
 
 export type LeadStage = "NEW" | "INFO_GIVEN" | "CALLBACK" | "MEETING" | "VISITED" | "REVIEW" | "CONTRACT" | "UNQUALIFIED";
 
