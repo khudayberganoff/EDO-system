@@ -5,8 +5,12 @@
  *  - yangi lidga javob (bosqich o'zgartirildi yoki qo'ng'iroq qilindi) - standart 8 ish soati (1 ish kuni);
  *  - natija: uchrashuv belgilanishi (yoki undan keyingi bosqich) yoki "Sifatsiz lead" - standart 72 ish soati.
  * "Ma'lumot berildi" bosqichidagi lidlarga muddat qo'llanmaydi: ular uchun qayta aloqa vaqti belgilanadi.
+ * "Qayta bog'lanish" ham - qayta aloqa kuni belgilangan (mijoz boshqa kunga ko'chirgan) bo'lsa; o'tkazib yuborilgan
+ * qayta aloqa kartochkadagi qizil sana bilan ko'rinadi.
  */
 export const PAUSED_STAGES = ["INFO_GIVEN"];
+const isPaused = (lead: { stage: string; callbackAt?: Date | null }) =>
+  PAUSED_STAGES.includes(lead.stage) || (lead.stage === "CALLBACK" && !!lead.callbackAt);
 export const RESOLVED_STAGES = ["MEETING", "VISITED", "REVIEW", "CONTRACT", "UNQUALIFIED"];
 
 export interface SlaConfig {
@@ -132,7 +136,7 @@ export interface LeadSla {
 }
 
 export function leadSla(
-  lead: { createdAt: Date; stage: string; stageChangedAt: Date; respondedAt: Date | null; resolvedAt: Date | null },
+  lead: { createdAt: Date; stage: string; stageChangedAt: Date; respondedAt: Date | null; resolvedAt: Date | null; callbackAt?: Date | null },
   cfg: SlaConfig,
   cal: WorkCalendar,
   now = new Date(),
@@ -143,7 +147,7 @@ export function leadSla(
   const responseDue = addBusinessHours(lead.createdAt, cfg.responseHours, cal);
   const resolveDue = addBusinessHours(lead.createdAt, cfg.resolveHours, cal);
   const left = (due: Date) => (now <= due ? businessHoursBetween(now, due, cal) : -businessHoursBetween(due, now, cal));
-  const paused = PAUSED_STAGES.includes(lead.stage);
+  const paused = isPaused(lead);
   return {
     responseDueAt: responseDue.toISOString(),
     resolveDueAt: resolveDue.toISOString(),
