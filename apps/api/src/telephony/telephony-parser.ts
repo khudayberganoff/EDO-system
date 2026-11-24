@@ -83,7 +83,8 @@ export function parseCall(body: Record<string, any>): ParsedCall | null {
   const phone = normalizePhone(phoneRaw);
   if (!phone) return null;
 
-  const durationSec = Math.max(0, Math.round(Number(pick(flat, ["billsec", "duration", "call_duration", "talk_time", "talktime", "duration_sec", "seconds"]) ?? 0)) || 0);
+  // Noto'g'ri qiymat (masalan boshqa maydon) bazani buzmasin: 0..24 soat
+  const durationSec = Math.min(86_400, Math.max(0, Math.round(Number(pick(flat, ["billsec", "duration", "call_duration", "talk_time", "talktime", "duration_sec", "seconds"]) ?? 0)) || 0));
 
   const stRaw = (pick(flat, ["disposition", "status", "call_status", "callstatus", "result", "state", "hangup_cause", "event"]) ?? "").toLowerCase();
   let status: CallStatus;
