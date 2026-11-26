@@ -1,6 +1,6 @@
 # FreePBX + WAFA Call-markaz: qo'ng'iroqlar, yozuvlar va raqam terish
 
-> **Eslatma:** Call-markaz tomoni va `freepbx-edo-sync.sh` skripti soxta CDR ma'lumotlari bilan sinalgan
+> **Eslatma:** Call-markaz tomoni, o'rnatuvchi va `freepbx-edo-sync.sh` skripti soxta CDR ma'lumotlari bilan sinalgan
 > (kiruvchi, javobsiz, chiquvchi, ichki qo'ng'iroq, yozuv, takror yuborilmaslik, xato bo'lganda qayta urinish).
 > Haqiqiy FreePBX serverida sinalmagan: birinchi ishga tushirishda logni kuzating (5-bo'lim).
 
@@ -29,13 +29,12 @@ FreePBX dialplan'iga (extensions_custom.conf) **tegilmaydi** — FreePBX yangila
 
 - FreePBX 14 yoki yangiroq (Asterisk 13+), serverga `root` (SSH) bilan kirish.
 - FreePBX serveridan internetga HTTPS chiqishi: `curl -I https://call.wafagroup.uz` javob berishi kerak.
-- Server vaqt mintaqasi **Asia/Tashkent**: `timedatectl` (bo'lmasa `timedatectl set-timezone Asia/Tashkent`).
-  FreePBX'da ham: *Settings → Advanced Settings → PHP Timezone* = `Asia/Tashkent`.
 - `curl` (bor), `ffmpeg` — ixtiyoriy, yozuvni ~10 baravar kichraytiradi (`yum install ffmpeg` yoki `apt install ffmpeg`).
 
 ## 1. FreePBX'da suhbatlarni yozib olishni yoqish
 
-FreePBX versiyasiga qarab menyu nomlari biroz farq qilishi mumkin:
+Eng oddiy yo'l — yo'nalishlar bo'yicha: *Connectivity → Inbound Routes* va *Outbound Routes* → yo'nalishni oching →
+**Call Recording = Force** → Submit → **Apply Config**. Yoki har bir ichki raqam bo'yicha (versiyaga qarab menyu nomlari farq qilishi mumkin):
 
 - *Applications → Extensions* → har bir operator ichki raqami → **Advanced** → *Recording Options*:
   **Inbound External Calls = Force**, **Outbound External Calls = Force** → Submit.
@@ -51,41 +50,27 @@ Call-markaz: **Sozlamalar → Integratsiyalar → IP-telefoniya** kartasidagi we
 Token maxfiy: uni chatga yoki skrinshotga yubormang. Sizib chiqsa, kartadagi "Yangilash" tugmasi bilan almashtiring
 va skriptdagi qiymatni ham yangilang.
 
-## 3. Skriptni o'rnatish
+## 3. Bitta buyruq bilan o'rnatish (tavsiya etiladi)
 
-Repozitoriydagi `docs/ats/freepbx-edo-sync.sh` faylini FreePBX serveriga ko'chiring (masalan `scp` bilan) yoki
-`nano` da yangi fayl ochib, mazmunini qo'ying:
+1. Call-markaz: **Sozlamalar → Integratsiyalar → IP-telefoniya → "FreePBX: bitta buyruq bilan ulash"**.
+   Chiquvchi yo'nalishda prefiks bo'lsa (*Connectivity → Outbound Routes → Dial Patterns → prefix*, masalan `9`), uni maydonga yozing.
+2. **Nusxalash** tugmasini bosing.
+3. FreePBX serveriga PuTTY (SSH) bilan `root` sifatida kiring, buyruqni qo'ying (sichqonchaning o'ng tugmasi) va Enter bosing.
 
-```bash
-sudo nano /usr/local/bin/freepbx-edo-sync.sh      # mazmunini qo'ying
-sudo chmod 700 /usr/local/bin/freepbx-edo-sync.sh # faqat root o'qiy oladi (ichida token bor)
-```
+O'rnatuvchi o'zi: CDR bazasini tekshiradi, iloji bo'lsa `ffmpeg` o'rnatadi, skriptni `/usr/local/bin/freepbx-edo-sync.sh` ga
+(Call-markaz manzili va token yozilgan holda) yozadi, har daqiqalik `cron` qo'shadi va bir marta ishga tushiradi.
+Oxirida **"Tayyor!"** chiqadi. Token yangilansa — yangi buyruqni nusxalab qayta ishga tushiring.
 
-Fayl boshidagi sozlamalarni to'ldiring:
+Server vaqt mintaqasi muhim emas: skript qo'ng'iroq vaqtini server mintaqasi bilan birga yuboradi.
 
-| O'zgaruvchi | Qiymat |
-|---|---|
-| `URL` | `https://call.wafagroup.uz/api/telephony` |
-| `TOKEN` | 2-bo'limdagi token |
-| `OUT_PREFIX` | Chiquvchi qo'ng'iroqda tashqi liniya uchun raqam oldidan teriladigan prefiks bo'lsa (masalan `9`), aks holda bo'sh |
+## 4. Qo'lda o'rnatish (muqobil)
 
-Qo'lda bir marta ishga tushirib tekshiring:
-
-```bash
-sudo /usr/local/bin/freepbx-edo-sync.sh
-```
-
-Birinchi ishga tushishda faqat **oxirgi 10 daqiqadagi** qo'ng'iroqlar olinadi (eski tarix yuklanmaydi).
-Xato chiqmasa — keyingi bo'limga o'ting.
-
-## 4. Har daqiqada avtomatik ishlash (cron)
+Skript manbasi: `apps/api/src/telephony/freepbx-edo-sync.sh`. Uni `/usr/local/bin/` ga ko'chirib, boshidagi `URL`, `TOKEN`,
+`OUT_PREFIX` ni to'ldiring, `chmod 700` qiling va cron qo'shing:
 
 ```bash
 echo '* * * * * root /usr/local/bin/freepbx-edo-sync.sh >> /var/log/edo-sync.log 2>&1' | sudo tee /etc/cron.d/edo-sync
-sudo chmod 644 /etc/cron.d/edo-sync
 ```
-
-Qo'ng'iroq tugagach ~1–2 daqiqada Call-markazda paydo bo'ladi (yozuv fayli to'liq yozilib bo'lishi uchun 1 daqiqa kutiladi).
 
 ## 5. Tekshirish
 

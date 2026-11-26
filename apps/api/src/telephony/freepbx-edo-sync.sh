@@ -5,7 +5,8 @@
 # (asteriskcdrdb.cdr) yangi qo'ng'iroqlarni o'qiydi, har bir qo'ng'iroqni (linkedid bo'yicha bitta) Call-markazga
 # yuboradi va FreePBX yozgan yozuv faylini biriktiradi. FreePBX'dagi fayllar o'chirilmaydi.
 #
-# O'rnatish va sozlash: docs/ATS-FREEPBX.md
+# O'rnatish: Call-markaz -> Sozlamalar -> Integratsiyalar -> IP-telefoniya -> "FreePBX: bitta buyruq bilan ulash"
+# (Call-markaz bu faylni URL va TOKEN to'ldirilgan holda beradi). Batafsil: docs/ATS-FREEPBX.md
 set -u
 
 # ---------------- Sozlamalar ----------------
@@ -77,7 +78,7 @@ while IFS=$'\037' read -r id calldate src dst did disp billsec recfile anschan f
   if [ "$direction" = "in" ] && [ ${#caller} -lt 7 ]; then echo "$id" >> "$SENT"; continue; fi
 
   json=$(printf '{"uniqueid":"%s","direction":"%s","caller":"%s","callee":"%s","disposition":"%s","billsec":"%s","calldate":"%s","extension":"%s"}' \
-    "$(clean "$id")" "$direction" "$(clean "$caller")" "$(clean "$callee")" "$(clean "$disp")" "$(digits "$billsec")" "$(clean "$calldate")" "$(clean "$ext")")
+    "$(clean "$id")" "$direction" "$(clean "$caller")" "$(clean "$callee")" "$(clean "$disp")" "$(digits "$billsec")" "$(date -d "$calldate" "+%Y-%m-%dT%H:%M:%S%:z")" "$(clean "$ext")")
   code=$(curl -s -m 20 -o /dev/null -w "%{http_code}" -X POST "$URL/webhook?token=$TOKEN" -H "content-type: application/json" -d "$json" < /dev/null)
   if [ "$code" = "400" ]; then
     log "Rad etildi (400, ma'lumot noto'g'ri): $id $direction $caller -> $callee"

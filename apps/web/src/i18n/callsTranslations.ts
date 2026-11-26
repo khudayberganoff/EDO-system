@@ -354,6 +354,13 @@ export const callsUz = {
   "tel.accepted": "qabul qilindi",
   "tel.rejected": "rad etildi: {error}",
   "tel.noRequest": "Hali so'rov kelmagan. ATS ulangach, shu yerda ma'lumot ko'rinadi (format muammosini aniqlash uchun).",
+  "tel.fpbx.title": "FreePBX: bitta buyruq bilan ulash",
+  "tel.fpbx.step1": "FreePBX'da yozib olishni yoqing: Connectivity → Inbound Routes va Outbound Routes → yo'nalishni oching → «Call Recording» = Force → Submit → Apply Config.",
+  "tel.fpbx.step2": "FreePBX serveriga PuTTY bilan root sifatida kiring va pastdagi buyruqni qo'yib Enter bosing.",
+  "tel.fpbx.step3": "Sozlamalar → Foydalanuvchilar: har bir operatorning «Ichki raqam»i = FreePBX'dagi raqami (100, 101...).",
+  "tel.fpbx.prefix": "Chiqish prefiksi:",
+  "tel.fpbx.prefixHint": "Outbound Routes → Dial Patterns'dagi prefix bo'lsa (masalan 9), aks holda bo'sh",
+  "tel.fpbx.after": "«Tayyor!» chiqsa — qo'ng'iroqlar har daqiqada shu yerga keladi. Buyruqda token bor: uni boshqalarga yubormang. Token yangilansa, buyruqni qayta ishga tushiring.",
 };
 
 type CallsDict = Record<keyof typeof callsUz, string>;
@@ -700,6 +707,13 @@ export const callsRu: CallsDict = {
   "tel.accepted": "принят",
   "tel.rejected": "отклонён: {error}",
   "tel.noRequest": "Запросов ещё не было. После подключения АТС здесь появятся данные (для диагностики формата).",
+  "tel.fpbx.title": "FreePBX: подключение одной командой",
+  "tel.fpbx.step1": "Включите запись в FreePBX: Connectivity → Inbound Routes и Outbound Routes → откройте маршрут → «Call Recording» = Force → Submit → Apply Config.",
+  "tel.fpbx.step2": "Зайдите на сервер FreePBX через PuTTY под root, вставьте команду ниже и нажмите Enter.",
+  "tel.fpbx.step3": "Настройки → Пользователи: у каждого оператора «Внутренний номер» = номер в FreePBX (100, 101...).",
+  "tel.fpbx.prefix": "Префикс выхода:",
+  "tel.fpbx.prefixHint": "если в Outbound Routes → Dial Patterns есть prefix (например 9), иначе пусто",
+  "tel.fpbx.after": "Если появилось «Tayyor!» — звонки будут приходить сюда каждую минуту. В команде есть токен: не пересылайте её. После смены токена запустите команду заново.",
 };
 
 export const callsEn: CallsDict = {
@@ -1044,6 +1058,13 @@ export const callsEn: CallsDict = {
   "tel.accepted": "accepted",
   "tel.rejected": "rejected: {error}",
   "tel.noRequest": "No requests yet. Once the PBX is connected, data will appear here (to help diagnose format issues).",
+  "tel.fpbx.title": "FreePBX: connect with one command",
+  "tel.fpbx.step1": "Turn on recording in FreePBX: Connectivity → Inbound Routes and Outbound Routes → open the route → \"Call Recording\" = Force → Submit → Apply Config.",
+  "tel.fpbx.step2": "Log in to the FreePBX server as root (PuTTY/SSH), paste the command below and press Enter.",
+  "tel.fpbx.step3": "Settings → Users: set each operator's \"Extension\" to their FreePBX number (100, 101...).",
+  "tel.fpbx.prefix": "Outbound prefix:",
+  "tel.fpbx.prefixHint": "if Outbound Routes → Dial Patterns has a prefix (e.g. 9), otherwise empty",
+  "tel.fpbx.after": "When it prints \"Tayyor!\", calls arrive here every minute. The command contains the token: don't share it. Re-run it after regenerating the token.",
 };
 
 /** Sana/son formatlash uchun brauzer locale'i */
