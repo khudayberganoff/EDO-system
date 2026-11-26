@@ -421,6 +421,7 @@ export function TelephonyCard() {
           </label>
           <span className="text-slate-400">{t("tel.retentionHint")}</span>
         </div>
+        <FreepbxInstall token={data.token} />
         <details className="text-xs text-slate-500">
           <summary className="cursor-pointer select-none text-slate-600">{t("tel.fields")}</summary>
           <p className="mt-2">{t("tel.fieldsText")}</p>
@@ -435,6 +436,38 @@ export function TelephonyCard() {
           ) : <p className="text-slate-400">{t("tel.noRequest")}</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * FreePBX'ni bitta buyruq bilan ulash: buyruq FreePBX serverida (root, SSH/PuTTY) ishga tushiriladi.
+ * Server token va manzil yozilgan o'rnatuvchini beradi (har daqiqada CDR va yozuvlarni yuboradi).
+ */
+function FreepbxInstall({ token }: { token: string }) {
+  const { t } = useLanguage();
+  const [prefix, setPrefix] = useState("");
+  const [copied, setCopied] = useState(false);
+  const cmd = `curl -fsSL "${window.location.origin}/api/telephony/freepbx-install.sh?token=${token}${prefix ? `&prefix=${prefix}` : ""}" | bash`;
+  const copy = async () => { try { await navigator.clipboard.writeText(cmd); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* qo'lda nusxalanadi */ } };
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 text-xs text-slate-600">
+      <div className="mb-1 text-sm font-semibold text-slate-800">{t("tel.fpbx.title")}</div>
+      <ol className="mb-2 list-decimal space-y-1 pl-5">
+        <li>{t("tel.fpbx.step1")}</li>
+        <li>{t("tel.fpbx.step2")}</li>
+        <li>{t("tel.fpbx.step3")}</li>
+      </ol>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <label htmlFor="fpbx-prefix">{t("tel.fpbx.prefix")}</label>
+        <input id="fpbx-prefix" value={prefix} onChange={(e) => setPrefix(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="9" className="w-16 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm" />
+        <span className="text-slate-400">{t("tel.fpbx.prefixHint")}</span>
+      </div>
+      <div className="flex gap-2">
+        <input readOnly value={cmd} onFocus={(e) => e.currentTarget.select()} className="input flex-1 bg-white font-mono text-xs" />
+        <button onClick={copy} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm hover:bg-slate-50">{copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />} {copied ? t("tel.copied") : t("tel.copy")}</button>
+      </div>
+      <p className="mt-2 text-slate-500">{t("tel.fpbx.after")}</p>
     </div>
   );
 }

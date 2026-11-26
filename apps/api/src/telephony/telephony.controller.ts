@@ -14,6 +14,7 @@ import { Roles } from "../common/decorators/roles.decorator";
 import { Role } from "../common/enums";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 import { AUDIO_TYPES, RECORDINGS_DIR, TelephonyService } from "./telephony.service";
+import { buildFreepbxInstaller } from "./freepbx-installer";
 
 /** Yozuv yuklashdan OLDIN token tekshiriladi (fayl diskka yozilishidan oldin), aks holda ruxsatsiz kimdir diskni to'ldirishi mumkin. */
 @Injectable()
@@ -50,6 +51,25 @@ export class TelephonyController {
     const token = (query.token as string | undefined) ?? headerToken;
     const { token: _t, ...rest } = query;
     return this.tel.ingest({ ...rest, ...(body && typeof body === "object" ? body : {}) }, token);
+  }
+
+  /**
+   * FreePBX uchun bitta buyruqli o'rnatuvchi: `curl -fsSL "<sayt>/api/telephony/freepbx-install.sh?token=...&prefix=9" | bash`.
+   * Token tekshiriladi (u webhook tokeni bilan bir xil); javobda token yozilgan skript, shuning uchun keshlanmaydi.
+   */
+  @Public() @HttpCode(200)
+  @Get("freepbx-install.sh")
+  async freepbxInstaller(@Query("token") token: string | undefined, @Query("prefix") prefix: string | undefined, @Req() req: any, @Res() res: any) {
+    const cfg = await this.tel.getConfig();
+    if (!this.tel.verifyToken(token, cfg)) {
+      res.status(403).type("text/plain").send('echo "Xato: token noto\'g\'ri. Call-markazdan buyruqni qayta nusxalang."; exit 1\n');
+      return;
+    }
+    const pfx = (prefix ?? "").replace(/\D/g, "").slice(0, 4);
+    const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "").split(",")[0].trim();
+    const base = (process.env.CALL_PUBLIC_URL?.trim().replace(/\/+$/, "") || `${req.protocol}://${host}`) + "/api/telephony";
+    res.setHeader("Cache-Control", "no-store");
+    res.type("text/plain").send(buildFreepbxInstaller(base, cfg.token, pfx));
   }
 
   /**

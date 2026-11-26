@@ -42,5 +42,5 @@ export function isOperatorApiPath(path: string): boolean {
  * va Facebook Lead Ads (webhook, OAuth, sozlash - administrator; webhook'ni imzo himoyalaydi).
  */
 export function isCallSiteApiPath(path: string): boolean {
-  return isOperatorApiPath(path) || path.startsWith("/api/settings/") || path.startsWith("/api/telephony/settings") || path.startsWith("/api/meta/");
+  return isOperatorApiPath(path) || path.startsWith("/api/settings/") || path.startsWith("/api/telephony/settings") || path.startsWith("/api/telephony/freepbx-install") || path.startsWith("/api/meta/");
 }
