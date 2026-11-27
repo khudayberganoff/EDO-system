@@ -833,6 +833,12 @@ model CallLead {
   projectTermMonths     Int?
   projectHasDownPayment Boolean?
   projectDownPayment    Float?
+  /// Loyiha turlari: RAW (xom-ashyo), CAR (mashina), REAL_ESTATE (turar/noturar joy), SPECIAL (maxsus texnika)
+  projectCategories     String[] @default([])
+  /// Xom-ashyo loyihasida garov bormi
+  projectRawCollateral  Boolean?
+  /// Necha marta qayta aloqa belgilangan (qayta aloqa vaqti qo'yilgan / o'zgartirilgan)
+  callbackCount         Int      @default(0)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -997,6 +1003,8 @@ model CallLeadStageLog {
   /// Avtomatik (IP-telefoniya, Facebook) o'tishlarda bo'sh
   userId    String?
   user      User?    @relation("LeadStageLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  /// Shu o'zgarishda belgilangan qayta aloqa vaqti (qayta aloqa tarixini ko'rsatish uchun)
+  callbackAt DateTime?
   createdAt DateTime @default(now())
 
   @@index([leadId, createdAt])

@@ -1,12 +1,36 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CallsService } from "./calls.service";
-import { CreateCallLogDto, CreateLeadDto, DialSettingsDto, HolidayDto, SetClientPhoneDto, SlaSettingsDto, UpdateLeadDto } from "./dto/calls.dto";
+import { CreateCallLogDto, CreateLeadDto, DialSettingsDto, HolidayDto, ReportQueryDto, SetClientPhoneDto, SlaSettingsDto, UpdateLeadDto } from "./dto/calls.dto";
+import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser, AuthenticatedUser } from "../common/decorators/current-user.decorator";
 
 @ApiTags("calls") @ApiBearerAuth() @Controller("calls")
 export class CallsController {
   constructor(private calls: CallsService) {}
+
+  @Get("report.xlsx") @ApiOperation({ summary: "Lidlar hisoboti (Excel) davr bo'yicha" })
+  async report(@Query() q: ReportQueryDto, @CurrentUser() user: AuthenticatedUser, @Res() res: any) {
+    const buf = await this.calls.report(user, q.from, q.to);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="lidlar-${q.from}_${q.to}.xlsx"`);
+    res.send(buf);
+  }
+
+  @Get("report/feed-token") @ApiOperation({ summary: "Power BI havolasi tokeni (administrator)" })
+  feedToken(@CurrentUser() user: AuthenticatedUser) { return this.calls.reportFeedToken(user); }
+
+  @Post("report/feed-token") @ApiOperation({ summary: "Power BI tokenini yangilash (administrator)" })
+  regenerateFeedToken(@CurrentUser() user: AuthenticatedUser) { return this.calls.reportFeedToken(user, true); }
+
+  /** Power BI: Ma'lumot olish -> Veb -> shu manzil. Token so'rov parametrida (Power BI Service avtomatik yangilashi uchun). */
+  @Public() @Get("report/feed.csv")
+  async feed(@Query("token") token: string | undefined, @Query("days") days: string | undefined, @Res() res: any) {
+    const csv = await this.calls.reportFeed(token, days);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(csv);
+  }
 
   @Get("queue") @ApiOperation({ summary: "Qo'ng'iroq navbati: CRM'dagi muddati o'tgan mijozlar + qo'ng'iroq tarixi" })
   queue(@Query("q") q: string | undefined, @Query("filter") filter: string | undefined, @CurrentUser() user: AuthenticatedUser) {
