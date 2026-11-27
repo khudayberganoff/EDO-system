@@ -3,9 +3,12 @@ import { apiClient } from "./client";
 // ---------- Lidlar (Kanban) ----------
 
 /** Garov to'g'ri kelmadi | Ustama qimmatlik qildi | Islomiy moliya xohlamadi | Muddat */
-export type LossReason = "COLLATERAL" | "MARKUP" | "ISLAMIC" | "PHONE_OFF" | "TERM" | "OTHER";
+export type LossReason = "COLLATERAL" | "MARKUP" | "ISLAMIC" | "PHONE_OFF" | "FOLLOWUP" | "TERM" | "OTHER";
 /** Lid oynasidagi tartib: "Boshqa" - qo'shimcha izoh oldidan */
-export const LOSS_REASONS: LossReason[] = ["COLLATERAL", "MARKUP", "ISLAMIC", "PHONE_OFF", "TERM", "OTHER"];
+export const LOSS_REASONS: LossReason[] = ["COLLATERAL", "MARKUP", "ISLAMIC", "PHONE_OFF", "FOLLOWUP", "TERM", "OTHER"];
+/** Loyiha turlari: xom-ashyo, mashina, turar/noturar joy, maxsus texnika */
+export type ProjectCategory = "RAW" | "CAR" | "REAL_ESTATE" | "SPECIAL";
+export const PROJECT_CATEGORIES: ProjectCategory[] = ["RAW", "CAR", "REAL_ESTATE", "SPECIAL"];
 
 export type LeadStage = "NEW" | "INFO_GIVEN" | "CALLBACK" | "MEETING" | "VISITED" | "REVIEW" | "CONTRACT" | "UNQUALIFIED";
 
@@ -34,6 +37,11 @@ export interface Lead {
   projectTermMonths?: number | null;
   projectHasDownPayment?: boolean | null;
   projectDownPayment?: number | null;
+  projectCategories?: ProjectCategory[];
+  /** Xom-ashyo loyihasida garov bormi */
+  projectRawCollateral?: boolean | null;
+  /** Necha marta qayta aloqa belgilangan */
+  callbackCount?: number;
   /** Birinchi javob va natija (uchrashuv / sifatsiz) vaqtlari */
   respondedAt?: string | null;
   resolvedAt?: string | null;
@@ -49,7 +57,7 @@ export interface Lead {
   phoneCalls?: { direction: "IN" | "OUT"; status: "ANSWERED" | "MISSED" | "BUSY" | "FAILED"; startedAt: string }[];
 }
 
-export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm" | "lossNote" | "projectAsset" | "projectPurpose" | "projectAmount" | "projectTermMonths" | "projectHasDownPayment" | "projectDownPayment">>;
+export type LeadInput = Partial<Pick<Lead, "name" | "phone" | "source" | "note" | "stage" | "meetingAt" | "callbackAt" | "lossReasons" | "lossTerm" | "lossNote" | "projectAsset" | "projectPurpose" | "projectAmount" | "projectTermMonths" | "projectHasDownPayment" | "projectDownPayment" | "projectCategories" | "projectRawCollateral">>;
 
 export interface LeadSla {
   responseDueAt: string;
@@ -69,6 +77,8 @@ export interface LeadStageLog {
   id: string;
   fromStage: LeadStage | null;
   toStage: LeadStage;
+  /** Shu o'zgarishda belgilangan qayta aloqa vaqti */
+  callbackAt?: string | null;
   createdAt: string;
   user: { fullName: string; position: string | null } | null;
   /** Oldingi bosqichda turgan ish soatlari */
@@ -236,3 +246,18 @@ export type DialFormat = "plus" | "intl" | "local";
 export interface DialSettings { format: DialFormat; prefix: string }
 export const fetchDialSettings = async () => (await apiClient.get<DialSettings>("/calls/dial-settings")).data;
 export const saveDialSettings = async (payload: Partial<DialSettings>) => (await apiClient.put<DialSettings>("/calls/dial-settings", payload)).data;
+
+/** Qayta aloqalar soni (eski lidlarda hisoblagich yo'q - vaqti bor bo'lsa kamida 1) */
+export const followUps = (l: Pick<Lead, "callbackCount" | "callbackAt">) => Math.max(l.callbackCount ?? 0, l.callbackAt ? 1 : 0);
+
+/** Davr bo'yicha Excel hisoboti (fayl sifatida yuklab olinadi) */
+export async function downloadLeadsReport(from: string, to: string) {
+  const { data } = await apiClient.get<Blob>("/calls/report.xlsx", { params: { from, to }, responseType: "blob" });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url; a.download = `lidlar-${from}_${to}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+export const fetchReportFeedToken = async () => (await apiClient.get<{ token: string }>("/calls/report/feed-token")).data;
+export const regenerateReportFeedToken = async () => (await apiClient.post<{ token: string }>("/calls/report/feed-token")).data;

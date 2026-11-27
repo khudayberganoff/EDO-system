@@ -8,13 +8,25 @@ import { normalizePhone } from "../telephony/telephony-parser";
 import { AuditAction } from "../common/enums";
 import { CreateCallLogDto, CreateLeadDto, SetClientPhoneDto, UpdateLeadDto, type LeadStage } from "./dto/calls.dto";
 
+import * as crypto from "crypto";
+import { buildCsv, buildWorkbook, periodRange } from "./calls-report";
+import { safeEqual } from "../common/secret-box";
 import { DEFAULT_SLA, RESOLVED_STAGES, UZ_FIXED_HOLIDAYS, businessHoursBetween, isWorkingTime, leadSla, makeCalendar, type SlaConfig, type WorkCalendar } from "./lead-sla";
 
 const SLA_KEY = "call_sla";
 const DIAL_KEY = "call_dial";
+const REPORT_TOKEN_KEY = "call_report_token";
+/** Hisobot uchun lid maydonlari */
+const REPORT_SELECT = {
+  id: true, createdAt: true, name: true, phone: true, source: true, stage: true, respondedAt: true, resolvedAt: true,
+  meetingAt: true, callbackAt: true, callbackCount: true, lossReasons: true, lossTerm: true, lossNote: true,
+  projectCategories: true, projectRawCollateral: true, projectAsset: true, projectPurpose: true, projectAmount: true,
+  projectTermMonths: true, projectHasDownPayment: true, projectDownPayment: true,
+  metaPlatform: true, metaCampaignName: true, metaFormName: true, owner: { select: { fullName: true } },
+} as const;
 
 /** Loyiha maydonlari (DTO'dan): berilmaganlari o'zgarmaydi; oldindan to'lov "yo'q" bo'lsa summa tozalanadi */
-function projectFields(dto: { projectAsset?: string; projectPurpose?: string; projectAmount?: number | null; projectTermMonths?: number | null; projectHasDownPayment?: boolean | null; projectDownPayment?: number | null }) {
+function projectFields(dto: { projectAsset?: string; projectPurpose?: string; projectAmount?: number | null; projectTermMonths?: number | null; projectHasDownPayment?: boolean | null; projectDownPayment?: number | null; projectCategories?: string[]; projectRawCollateral?: boolean | null }) {
   const out: Record<string, unknown> = {};
   if (dto.projectAsset !== undefined) out.projectAsset = dto.projectAsset.trim() || null;
   if (dto.projectPurpose !== undefined) out.projectPurpose = dto.projectPurpose.trim() || null;
@@ -23,6 +35,12 @@ function projectFields(dto: { projectAsset?: string; projectPurpose?: string; pr
   if (dto.projectHasDownPayment !== undefined) out.projectHasDownPayment = dto.projectHasDownPayment;
   if (dto.projectDownPayment !== undefined) out.projectDownPayment = dto.projectDownPayment;
   if (dto.projectHasDownPayment === false || dto.projectHasDownPayment === null) out.projectDownPayment = null;
+  if (dto.projectCategories !== undefined) {
+    out.projectCategories = [...new Set(dto.projectCategories)];
+    // Garov savoli faqat xom-ashyo loyihasida
+    if (!dto.projectCategories.includes("RAW")) out.projectRawCollateral = null;
+  }
+  if (dto.projectRawCollateral !== undefined && (dto.projectCategories === undefined || dto.projectCategories.includes("RAW"))) out.projectRawCollateral = dto.projectRawCollateral;
   return out;
 }
 
@@ -368,7 +386,7 @@ export class CallsService {
     const logs = await this.prisma.callLeadStageLog.findMany({
       where: { leadId: id },
       orderBy: { createdAt: "asc" },
-      select: { id: true, fromStage: true, toStage: true, createdAt: true, user: { select: { fullName: true, position: true } } },
+      select: { id: true, fromStage: true, toStage: true, callbackAt: true, createdAt: true, user: { select: { fullName: true, position: true } } },
     });
     // Oldingi bosqichda qancha ish vaqti turgani
     const { cal } = await this.slaCalendar();
@@ -416,7 +434,8 @@ export class CallsService {
         ...projectFields(dto),
         respondedAt: stage !== "NEW" ? new Date() : null,
         resolvedAt: RESOLVED_STAGES.includes(stage) ? new Date() : null,
-        stageLogs: { create: { toStage: stage, userId: actor.id } },
+        callbackCount: callbackAt ? 1 : 0,
+        stageLogs: { create: { toStage: stage, userId: actor.id, callbackAt } },
       },
       include: { owner: { select: { id: true, fullName: true, position: true } } },
     });
@@ -445,15 +464,18 @@ export class CallsService {
 
     const changed = stage !== lead.stage;
     const now = new Date();
+    // Yangi qayta aloqa vaqti belgilandi (birinchi marta yoki boshqa kunga ko'chirildi) - hisoblanadi va tarixga yoziladi
+    const callbackSet = !!callbackAt && callbackAt.getTime() !== lead.callbackAt?.getTime() && ["CALLBACK", "INFO_GIVEN"].includes(stage);
     return this.prisma.callLead.update({
       where: { id },
       data: {
-        // Bosqich o'zgarishi vaqti va kim o'tkazgani tarixga yoziladi; birinchi javob va natija vaqtlari belgilanadi
+        // Bosqich o'zgarishi (yoki yangi qayta aloqa) vaqti va kim o'zgartirgani tarixga yoziladi; birinchi javob va natija vaqtlari belgilanadi
+        ...(changed || callbackSet ? { stageLogs: { create: { fromStage: lead.stage, toStage: stage, userId: actor.id, callbackAt: callbackSet ? callbackAt : null } } } : {}),
         ...(changed ? {
-          stageLogs: { create: { fromStage: lead.stage, toStage: stage, userId: actor.id } },
           respondedAt: lead.respondedAt ?? (lead.stage === "NEW" ? now : lead.stageChangedAt),
           resolvedAt: lead.resolvedAt ?? (RESOLVED_STAGES.includes(stage) ? now : undefined),
         } : {}),
+        ...(callbackSet ? { callbackCount: { increment: 1 } } : {}),
         lossReasons,
         lossTerm,
         lossNote,
@@ -471,6 +493,41 @@ export class CallsService {
       },
       include: { owner: { select: { id: true, fullName: true, position: true } } },
     });
+  }
+
+  // ---------- Hisobot (Excel) va Power BI ----------
+
+  /** Davr bo'yicha lidlar hisoboti (Excel). Operatorlar uchun emas. */
+  async report(actor: Actor, from: string, to: string): Promise<Buffer> {
+    await this.assertAccess(actor.role, "view");
+    if (actor.role === "OPERATOR") throw new ForbiddenException("Hisobot rahbariyat va administrator uchun.");
+    const { start, end } = periodRange(from, to);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) throw new BadRequestException("Davr noto'g'ri.");
+    if (end.getTime() - start.getTime() > 400 * 86_400_000) throw new BadRequestException("Davr 1 yildan oshmasin.");
+    const { orgIds } = await this.scope(actor);
+    const leads = await this.prisma.callLead.findMany({ where: { organizationId: { in: orgIds }, createdAt: { gte: start, lt: end } }, orderBy: { createdAt: "asc" }, select: REPORT_SELECT });
+    const { cal } = await this.slaCalendar();
+    return buildWorkbook(leads, cal, from, to);
+  }
+
+  /** Power BI havolasi tokeni (administrator): bo'lmasa yaratiladi */
+  async reportFeedToken(actor: Actor, regenerate = false) {
+    this.assertSettingsAdmin(actor);
+    const row = await this.prisma.appSetting.findUnique({ where: { key: REPORT_TOKEN_KEY } });
+    if (row && !regenerate) return { token: row.value };
+    const token = crypto.randomBytes(24).toString("base64url");
+    await this.prisma.appSetting.upsert({ where: { key: REPORT_TOKEN_KEY }, create: { key: REPORT_TOKEN_KEY, value: token }, update: { value: token } });
+    return { token };
+  }
+
+  /** Power BI (Web manbasi) uchun CSV: barcha lidlar, oxirgi `days` kun (standart 365). Himoya - token. */
+  async reportFeed(token: string | undefined, days?: string): Promise<string> {
+    const row = await this.prisma.appSetting.findUnique({ where: { key: REPORT_TOKEN_KEY } });
+    if (!row || !safeEqual(token, row.value)) throw new ForbiddenException("Token noto'g'ri.");
+    const n = Math.min(1100, Math.max(1, Number(days) || 365));
+    const leads = await this.prisma.callLead.findMany({ where: { createdAt: { gte: new Date(Date.now() - n * 86_400_000) } }, orderBy: { createdAt: "asc" }, select: REPORT_SELECT });
+    const { cal } = await this.slaCalendar();
+    return buildCsv(leads, cal);
   }
 
   async removeLead(actor: Actor, id: string) {

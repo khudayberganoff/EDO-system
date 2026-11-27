@@ -6,6 +6,7 @@ import { TelephonyCard } from "./IntegrationsPage";
 import { MetaLeadsCard } from "./call/MetaLeadsCard";
 import { CallTelegramCard } from "./call/CallTelegram";
 import { DialSettingsCard } from "./call/DialSettingsCard";
+import { PowerBiCard } from "./call/PowerBiCard";
 import { SlaSettingsCard } from "./call/SlaSettingsCard";
 import { useSearchParams } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -79,7 +80,7 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {tab === "users" ? <UsersTab /> : tab === "permissions" ? <PermissionsTab /> : tab === "worktime" ? <SlaSettingsCard /> : <><MetaLeadsCard /><CallTelegramCard /><DialSettingsCard /><TelephonyCard /></>}
+      {tab === "users" ? <UsersTab /> : tab === "permissions" ? <PermissionsTab /> : tab === "worktime" ? <SlaSettingsCard /> : <><MetaLeadsCard /><CallTelegramCard /><DialSettingsCard /><TelephonyCard /><PowerBiCard /></>}
     </div>
   );
 }

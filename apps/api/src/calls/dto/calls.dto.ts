@@ -24,7 +24,8 @@ export const LEAD_STAGES = ["NEW", "INFO_GIVEN", "CALLBACK", "MEETING", "VISITED
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
 /** Lidni rad etish sabablari: garov to'g'ri kelmadi, ustama qimmat, islomiy moliya xohlamadi, muddat */
-export const LOSS_REASONS = ["COLLATERAL", "MARKUP", "ISLAMIC", "PHONE_OFF", "TERM", "OTHER"] as const;
+export const LOSS_REASONS = ["COLLATERAL", "MARKUP", "ISLAMIC", "PHONE_OFF", "FOLLOWUP", "TERM", "OTHER"] as const;
+export const PROJECT_CATEGORIES = ["RAW", "CAR", "REAL_ESTATE", "SPECIAL"] as const;
 
 export class CreateLeadDto {
   @IsString() @MinLength(2) @MaxLength(200) name!: string;
@@ -34,7 +35,7 @@ export class CreateLeadDto {
   @IsOptional() @IsIn(LEAD_STAGES as unknown as string[]) stage?: LeadStage;
   @IsOptional() @IsDateString() meetingAt?: string;
   @IsOptional() @IsDateString() callbackAt?: string;
-  @IsOptional() @IsArray() @ArrayMaxSize(6) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
   @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
   @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
   /** Loyiha haqida (bo'sh qator / null - tozalash) */
@@ -44,6 +45,8 @@ export class CreateLeadDto {
   @IsOptional() @IsInt() @Min(1) @Max(600) projectTermMonths?: number | null;
   @IsOptional() @IsBoolean() projectHasDownPayment?: boolean | null;
   @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectDownPayment?: number | null;
+  @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(PROJECT_CATEGORIES as unknown as string[], { each: true }) projectCategories?: string[];
+  @IsOptional() @IsBoolean() projectRawCollateral?: boolean | null;
 }
 
 export class UpdateLeadDto {
@@ -56,7 +59,7 @@ export class UpdateLeadDto {
   @IsOptional() @IsDateString() meetingAt?: string;
   @IsOptional() @IsDateString() callbackAt?: string;
   /** Rad etish sabablari - kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi */
-  @IsOptional() @IsArray() @ArrayMaxSize(6) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn(LOSS_REASONS as unknown as string[], { each: true }) lossReasons?: string[];
   @IsOptional() @IsString() @MaxLength(50) lossTerm?: string;
   @IsOptional() @IsString() @MaxLength(1000) lossNote?: string;
   /** Loyiha haqida (bo'sh qator / null - tozalash) */
@@ -66,6 +69,8 @@ export class UpdateLeadDto {
   @IsOptional() @IsInt() @Min(1) @Max(600) projectTermMonths?: number | null;
   @IsOptional() @IsBoolean() projectHasDownPayment?: boolean | null;
   @IsOptional() @IsNumber() @Min(0) @Max(1e13) projectDownPayment?: number | null;
+  @IsOptional() @IsArray() @ArrayMaxSize(4) @IsIn(PROJECT_CATEGORIES as unknown as string[], { each: true }) projectCategories?: string[];
+  @IsOptional() @IsBoolean() projectRawCollateral?: boolean | null;
 }
 
 export class SetClientPhoneDto {
@@ -94,4 +99,10 @@ export class HolidayDto {
   @IsDateString() date!: string;
   @IsString() @MinLength(2) @MaxLength(100) name!: string;
   @IsOptional() @IsIn(["HOLIDAY", "WORKDAY"]) type?: string;
+}
+
+/** Hisobot davri: YYYY-MM-DD (Toshkent kunlari, ikkala chegara ham kiradi) */
+export class ReportQueryDto {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: "Sana formati: YYYY-MM-DD" }) from!: string;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: "Sana formati: YYYY-MM-DD" }) to!: string;
 }

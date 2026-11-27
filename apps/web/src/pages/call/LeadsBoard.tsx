@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Pause, Briefcase, CalendarClock, Clock, Facebook, History, Instagram, LayoutList, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Rows3, Trash2, X } from "lucide-react";
+import { AlertTriangle, Pause, Briefcase, CalendarClock, Clock, Facebook, FileSpreadsheet, Repeat, History, Instagram, LayoutList, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Rows3, Trash2, X } from "lucide-react";
 import clsx from "clsx";
-import { LOSS_REASONS, createLead, deleteLead, fetchLeadHistory, fetchLeads, fetchSlaSettings, fetchPhoneCalls, updateLead, type Lead, type LeadInput, type LeadStage, type LossReason } from "../../api/calls";
+import { LOSS_REASONS, PROJECT_CATEGORIES, createLead, deleteLead, downloadLeadsReport, fetchLeadHistory, fetchLeads, fetchSlaSettings, fetchPhoneCalls, followUps, updateLead, type Lead, type LeadInput, type LeadStage, type LossReason, type ProjectCategory } from "../../api/calls";
+import { useAuth } from "../../context/AuthContext";
 import { CALL_STATUS, RecordingPlayer, fmtDur } from "./PhoneCallsTab";
 import { LEAD_STAGES, TONE_CLASSES, stageTitleKey } from "../../utils/leadStages";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -47,6 +48,8 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
   // Uchrashuv/qayta bog'lanish bosqichiga ko'chirishda sana so'raladi
   const [pendingMove, setPendingMove] = useState<{ lead: Lead; stage: LeadStage } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [reportOpen, setReportOpen] = useState(false);
   // Kartochka ko'rinishi: ixcham (bir qator - ism va muddat) yoki batafsil. Tanlov brauzerda eslab qolinadi.
   const [compact, setCompact] = useState<boolean>(() => {
     try { return localStorage.getItem("leads.view") !== "full"; } catch { return true; }
@@ -103,6 +106,12 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-slate-500">{t("calls.leads.help")}</p>
         <div className="flex shrink-0 items-center gap-2">
+        {/* Hisobot - rahbariyat va administrator */}
+        {user?.role !== "OPERATOR" && (
+          <button onClick={() => setReportOpen(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50">
+            <FileSpreadsheet size={16} className="text-emerald-600" /> {t("report.button")}
+          </button>
+        )}
         <button onClick={toggleView} title={compact ? t("calls.leads.viewFull") : t("calls.leads.viewCompact")} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50">
           {compact ? <LayoutList size={16} /> : <Rows3 size={16} />} {compact ? t("calls.leads.viewFull") : t("calls.leads.viewCompact")}
         </button>
@@ -216,6 +225,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
                     {l.stage === "MEETING" && l.meetingAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-sky-700"><CalendarClock size={12} /> {fmtDT(l.meetingAt)}</div>}
                     {(l.stage === "CALLBACK" || l.stage === "INFO_GIVEN") && l.callbackAt && <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-700"><CalendarClock size={12} /> {fmtDT(l.callbackAt)}</div>}
                     <SlaBadge lead={l} dayLen={dayLen} />
+                    {followUps(l) > 0 && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500"><Repeat size={11} /> {t("calls.followUps", { n: followUps(l) })}</div>}
                     {l.phoneCalls?.[0] && (
                       <div className={clsx("mt-1.5 flex items-center gap-1 text-[11px]", l.phoneCalls[0].direction === "IN" && l.phoneCalls[0].status !== "ANSWERED" ? "font-medium text-rose-600" : "text-slate-500")}>
                         {l.phoneCalls[0].direction === "OUT" ? <PhoneOutgoing size={11} /> : l.phoneCalls[0].status === "ANSWERED" ? <PhoneIncoming size={11} /> : <PhoneMissed size={11} />}
@@ -253,6 +263,7 @@ export function LeadsBoard({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: bo
           }}
         />
       )}
+      {reportOpen && <ReportModal onClose={() => setReportOpen(false)} />}
       {editing && <LeadModal lead={editing === "new" ? null : editing} canEdit={canEdit} isAdmin={isAdmin} onClose={() => setEditing(null)} onSaved={() => { invalidate(); setEditing(null); }} />}
     </div>
   );
@@ -300,6 +311,8 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
       term: lead?.projectTermMonths != null ? String(lead.projectTermMonths) : "",
       hasDown: lead?.projectHasDownPayment ?? null,
       down: lead?.projectDownPayment != null ? String(Math.round(lead.projectDownPayment)) : "",
+      categories: (lead?.projectCategories ?? []) as ProjectCategory[],
+      rawCollateral: lead?.projectRawCollateral ?? null,
     } as ProjectForm,
   });
   // Rad etish sababi belgilansa - bosqich avtomatik "Sifatsiz lead"; hammasi olib tashlansa - oldingi bosqichga qaytadi
@@ -324,6 +337,8 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
         projectTermMonths: form.project.term ? Number(form.project.term) : null,
         projectHasDownPayment: form.project.hasDown,
         projectDownPayment: form.project.hasDown && form.project.down ? Number(form.project.down) : null,
+        projectCategories: form.project.categories,
+        projectRawCollateral: form.project.categories.includes("RAW") ? form.project.rawCollateral : null,
         ...(form.meetingAt ? { meetingAt: new Date(form.meetingAt).toISOString() } : {}),
         ...(form.callbackAt ? { callbackAt: new Date(form.callbackAt).toISOString() } : {}),
       };
@@ -370,7 +385,7 @@ function LeadModal({ lead, canEdit, isAdmin, onClose, onSaved }: { lead: Lead | 
           )}
           <ProjectField value={form.project} disabled={!canEdit} onChange={(project) => setForm((f) => ({ ...f, project }))} />
           <LossReasonsField
-            value={form.lossReasons} term={form.lossTerm} note={form.lossNote} disabled={!canEdit}
+            value={form.lossReasons} term={form.lossTerm} note={form.lossNote} disabled={!canEdit} followCount={lead ? followUps(lead) : 0}
             onToggle={toggleReason}
             onNote={(v) => setForm((f) => {
               // Izoh yozilsa ham lid "Sifatsiz lead"ga o'tadi; o'chirilsa va sabab yo'q bo'lsa - oldingi bosqichga qaytadi
@@ -497,6 +512,7 @@ function compactTitle(l: Lead, t: TFn) {
     l.projectPurpose,
     l.metaLeadgenId ? (l.metaCampaignName ?? l.metaFormName ?? "Meta Ads") : l.source,
     l.owner?.fullName,
+    followUps(l) ? t("calls.followUps", { n: followUps(l) }) : "",
     l.stage === "UNQUALIFIED" ? (l.lossReasons ?? []).map((r) => t(`calls.loss.short.${r}` as TranslationKey)).join(", ") : "",
   ].filter(Boolean).join("\n");
 }
@@ -587,6 +603,9 @@ function LeadHistory({ leadId }: { leadId: string }) {
   const { t } = useLanguage();
   const fmtDT = useFmtDT();
   const { data = [] } = useQuery({ queryKey: ["calls", "lead-history", leadId], queryFn: () => fetchLeadHistory(leadId) });
+  // Qayta aloqalar tartib raqami (1, 2, 3...)
+  const callbackNo = new Map<string, number>();
+  data.filter((h) => h.callbackAt).forEach((h, i) => callbackNo.set(h.id, i + 1));
   if (!data.length) return null;
   return (
     <div>
@@ -597,8 +616,16 @@ function LeadHistory({ leadId }: { leadId: string }) {
           return (
             <div key={h.id} className="rounded-lg bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
               <span className="text-slate-400">{fmtDT(h.createdAt)}</span>{" · "}
-              {h.fromStage ? <>{t(stageTitleKey(h.fromStage))} → </> : `${t("calls.sla.created")}: `}
-              <b className="font-medium text-slate-800">{t(stageTitleKey(h.toStage))}</b>
+              {h.fromStage && h.fromStage === h.toStage && h.callbackAt ? (
+                // Bosqich o'zgarmagan, faqat qayta aloqa boshqa kunga ko'chirilgan
+                <b className="font-medium text-sky-800">{t("calls.history.rescheduled")}</b>
+              ) : (
+                <>
+                  {h.fromStage ? <>{t(stageTitleKey(h.fromStage))} → </> : `${t("calls.sla.created")}: `}
+                  <b className="font-medium text-slate-800">{t(stageTitleKey(h.toStage))}</b>
+                </>
+              )}
+              {h.callbackAt && <span className="text-sky-700"> · <Repeat size={10} className="inline" /> #{callbackNo.get(h.id)} {t("calls.history.callbackAt", { at: fmtDT(h.callbackAt) })}</span>}
               {" · "}{h.user ? h.user.fullName : t("calls.sla.auto")}
               {spent !== null && <span className="text-slate-400"> · {t("calls.sla.spent", { time: fmtHours(spent, t) })}</span>}
             </div>
@@ -613,8 +640,8 @@ function LeadHistory({ leadId }: { leadId: string }) {
  * Rad etish sabablari (belgilash bilan): garov, ustama, islomiy moliya va muddat (mijoz so'ragan muddat kiritiladi).
  * Kamida bittasi tanlansa lid avtomatik "Sifatsiz lead"ga o'tadi.
  */
-function LossReasonsField({ value, term, note, disabled, onToggle, onTerm, onNote }: {
-  value: LossReason[]; term: string; note: string; disabled: boolean;
+function LossReasonsField({ value, term, note, disabled, followCount, onToggle, onTerm, onNote }: {
+  value: LossReason[]; term: string; note: string; disabled: boolean; followCount: number;
   onToggle: (r: LossReason, on: boolean) => void; onTerm: (v: string) => void; onNote: (v: string) => void;
 }) {
   const active = value.length > 0 || !!note.trim();
@@ -630,6 +657,10 @@ function LossReasonsField({ value, term, note, disabled, onToggle, onTerm, onNot
               <input type="checkbox" className="h-4 w-4 accent-rose-600" checked={value.includes(r)} disabled={disabled} onChange={(e) => onToggle(r, e.target.checked)} />
               {t(`calls.loss.${r}` as TranslationKey)}
             </label>
+            {/* Necha marta qayta aloqaga chiqilgani - qayta aloqa tarixidan avtomatik */}
+            {r === "FOLLOWUP" && (
+              <span className={clsx("rounded px-1.5 py-0.5 text-xs font-medium", followCount ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-500")}>{t("calls.followUps", { n: followCount })}</span>
+            )}
             {r === "TERM" && (
               <input
                 value={term} disabled={disabled} maxLength={50} onChange={(e) => onTerm(e.target.value)}
@@ -651,7 +682,7 @@ function LossReasonsField({ value, term, note, disabled, onToggle, onTerm, onNot
 }
 
 /** Lid oynasidagi loyiha maydonlari (summalar - faqat raqamlar, so'mda) */
-type ProjectForm = { asset: string; purpose: string; amount: string; term: string; hasDown: boolean | null; down: string };
+type ProjectForm = { asset: string; purpose: string; amount: string; term: string; hasDown: boolean | null; down: string; categories: ProjectCategory[]; rawCollateral: boolean | null };
 
 const digitsOnly = (v: string) => v.replace(/\D/g, "").slice(0, 13);
 /** 150000000 -> "150 000 000" */
@@ -673,6 +704,35 @@ function ProjectField({ value, disabled, onChange }: { value: ProjectForm; disab
     <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
       <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700"><Briefcase size={13} className="text-brand-700" /> {t("calls.project.title")}</div>
       <div className="space-y-2.5">
+        {/* Loyiha turi (bir nechtasi belgilanishi mumkin); xom-ashyo bo'lsa - garov bormi */}
+        <div>
+          <div className="mb-1 text-xs text-slate-500">{t("calls.project.category")}</div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {PROJECT_CATEGORIES.map((c) => (
+              <label key={c} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox" className="h-4 w-4 accent-brand-700" disabled={disabled} checked={value.categories.includes(c)}
+                  onChange={(e) => set({ categories: e.target.checked ? [...value.categories, c] : value.categories.filter((x) => x !== c), ...(c === "RAW" && !e.target.checked ? { rawCollateral: null } : {}) })}
+                />
+                {t(`calls.project.cat.${c}` as TranslationKey)}
+              </label>
+            ))}
+          </div>
+          {value.categories.includes("RAW") && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-2.5 py-2">
+              <span className="text-xs text-slate-600">{t("calls.project.rawCollateral")}</span>
+              {[true, false].map((v) => (
+                <button
+                  key={String(v)} type="button" disabled={disabled}
+                  onClick={() => set({ rawCollateral: value.rawCollateral === v ? null : v })}
+                  className={clsx("rounded-lg border px-3 py-1 text-sm transition", value.rawCollateral === v ? "border-brand-700 bg-brand-800 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-brand-400")}
+                >
+                  {v ? t("calls.project.yes") : t("calls.project.no")}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <label className="block text-xs text-slate-500">{t("calls.project.asset")}
           <input value={value.asset} disabled={disabled} maxLength={200} onChange={(e) => set({ asset: e.target.value })} placeholder={t("calls.project.assetPlaceholder")} className="input mt-1" />
         </label>
@@ -713,6 +773,54 @@ function ProjectField({ value, disabled, onChange }: { value: ProjectForm; disab
             )}
           </div>
           {pct !== null && <div className="mt-1 text-[11px] text-slate-400">{t("calls.project.downPct", { p: pct })}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Davr tanlab Excel hisobotini yuklab olish */
+function ReportModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage();
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const now = new Date();
+  const [from, setFrom] = useState(iso(new Date(now.getFullYear(), now.getMonth(), 1)));
+  const [to, setTo] = useState(iso(now));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const presets: [string, () => [Date, Date]][] = [
+    ["report.today", () => [now, now]],
+    ["report.last7", () => [new Date(now.getTime() - 6 * 86_400_000), now]],
+    ["report.thisMonth", () => [new Date(now.getFullYear(), now.getMonth(), 1), now]],
+    ["report.lastMonth", () => [new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 0)]],
+  ];
+  const run = async () => {
+    setBusy(true); setError(null);
+    try { await downloadLeadsReport(from, to); onClose(); } catch { setError(t("report.failed")); } finally { setBusy(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900"><FileSpreadsheet size={18} className="text-emerald-600" /> {t("report.title")}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+        </div>
+        <p className="mb-4 text-xs text-slate-500">{t("report.desc")}</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {presets.map(([k, f]) => (
+            <button key={k} type="button" onClick={() => { const [a, b] = f(); setFrom(iso(a)); setTo(iso(b)); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">{t(k as TranslationKey)}</button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-xs text-slate-500">{t("report.from")}<input id="report-from" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="input mt-1" /></label>
+          <label className="block text-xs text-slate-500">{t("report.to")}<input id="report-to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="input mt-1" /></label>
+        </div>
+        {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">{t("calls.cancel")}</button>
+          <button disabled={!from || !to || from > to || busy} onClick={run} className="flex items-center gap-2 rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            <FileSpreadsheet size={15} /> {busy ? t("report.preparing") : t("report.download")}
+          </button>
         </div>
       </div>
     </div>
